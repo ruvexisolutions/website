@@ -30,6 +30,12 @@ export interface Salon {
   category: string;
   logoUrl?: string;
   logo?: string;
+  bannerPreset?: string;
+  bannerUrl?: string;
+  bannerGradient?: string;
+  accentColor?: string;
+  tagline?: string;
+  badges?: string[];
   gstin: string;
   autoGst: boolean;
   phone: string;
@@ -355,16 +361,22 @@ const DEFAULT_SALON: Salon = {
   currency: "₹",
   chairs: 8,
   category: "Luxury Hair Studio & Aesthetic Spa",
-  logoUrl: "/logo.png",
-  logo: "/logo.png",
+  logoUrl: "/images/billcare-logo.png",
+  logo: "/images/billcare-logo.png",
+  bannerPreset: "discord-blurple",
+  bannerUrl: "",
+  bannerGradient: "linear-gradient(135deg, #1e1f38 0%, #5865F2 45%, #7289da 70%, #eb459e 100%)",
+  accentColor: "#FACC15",
+  tagline: "Bespoke Hair Sculpting, Organic Keratin Therapy & Aesthetic Skin Wellness",
+  badges: ["👑 Official Flagship", "✨ Verified Atelier", "💎 Boost Level 3"],
   gstin: "27AABCB1234F1Z8",
   autoGst: true,
   phone: "+91 98450 11223",
   email: "hello@billcare.io",
-  address: "Suite 401, Crescent Galleria, Indiranagar",
-  timing: "10:00 AM - 09:00 PM (All Days)",
-  rating: 4.9,
-  reviewCount: 418,
+  address: "Suite 401, Crescent Galleria, Indiranagar, Bengaluru",
+  timing: "10:00 AM - 09:30 PM (All Days)",
+  rating: 4.95,
+  reviewCount: 428,
   upiId: "billcare.pos@icici",
   bankAccountName: "BillCare Premier Atelier & Spa",
   bankAccountNumber: "50200088991122",

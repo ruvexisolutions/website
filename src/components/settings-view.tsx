@@ -29,6 +29,9 @@ import { billcareApi } from "@/lib/api-client";
 import QRCode from "qrcode";
 import { MetaEmbeddedSignupModal } from "./meta-embedded-signup-modal";
 import { WhatsAppSettingsView } from "./whatsapp-settings-view";
+import { DiscordBannerCustomizerModal } from "./booking/discord-banner-customizer-modal";
+import { resolveSalonBannerStyle, DISCORD_BANNER_PRESETS } from "@/lib/banner-presets";
+import { Sparkles, Palette } from "lucide-react";
 
 interface SettingsViewProps {
   initialSubTab?: "general" | "whatsapp" | "financials";
@@ -92,6 +95,13 @@ export function SettingsView({ initialSubTab = "general" }: SettingsViewProps) {
     qualityRating: "GREEN",
     phoneNumberId: "10982348911029",
   });
+
+  // Discord Banner & Brand Appearance State
+  const [bannerPreset, setBannerPreset] = useState(salon.bannerPreset || "discord-blurple");
+  const [bannerUrl, setBannerUrl] = useState(salon.bannerUrl || "");
+  const [bannerGradient, setBannerGradient] = useState(salon.bannerGradient || "");
+  const [accentColor, setAccentColor] = useState(salon.accentColor || "#FACC15");
+  const [isBannerModalOpen, setIsBannerModalOpen] = useState(false);
 
   const handleLogoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -164,6 +174,10 @@ export function SettingsView({ initialSubTab = "general" }: SettingsViewProps) {
           }
         }),
         ...(logoPreview !== null && { logoUrl: logoPreview }),
+        bannerPreset,
+        bannerUrl,
+        bannerGradient,
+        accentColor,
       } as any);
 
       setSavedSuccess(true);
@@ -318,6 +332,63 @@ export function SettingsView({ initialSubTab = "general" }: SettingsViewProps) {
                   className="hidden"
                   onChange={handleLogoChange}
                 />
+              </div>
+            </div>
+          </div>
+
+          {/* Discord-Style Salon Banner & Brand Appearance */}
+          <div className="bg-[#101010] border border-[#27272A] p-6 rounded-2xl space-y-4 shadow-xl">
+            <div className="flex items-center justify-between pb-3 border-b border-[#27272A] flex-wrap gap-2">
+              <h3 className="text-xs font-mono font-bold text-[#A1A1AA] uppercase tracking-wider flex items-center gap-2">
+                <Palette className="w-4 h-4 text-[#5865F2]" />
+                Salon Brand Banner &amp; Concierge Theme
+                <span className="px-2 py-0.5 rounded-full text-[9px] font-mono uppercase bg-[#5865F2] text-white font-bold flex items-center gap-1">
+                  <Sparkles className="w-2.5 h-2.5" /> Discord Nitro Style
+                </span>
+              </h3>
+              <a
+                href="/book"
+                target="_blank"
+                rel="noreferrer"
+                className="text-xs font-mono text-[#5865F2] hover:underline flex items-center gap-1 font-bold"
+              >
+                <span>Preview Client Booking Page ↗</span>
+              </a>
+            </div>
+
+            {/* Banner Preview Card */}
+            <div className="space-y-3">
+              <div
+                className="h-32 sm:h-36 w-full rounded-xl relative overflow-hidden border border-[#27272A] shadow-lg flex flex-col justify-end p-4 transition-all"
+                style={resolveSalonBannerStyle({ bannerPreset, bannerUrl, bannerGradient })}
+              >
+                <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent pointer-events-none" />
+                <div className="relative z-10 flex items-center justify-between gap-3 text-white">
+                  <div>
+                    <h4 className="font-serif font-bold text-lg text-white">{name}</h4>
+                    <p className="text-xs text-slate-300 font-sans line-clamp-1">{tagline}</p>
+                  </div>
+                  <div
+                    className="w-4 h-4 rounded-full border border-white/40 shadow-md shrink-0"
+                    style={{ backgroundColor: accentColor }}
+                    title={`Brand accent: ${accentColor}`}
+                  />
+                </div>
+              </div>
+
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-1">
+                <p className="text-xs text-[#A1A1AA] leading-relaxed">
+                  Customize your brand banner with 12 Discord themes, custom gradients, or high-res salon photos.
+                </p>
+
+                <button
+                  type="button"
+                  onClick={() => setIsBannerModalOpen(true)}
+                  className="px-4 py-2.5 bg-[#5865F2] hover:bg-[#4752C4] text-white text-xs font-mono font-bold uppercase tracking-wider rounded-xl transition-all shadow-md flex items-center justify-center gap-2 cursor-pointer shrink-0"
+                >
+                  <Palette className="w-3.5 h-3.5" />
+                  <span>Customize Discord Banner</span>
+                </button>
               </div>
             </div>
           </div>
@@ -754,6 +825,39 @@ export function SettingsView({ initialSubTab = "general" }: SettingsViewProps) {
           }}
         />
       )}
+
+      {/* Discord Banner Customizer Modal */}
+      <DiscordBannerCustomizerModal
+        isOpen={isBannerModalOpen}
+        onClose={() => setIsBannerModalOpen(false)}
+        salon={{
+          name,
+          tagline,
+          logo: logoPreview || undefined,
+          bannerPreset,
+          bannerUrl,
+          bannerGradient,
+          accentColor,
+          address,
+        }}
+        onSave={(updates) => {
+          if (updates.name) setName(updates.name);
+          if (updates.tagline) setTagline(updates.tagline);
+          if (updates.bannerPreset !== undefined) setBannerPreset(updates.bannerPreset);
+          if (updates.bannerUrl !== undefined) setBannerUrl(updates.bannerUrl);
+          if (updates.bannerGradient !== undefined) setBannerGradient(updates.bannerGradient);
+          if (updates.accentColor !== undefined) setAccentColor(updates.accentColor);
+
+          updateSalonProfile({
+            ...(updates.name && { name: updates.name }),
+            ...(updates.tagline && { tagline: updates.tagline }),
+            bannerPreset: updates.bannerPreset,
+            bannerUrl: updates.bannerUrl,
+            bannerGradient: updates.bannerGradient,
+            accentColor: updates.accentColor,
+          });
+        }}
+      />
     </div>
   );
 }
