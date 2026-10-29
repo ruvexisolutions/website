@@ -654,6 +654,13 @@ export function StaffView() {
                   </p>
                 </div>
 
+                <div className="p-2.5 rounded-lg bg-[#181818] border border-[#27272A] flex items-start gap-2 text-[11px] text-[#A1A1AA]">
+                  <ShieldCheck className="w-4 h-4 text-[#FACC15] shrink-0 mt-0.5" />
+                  <span>
+                    <strong className="text-white">Strict Single-Salon Security:</strong> A receptionist can strictly belong to only <strong>one</strong> salon. Their credentials and access are permanently isolated to this salon.
+                  </span>
+                </div>
+
                 <div className="pt-2 flex gap-2">
                   <button
                     type="button"
