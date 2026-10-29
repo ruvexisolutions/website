@@ -3,6 +3,7 @@
 import React, { useState } from "react";
 import { useBillCare } from "@/lib/billcare-context";
 import { formatCurrency } from "@/lib/utils";
+import { billcareApi } from "@/lib/api-client";
 import {
   Users,
   Clock,
@@ -24,13 +25,24 @@ import {
   ShieldCheck,
   Scissors,
   Lock,
+  Mail,
+  Copy,
+  Check,
+  Headphones,
+  ExternalLink,
 } from "lucide-react";
 
 export function StaffView() {
-  const { user, staff, toggleStaffStatus, updateStaffCommission, addStaffMember } = useBillCare();
-  const isOwner = user?.role === "owner" || user?.role === "admin";
+  const { user, salon, staff, toggleStaffStatus, updateStaffCommission, addStaffMember, showToast } = useBillCare();
+  const isOwner = user?.role === "owner" || user?.role === "admin" || user?.role === "SALON_MANAGER";
 
   const [showAddModal, setShowAddModal] = useState(false);
+  const [showInviteModal, setShowInviteModal] = useState(false);
+  const [inviteEmail, setInviteEmail] = useState("");
+  const [isInviting, setIsInviting] = useState(false);
+  const [generatedLink, setGeneratedLink] = useState<string | null>(null);
+  const [hasCopied, setHasCopied] = useState(false);
+
   const [editingCommissionId, setEditingCommissionId] = useState<string | null>(null);
   const [newCommissionRate, setNewCommissionRate] = useState<number>(15);
 
@@ -75,6 +87,39 @@ export function StaffView() {
     setEditingCommissionId(null);
   };
 
+  const handleGenerateInvite = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!inviteEmail.trim() || !inviteEmail.includes("@")) {
+      showToast("Please provide a valid work email address", "error");
+      return;
+    }
+    setIsInviting(true);
+    try {
+      const res = await billcareApi.createInvitation(inviteEmail.trim().toLowerCase());
+      if (res.success && res.inviteUrl) {
+        const fullUrl = typeof window !== "undefined"
+          ? `${window.location.origin}${res.inviteUrl}`
+          : res.inviteUrl;
+        setGeneratedLink(fullUrl);
+        showToast("Receptionist invite link generated successfully!", "success");
+      } else {
+        showToast(res.message || "Could not generate invitation", "error");
+      }
+    } catch (err: any) {
+      showToast(err.message || "Failed to generate receptionist invite", "error");
+    } finally {
+      setIsInviting(false);
+    }
+  };
+
+  const handleCopyLink = () => {
+    if (!generatedLink) return;
+    navigator.clipboard.writeText(generatedLink);
+    setHasCopied(true);
+    showToast("Invite link copied to clipboard!", "success");
+    setTimeout(() => setHasCopied(false), 2500);
+  };
+
   return (
     <div className="space-y-6">
       {/* Top Banner & Metrics */}
@@ -96,12 +141,24 @@ export function StaffView() {
           </div>
         </div>
 
-        <button
-          onClick={() => setShowAddModal(true)}
-          className="inline-flex items-center gap-2 px-4 py-2.5 bg-[#FACC15] hover:bg-[#EAB308] text-[#080808] font-bold text-xs rounded-xl shadow-lg shadow-[#FACC15]/10 transition-all self-start sm:self-auto cursor-pointer"
-        >
-          <UserPlus className="w-4 h-4" /> Add Stylist
-        </button>
+        <div className="flex items-center gap-2.5 self-start sm:self-auto flex-wrap">
+          <button
+            onClick={() => {
+              setInviteEmail("");
+              setGeneratedLink(null);
+              setShowInviteModal(true);
+            }}
+            className="inline-flex items-center gap-2 px-3.5 py-2.5 bg-[#151515] hover:bg-[#1E1E1E] text-[#FACC15] border border-[#FACC15]/30 hover:border-[#FACC15] font-bold text-xs rounded-xl shadow-xs transition-all cursor-pointer"
+          >
+            <Headphones className="w-4 h-4 text-[#FACC15]" /> Invite Receptionist
+          </button>
+          <button
+            onClick={() => setShowAddModal(true)}
+            className="inline-flex items-center gap-2 px-4 py-2.5 bg-[#FACC15] hover:bg-[#EAB308] text-[#080808] font-bold text-xs rounded-xl shadow-lg shadow-[#FACC15]/10 transition-all cursor-pointer"
+          >
+            <UserPlus className="w-4 h-4" /> Add Stylist
+          </button>
+        </div>
       </div>
 
       {/* KPI Cards */}
@@ -405,6 +462,124 @@ export function StaffView() {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Invite Receptionist Modal */}
+      {showInviteModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-md p-4 animate-in fade-in">
+          <div className="bg-[#101010] border border-[#27272A] rounded-2xl shadow-2xl p-6 w-full max-w-lg animate-in zoom-in-95">
+            <div className="flex items-center justify-between pb-3.5 border-b border-[#27272A]">
+              <div className="flex items-center gap-2.5">
+                <div className="w-8 h-8 rounded-lg bg-[#FACC15]/10 border border-[#FACC15]/30 flex items-center justify-center text-[#FACC15]">
+                  <Headphones className="w-4 h-4" />
+                </div>
+                <div>
+                  <h3 className="font-serif font-bold text-[#F8FAFC] text-base">Invite Front Desk Receptionist</h3>
+                  <p className="text-[11px] text-[#A1A1AA] font-mono">Binds staff strictly to {salon?.name || "your salon"}</p>
+                </div>
+              </div>
+              <button
+                onClick={() => {
+                  setShowInviteModal(false);
+                  setGeneratedLink(null);
+                }}
+                className="text-[#71717A] hover:text-[#F8FAFC] cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {!generatedLink ? (
+              <form onSubmit={handleGenerateInvite} className="mt-4 space-y-4 text-xs">
+                <div className="p-3 bg-[#151515] border border-[#27272A] rounded-xl text-[#A1A1AA] text-[11px] leading-relaxed">
+                  Generate a single-use registration link. Upon opening, the receptionist will set their secure password and immediately gain front desk access locked exclusively to <strong className="text-[#FACC15]">{salon?.name}</strong>.
+                </div>
+
+                <div>
+                  <label className="font-mono text-[11px] text-[#A1A1AA] block mb-1">Receptionist Work Email</label>
+                  <div className="relative">
+                    <Mail className="w-4 h-4 text-[#71717A] absolute left-3.5 top-1/2 -translate-y-1/2" />
+                    <input
+                      type="email"
+                      required
+                      placeholder="receptionist@your-salon.com"
+                      value={inviteEmail}
+                      onChange={(e) => setInviteEmail(e.target.value)}
+                      className="w-full pl-10 pr-3.5 py-2.5 bg-[#151515] border border-[#27272A] rounded-xl text-[#F8FAFC] focus:outline-none focus:border-[#FACC15] font-mono text-xs"
+                    />
+                  </div>
+                </div>
+
+                <div className="pt-2 flex gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setShowInviteModal(false)}
+                    className="flex-1 py-2.5 bg-[#181818] text-[#A1A1AA] hover:text-[#F8FAFC] font-bold rounded-xl border border-[#27272A] cursor-pointer"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={isInviting}
+                    className="flex-1 py-2.5 bg-[#FACC15] hover:bg-[#EAB308] text-[#080808] font-bold rounded-xl shadow-md shadow-[#FACC15]/10 cursor-pointer disabled:opacity-50 flex items-center justify-center gap-2"
+                  >
+                    {isInviting ? "Generating Link..." : "Create 1-Click Invite"}
+                  </button>
+                </div>
+              </form>
+            ) : (
+              <div className="mt-4 space-y-4 text-xs">
+                <div className="p-3 bg-emerald-500/10 border border-emerald-500/20 rounded-xl flex items-center gap-2.5 text-emerald-400 text-xs">
+                  <CheckCircle2 className="w-4 h-4 shrink-0" />
+                  <span>Invitation ready for <strong className="font-mono text-white">{inviteEmail}</strong></span>
+                </div>
+
+                <div>
+                  <label className="font-mono text-[11px] text-[#A1A1AA] block mb-1">Single-Use Enrollment URL (Valid 48 Hours)</label>
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="text"
+                      readOnly
+                      value={generatedLink}
+                      className="flex-1 px-3 py-2 bg-[#151515] border border-[#27272A] rounded-xl text-[#FACC15] font-mono text-xs select-all"
+                    />
+                    <button
+                      type="button"
+                      onClick={handleCopyLink}
+                      className="px-3.5 py-2 bg-[#FACC15] hover:bg-[#EAB308] text-[#080808] font-bold rounded-xl flex items-center gap-1.5 cursor-pointer shrink-0"
+                    >
+                      {hasCopied ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
+                      <span>{hasCopied ? "Copied" : "Copy"}</span>
+                    </button>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-2 pt-1">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const msg = `Hi! You have been invited to join ${salon?.name || "our salon"} as Front Desk Receptionist on BillCare. Please click this link to set your password and activate your account: ${generatedLink}`;
+                      window.open(`https://wa.me/?text=${encodeURIComponent(msg)}`, "_blank");
+                    }}
+                    className="py-2.5 bg-[#181818] hover:bg-[#222] border border-[#27272A] text-emerald-400 font-semibold rounded-xl flex items-center justify-center gap-2 cursor-pointer"
+                  >
+                    <ExternalLink className="w-3.5 h-3.5" /> Send on WhatsApp
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setGeneratedLink(null);
+                      setInviteEmail("");
+                    }}
+                    className="py-2.5 bg-[#181818] hover:bg-[#222] border border-[#27272A] text-slate-300 font-semibold rounded-xl flex items-center justify-center gap-2 cursor-pointer"
+                  >
+                    <Mail className="w-3.5 h-3.5" /> Invite Another
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
         </div>
       )}

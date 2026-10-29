@@ -144,6 +144,20 @@ export const billcareApi = {
       method: "DELETE",
     }),
 
+  // Staff Invitations & Receptionist Enrollment
+  createInvitation: (email: string) =>
+    request<{ success: boolean; invitation: any; inviteUrl: string; message: string }>("/invitations", {
+      method: "POST",
+      body: JSON.stringify({ email }),
+    }),
+  getInvitation: (token: string) =>
+    request<any>(`/invitations/${token}`),
+  acceptInvitation: (data: { token: string; name: string; phone?: string; password: string }) =>
+    request<any>("/invitations/accept", {
+      method: "POST",
+      body: JSON.stringify(data),
+    }),
+
   // Inventory
   getInventory: () => request<any[]>("/inventory"),
   createInventory: (data: any) =>
