@@ -31,7 +31,16 @@ import {
   Armchair,
   Filter,
   RotateCcw,
+  Banknote,
+  Wallet,
+  Coffee,
+  AlertTriangle,
+  Crown,
+  BellRing,
+  Hourglass,
+  ArrowUpDown,
 } from "lucide-react";
+import QRCode from "qrcode";
 
 interface FrontDeskViewProps {
   onNavigateTab: (tab: string) => void;
@@ -49,7 +58,27 @@ export function FrontDeskView({ onNavigateTab, onGoToPosBilling }: FrontDeskView
     bookAppointment,
     createInvoice,
     showToast,
+    currentShift,
+    openRegisterShift,
+    closeRegisterShift,
+    appendServiceToAppointment,
+    sendChairReadyWhatsApp,
   } = useBillCare();
+
+  // Shift Cash Drawer Modal
+  const [showShiftModal, setShowShiftModal] = useState<boolean>(false);
+  const [openingFloatInput, setOpeningFloatInput] = useState<number>(2000);
+  const [countedCashInput, setCountedCashInput] = useState<number>(0);
+  const [shiftNotesInput, setShiftNotesInput] = useState<string>("");
+
+  // Mid-service In-Chair Add-on Modal
+  const [inChairAddonApt, setInChairAddonApt] = useState<any>(null);
+  const [addonServiceName, setAddonServiceName] = useState<string>("");
+  const [addonStaffName, setAddonStaffName] = useState<string>("");
+
+  // Multi-tender Split details
+  const [walletAmount, setWalletAmount] = useState<number>(0);
+  const [dynamicUpiQrUrl, setDynamicUpiQrUrl] = useState<string>("");
 
   // Active status filter for appointments
   const [filterStatus, setFilterStatus] = useState<"All" | "Waiting" | "In-Service" | "Ready for Billing" | "Completed">("All");
@@ -75,7 +104,7 @@ export function FrontDeskView({ onNavigateTab, onGoToPosBilling }: FrontDeskView
 
   // Step 4: Billing with QR & Split Pay Modal
   const [billingApt, setBillingApt] = useState<any>(null);
-  const [payMethod, setPayMethod] = useState<"UPI" | "Cash" | "Split">("UPI");
+  const [payMethod, setPayMethod] = useState<"UPI" | "Cash" | "Split" | "Wallet">("UPI");
   const [cashAmount, setCashAmount] = useState<number>(0);
   const [upiAmount, setUpiAmount] = useState<number>(0);
   const [finalBillAmount, setFinalBillAmount] = useState<number>(0);
@@ -201,6 +230,38 @@ export function FrontDeskView({ onNavigateTab, onGoToPosBilling }: FrontDeskView
   const busyStaffNames = inServiceVisits.map((a) => a.staffName);
   const freeStaff = staff.filter((s) => (s.status === "clocked_in" || s.isClockedIn) && !busyStaffNames.includes(s.name));
 
+  // Feature 2: Stylist turns today based on in-service or completed appointments
+  const stylistTurns = useMemo(() => {
+    const turnsMap: Record<string, number> = {};
+    staff.forEach((st) => {
+      turnsMap[st.name] = 0;
+    });
+    appointments.forEach((apt) => {
+      if (apt.status === "In-Service" || apt.status === "Completed") {
+        turnsMap[apt.staffName] = (turnsMap[apt.staffName] || 0) + 1;
+      }
+    });
+    return turnsMap;
+  }, [staff, appointments]);
+
+  // Fair Turn Recommendation: Clocked-in, currently free, and lowest turns today
+  const nextUpStylist = useMemo(() => {
+    if (freeStaff.length === 0) return staff[0]?.name || "House Stylist";
+    const sorted = [...freeStaff].sort((a, b) => {
+      const turnsA = stylistTurns[a.name] || 0;
+      const turnsB = stylistTurns[b.name] || 0;
+      return turnsA - turnsB;
+    });
+    return sorted[0]?.name || freeStaff[0]?.name;
+  }, [freeStaff, stylistTurns, staff]);
+
+  // Feature 3: Wait-Time Estimator based on active in-chair appointments
+  const estimatedWaitMinutes = useMemo(() => {
+    if (availableChairsCount > 0) return 0;
+    if (inServiceVisits.length === 0) return 10;
+    return Math.max(5, Math.min(45, Math.round(inServiceVisits.length * 12)));
+  }, [availableChairsCount, inServiceVisits]);
+
   // Auto-detect customer as receptionist types phone or name
   const handleLookupChange = (val: string) => {
     setLookupInput(val);
@@ -324,24 +385,51 @@ export function FrontDeskView({ onNavigateTab, onGoToPosBilling }: FrontDeskView
     handleOpenBillingModal(updatedApt);
   };
 
+  const [billingCustomer, setBillingCustomer] = useState<any>(null);
+
   // Open Billing Modal
   const handleOpenBillingModal = (apt: any) => {
     setBillingApt(apt);
     setFinalBillAmount(apt.price);
     setUpiAmount(apt.price);
     setCashAmount(0);
+    setWalletAmount(0);
     setPayMethod("UPI");
+    const cust = customers.find(
+      (c) =>
+        c.name.toLowerCase() === apt.customerName.toLowerCase() ||
+        c.phone.replace(/[^0-9]/g, "") === apt.customerPhone.replace(/[^0-9]/g, "")
+    );
+    setBillingCustomer(cust || null);
   };
+
+  // Generate dynamic counter UPI QR
+  useEffect(() => {
+    const effUpi = payMethod === "Split" ? upiAmount : payMethod === "UPI" ? finalBillAmount : 0;
+    if (billingApt && effUpi > 0 && salon.upiId) {
+      const vpa = salon.upiId.trim();
+      const payeeName = salon.paymentSettings?.upiPayeeName || salon.name;
+      const ref = `BC-FD-${Date.now().toString().slice(-6)}`;
+      const uri = `upi://pay?pa=${encodeURIComponent(vpa)}&pn=${encodeURIComponent(payeeName)}&am=${effUpi.toFixed(2)}&cu=INR&tn=${encodeURIComponent(ref)}`;
+      QRCode.toDataURL(uri, { width: 180, margin: 1, color: { dark: "#000000", light: "#FFFFFF" } })
+        .then(setDynamicUpiQrUrl)
+        .catch(() => setDynamicUpiQrUrl(""));
+    } else {
+      setDynamicUpiQrUrl("");
+    }
+  }, [billingApt, payMethod, upiAmount, finalBillAmount, salon.upiId, salon.paymentSettings?.upiPayeeName, salon.name]);
 
   // Handle Split amounts
   const handleCashChange = (val: number) => {
     setCashAmount(val);
-    setUpiAmount(Math.max(0, finalBillAmount - val));
   };
 
   const handleUpiChange = (val: number) => {
     setUpiAmount(val);
-    setCashAmount(Math.max(0, finalBillAmount - val));
+  };
+
+  const handleWalletChange = (val: number) => {
+    setWalletAmount(val);
   };
 
   // Receptionist finishes bill & triggers WhatsApp Thank You
@@ -349,6 +437,7 @@ export function FrontDeskView({ onNavigateTab, onGoToPosBilling }: FrontDeskView
     if (!billingApt) return;
 
     createInvoice({
+      customerId: billingCustomer?.id,
       customerName: billingApt.customerName,
       customerPhone: billingApt.customerPhone,
       items: [
@@ -367,8 +456,15 @@ export function FrontDeskView({ onNavigateTab, onGoToPosBilling }: FrontDeskView
       gstAmount: Math.round(finalBillAmount * 0.05),
       total: finalBillAmount,
       paymentMethod: payMethod,
-      splitDetails: payMethod === "Split" ? { cash: cashAmount, upi: upiAmount } : undefined,
-      status: "Paid",
+      splitDetails:
+        payMethod === "Split"
+          ? { cash: cashAmount, upi: upiAmount, wallet: walletAmount }
+          : undefined,
+      paymentBreakdown:
+        payMethod === "Split"
+          ? { cash: cashAmount, upi: upiAmount, wallet: walletAmount }
+          : undefined,
+      status: "paid",
     });
 
     updateAppointmentStatus(billingApt.id, "Completed");
@@ -492,6 +588,31 @@ We look forward to seeing you again soon! 💇‍♀️✨`;
             >
               <Receipt className="w-4 h-4 text-[#FACC15]" />
               <span>Quick Bill</span>
+            </button>
+
+            {/* Feature 1: Shift Cash Drawer Handover */}
+            <button
+              onClick={() => {
+                setShowShiftModal(true);
+                if (currentShift) {
+                  setCountedCashInput(currentShift.expectedCash);
+                } else {
+                  setOpeningFloatInput(2000);
+                }
+              }}
+              className={`px-3.5 py-2.5 rounded-xl border text-xs font-mono font-bold flex items-center gap-2 transition-all cursor-pointer ${
+                currentShift
+                  ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/30 hover:bg-emerald-500/20"
+                  : "bg-rose-500/10 text-rose-300 border-rose-500/30 hover:bg-rose-500/20"
+              }`}
+              title="Open or Close Register Shift & Reconcile Cash"
+            >
+              <Banknote className="w-4 h-4" />
+              <span>
+                {currentShift
+                  ? `Shift Open: ${formatCurrency(currentShift.expectedCash)}`
+                  : "Open Shift Drawer"}
+              </span>
             </button>
           </div>
         </div>
@@ -792,30 +913,54 @@ We look forward to seeing you again soon! 💇‍♀️✨`;
 
                       {/* Right: Contextual Operational Actions */}
                       <div className="flex items-center gap-2 self-end sm:self-center shrink-0">
-                        {/* WAITING ACTION: Seat Customer */}
+                        {/* WAITING ACTION: Seat Customer & WhatsApp Buzz */}
                         {isWaiting && (
-                          <button
-                            onClick={() => {
-                              updateAppointmentStatus(apt.id, "In-Service");
-                              showToast(`${apt.customerName} seated in chair with ${apt.staffName}!`);
-                            }}
-                            className="px-3.5 py-1.5 bg-[#FACC15] hover:bg-[#EAB308] text-[#080808] font-semibold text-xs rounded-lg shadow-sm transition-colors flex items-center gap-1.5 cursor-pointer"
-                          >
-                            <PlayCircle className="w-3.5 h-3.5" />
-                            <span>Seat Customer</span>
-                          </button>
+                          <div className="flex items-center gap-1.5">
+                            <button
+                              onClick={() => sendChairReadyWhatsApp(apt)}
+                              className="px-2.5 py-1.5 bg-emerald-500/15 hover:bg-emerald-500/25 border border-emerald-500/30 text-emerald-400 font-semibold text-xs rounded-lg transition-colors flex items-center gap-1.5 cursor-pointer"
+                              title="Buzz client on WhatsApp: Your chair is ready!"
+                            >
+                              <BellRing className="w-3.5 h-3.5" />
+                              <span>{apt.buzzedAt ? `Buzzed (${apt.buzzedAt})` : "WhatsApp Buzz"}</span>
+                            </button>
+
+                            <button
+                              onClick={() => {
+                                updateAppointmentStatus(apt.id, "In-Service");
+                                showToast(`${apt.customerName} seated in chair with ${apt.staffName}!`);
+                              }}
+                              className="px-3.5 py-1.5 bg-[#FACC15] hover:bg-[#EAB308] text-[#080808] font-semibold text-xs rounded-lg shadow-sm transition-colors flex items-center gap-1.5 cursor-pointer"
+                            >
+                              <PlayCircle className="w-3.5 h-3.5" />
+                              <span>Seat Customer</span>
+                            </button>
+                          </div>
                         )}
 
-                        {/* IN-SERVICE ACTIONS: Manage Services & Generate Bill */}
+                        {/* IN-SERVICE ACTIONS: Add-on, Manage Services & Generate Bill */}
                         {isInChair && (
                           <>
+                            <button
+                              onClick={() => {
+                                setInChairAddonApt(apt);
+                                setAddonServiceName(services[0]?.name || "");
+                                setAddonStaffName(apt.staffName);
+                              }}
+                              className="px-2.5 py-1.5 bg-purple-500/15 hover:bg-purple-500/25 text-purple-300 border border-purple-500/30 font-medium text-xs rounded-lg transition-colors flex items-center gap-1.5 cursor-pointer"
+                              title="Upsell / Append an extra service in-chair"
+                            >
+                              <Plus className="w-3.5 h-3.5 text-purple-400" />
+                              <span>+ Add-on</span>
+                            </button>
+
                             <button
                               onClick={() => handleOpenServicesModal(apt)}
                               className="px-3 py-1.5 bg-[#111111] hover:bg-[#1A1A1A] text-[#F8FAFC] border border-[#27272A] font-medium text-xs rounded-lg transition-colors flex items-center gap-1.5 cursor-pointer"
                               title="Add or update services performed"
                             >
                               <Scissors className="w-3.5 h-3.5 text-[#A1A1AA]" />
-                              <span>Manage Services</span>
+                              <span>Services</span>
                             </button>
 
                             <button
@@ -945,28 +1090,48 @@ We look forward to seeing you again soon! 💇‍♀️✨`;
               })}
             </div>
 
-            {/* Stylists Availability Summary */}
+            {/* Feature 2: Fair Stylist Turn Queue & Floor Equity */}
             <div className="pt-2 border-t border-[#27272A] space-y-2">
-              <span className="text-[10px] font-mono uppercase tracking-wider text-[#71717A] block">
-                Stylist Shift Status
-              </span>
-              <div className="space-y-1.5 max-h-48 overflow-y-auto pr-1">
+              <div className="flex items-center justify-between">
+                <span className="text-[10px] font-mono uppercase tracking-wider text-[#71717A] flex items-center gap-1">
+                  <ArrowUpDown className="w-3 h-3 text-[#FACC15]" /> Fair Turn Rotation
+                </span>
+                <span className="text-[9px] font-mono text-[#FACC15] bg-[#FACC15]/10 px-1.5 py-0.5 rounded border border-[#FACC15]/20">
+                  Floor Equity
+                </span>
+              </div>
+              <div className="space-y-1.5 max-h-52 overflow-y-auto pr-1">
                 {staff.map((s) => {
                   const isBusy = busyStaffNames.includes(s.name);
                   const isClockedIn = s.status === "clocked_in" || s.isClockedIn;
+                  const turns = stylistTurns[s.name] || 0;
+                  const isNextUp = nextUpStylist === s.name && !isBusy && isClockedIn;
 
                   return (
                     <div
                       key={s.id}
-                      className="p-2 rounded-lg bg-[#111111] border border-[#27272A] flex items-center justify-between text-xs"
+                      className={`p-2 rounded-lg border flex items-center justify-between text-xs transition-colors ${
+                        isNextUp
+                          ? "bg-amber-500/10 border-amber-500/40 ring-1 ring-amber-500/30"
+                          : "bg-[#111111] border-[#27272A]"
+                      }`}
                     >
                       <div className="flex items-center gap-2 min-w-0">
                         <div className="w-6 h-6 rounded-md bg-[#181818] border border-[#27272A] flex items-center justify-center text-[10px] font-bold text-[#F8FAFC]">
                           {s.name.charAt(0)}
                         </div>
                         <div className="min-w-0">
-                          <div className="font-medium text-[#F8FAFC] truncate text-[11px]">{s.name}</div>
-                          <div className="text-[9px] text-[#71717A] truncate font-mono">{s.specialty?.[0] || s.role}</div>
+                          <div className="flex items-center gap-1.5">
+                            <span className="font-medium text-[#F8FAFC] truncate text-[11px]">{s.name}</span>
+                            {isNextUp && (
+                              <span className="text-[9px] font-mono font-bold px-1.5 py-0.2 rounded bg-amber-400 text-slate-950">
+                                Next Up
+                              </span>
+                            )}
+                          </div>
+                          <div className="text-[9px] text-[#71717A] truncate font-mono">
+                            {turns} turns today • {s.specialty?.[0] || s.role}
+                          </div>
                         </div>
                       </div>
 
@@ -1049,11 +1214,52 @@ We look forward to seeing you again soon! 💇‍♀️✨`;
                   </span>
                 </div>
 
-                <div className="text-xs text-[#A1A1AA] space-y-0.5">
+                <div className="text-xs text-[#A1A1AA] space-y-2">
                   <div className="text-[#F8FAFC] font-medium">{detectedCustomer.name} • {detectedCustomer.phone}</div>
                   <div className="text-[11px] text-[#71717A]">
                     Preferred Stylist: <span className="text-[#FACC15]">{detectedCustomer.preferredStaff || "Priya Sharma"}</span>
                   </div>
+
+                  {/* Feature 5: Health & Scalp Allergy Alert Banner */}
+                  {(detectedCustomer.patchTestStatus !== "Valid" ||
+                    detectedCustomer.formulaNotes?.toLowerCase().includes("allerg") ||
+                    detectedCustomer.notes?.toLowerCase().includes("allerg") ||
+                    detectedCustomer.formulaNotes?.toLowerCase().includes("sensit")) && (
+                    <div className="p-2.5 rounded-xl bg-rose-500/10 border border-rose-500/30 text-rose-300 text-xs flex items-start gap-2">
+                      <AlertTriangle className="w-4 h-4 text-rose-400 shrink-0 mt-0.5" />
+                      <div>
+                        <span className="font-bold block">Health & Sensitivity Alert</span>
+                        <span className="text-[11px] text-rose-200/90 leading-snug">
+                          {detectedCustomer.formulaNotes || detectedCustomer.notes || "Check patch test validity before chemical service."}
+                        </span>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Feature 5: VIP Membership & Prepaid Wallet Pill */}
+                  <div className="flex flex-wrap items-center gap-2 pt-0.5 text-[11px] font-mono">
+                    {detectedCustomer.vipTier && (
+                      <span className="px-2 py-0.5 rounded-md bg-purple-500/15 text-purple-300 border border-purple-500/30 flex items-center gap-1 font-bold">
+                        <Crown className="w-3 h-3 text-purple-400" />
+                        {detectedCustomer.vipTier} Member
+                      </span>
+                    )}
+                    <span className="px-2 py-0.5 rounded-md bg-purple-500/10 text-purple-300 border border-purple-500/20 flex items-center gap-1">
+                      <Wallet className="w-3 h-3 text-purple-400" />
+                      Wallet: {formatCurrency(detectedCustomer.walletBalance || 0)}
+                    </span>
+                    <span className="px-2 py-0.5 rounded-md bg-[#181818] text-[#FACC15] border border-[#27272A]">
+                      Points: {detectedCustomer.loyaltyPoints || 0}
+                    </span>
+                  </div>
+
+                  {/* Feature 5: Hospitality Preference */}
+                  {detectedCustomer.notes && (
+                    <div className="p-2 rounded-lg bg-[#181818] border border-[#27272A] text-[11px] text-[#A1A1AA] flex items-center gap-1.5">
+                      <Coffee className="w-3.5 h-3.5 text-amber-400 shrink-0" />
+                      <span>Hospitality Note: <strong className="text-[#F8FAFC]">{detectedCustomer.notes}</strong></span>
+                    </div>
+                  )}
                 </div>
               </div>
             )}
@@ -1122,9 +1328,11 @@ We look forward to seeing you again soon! 💇‍♀️✨`;
                   >
                     {staff.map((s) => {
                       const isFree = freeStaff.some((f) => f.id === s.id);
+                      const isNext = s.name === nextUpStylist;
+                      const turns = stylistTurns[s.name] || 0;
                       return (
                         <option key={s.id} value={s.name} className="bg-[#151515]">
-                          {s.name} {isFree ? "• Free" : "• Busy"}
+                          {isNext ? "⭐ " : ""}{s.name} {isNext ? "(Next in Turn)" : isFree ? "• Free" : "• Busy"} ({turns} turns)
                         </option>
                       );
                     })}
@@ -1286,29 +1494,44 @@ We look forward to seeing you again soon! 💇‍♀️✨`;
               </span>
             </div>
 
-            {/* Shop QR Display */}
+            {/* Shop QR Display with Dynamic QR support */}
             <div className="p-3.5 rounded-xl bg-[#111111] border border-[#27272A] flex flex-col sm:flex-row items-center gap-3.5">
-              <div className="w-20 h-20 bg-white p-1.5 rounded-xl flex flex-col items-center justify-center shrink-0">
-                <QrCode className="w-14 h-14 text-black" />
-                <span className="text-[6px] font-mono uppercase text-slate-800 font-bold">UPI QR</span>
+              <div className="w-24 h-24 bg-white p-1.5 rounded-xl flex flex-col items-center justify-center shrink-0 shadow-md">
+                {dynamicUpiQrUrl ? (
+                  <img src={dynamicUpiQrUrl} alt="Counter UPI QR" className="w-20 h-20 object-contain block" />
+                ) : (
+                  <>
+                    <QrCode className="w-16 h-16 text-black" />
+                    <span className="text-[7px] font-mono uppercase text-slate-800 font-bold">UPI QR</span>
+                  </>
+                )}
               </div>
 
               <div className="space-y-1 text-center sm:text-left">
-                <div className="font-semibold text-xs text-[#F8FAFC]">{salon.name} Counter QR</div>
+                <div className="font-semibold text-xs text-[#F8FAFC]">
+                  {salon.name} Counter QR • {formatCurrency(payMethod === "Split" ? upiAmount : finalBillAmount)}
+                </div>
                 <div className="text-[11px] text-[#A1A1AA] font-mono">
-                  UPI ID: billcare.{salon.slug || "terminal"}@axisbank
+                  UPI ID: {salon.upiId || `billcare.${salon.slug || "terminal"}@axisbank`}
                 </div>
                 <p className="text-[11px] text-[#10B981]">
-                  Instant scan via Google Pay, PhonePe, or Paytm.
+                  Instant scan via Google Pay, PhonePe, Paytm, or BHIM.
                 </p>
               </div>
             </div>
 
-            {/* Payment Method Selector */}
+            {/* Feature 6: Payment Method Selector (UPI / Cash / Wallet / Split) */}
             <div className="space-y-1.5">
-              <label className="text-xs font-medium text-[#A1A1AA]">Tender Type:</label>
-              <div className="grid grid-cols-3 gap-2">
-                {(["UPI", "Cash", "Split"] as const).map((method) => (
+              <div className="flex items-center justify-between text-xs">
+                <label className="font-medium text-[#A1A1AA]">Tender Type:</label>
+                {billingCustomer && (
+                  <span className="text-[10px] font-mono text-purple-300">
+                    Wallet: {formatCurrency(billingCustomer.walletBalance || 0)}
+                  </span>
+                )}
+              </div>
+              <div className="grid grid-cols-4 gap-2">
+                {(["UPI", "Cash", "Wallet", "Split"] as const).map((method) => (
                   <button
                     key={method}
                     type="button"
@@ -1317,15 +1540,31 @@ We look forward to seeing you again soon! 💇‍♀️✨`;
                       if (method === "UPI") {
                         setUpiAmount(finalBillAmount);
                         setCashAmount(0);
+                        setWalletAmount(0);
                       } else if (method === "Cash") {
                         setCashAmount(finalBillAmount);
                         setUpiAmount(0);
+                        setWalletAmount(0);
+                      } else if (method === "Wallet") {
+                        setWalletAmount(finalBillAmount);
+                        setCashAmount(0);
+                        setUpiAmount(0);
                       } else {
-                        setCashAmount(Math.round(finalBillAmount / 2));
-                        setUpiAmount(finalBillAmount - Math.round(finalBillAmount / 2));
+                        // Default 50/50 split or utilize available wallet
+                        const availableW = billingCustomer?.walletBalance || 0;
+                        if (availableW > 0) {
+                          const wUse = Math.min(finalBillAmount, availableW);
+                          setWalletAmount(wUse);
+                          setUpiAmount(finalBillAmount - wUse);
+                          setCashAmount(0);
+                        } else {
+                          setCashAmount(Math.round(finalBillAmount / 2));
+                          setUpiAmount(finalBillAmount - Math.round(finalBillAmount / 2));
+                          setWalletAmount(0);
+                        }
                       }
                     }}
-                    className={`py-2 px-3 rounded-xl text-xs font-mono uppercase transition-colors cursor-pointer border ${
+                    className={`py-2 px-2.5 rounded-xl text-xs font-mono uppercase transition-colors cursor-pointer border text-center ${
                       payMethod === method
                         ? "bg-[#FACC15] text-[#080808] border-[#FACC15] font-bold"
                         : "bg-[#111111] text-[#A1A1AA] border-[#27272A] hover:border-[#3F3F46]"
@@ -1337,31 +1576,104 @@ We look forward to seeing you again soon! 💇‍♀️✨`;
               </div>
             </div>
 
-            {/* Split breakdown */}
+            {/* Wallet Tender Check */}
+            {payMethod === "Wallet" && (
+              <div className="p-3 rounded-xl bg-purple-500/10 border border-purple-500/30 space-y-1 text-xs">
+                <div className="flex justify-between items-center text-purple-200">
+                  <span>Client Prepaid Balance:</span>
+                  <span className="font-bold font-mono">
+                    {formatCurrency(billingCustomer?.walletBalance || 0)}
+                  </span>
+                </div>
+                {(billingCustomer?.walletBalance || 0) < finalBillAmount && (
+                  <p className="text-[11px] text-rose-300 font-semibold">
+                    ⚠️ Insufficient wallet balance. Needs {formatCurrency(finalBillAmount - (billingCustomer?.walletBalance || 0))} more. Switch to Split or Cash/UPI.
+                  </p>
+                )}
+              </div>
+            )}
+
+            {/* Feature 6: Dynamic 3-Way Split Breakdown */}
             {payMethod === "Split" && (
-              <div className="p-3 rounded-xl bg-[#111111] border border-[#FACC15]/30 space-y-2.5">
-                <span className="text-xs font-mono text-[#FACC15] block">
-                  Split Payment Breakdown
-                </span>
-                <div className="grid grid-cols-2 gap-2.5">
+              <div className="p-3.5 rounded-xl bg-[#111111] border border-[#FACC15]/30 space-y-3">
+                <div className="flex items-center justify-between text-xs">
+                  <span className="font-mono text-[#FACC15] font-bold">
+                    Multi-Tender Split Breakdown
+                  </span>
+                  <span className={`text-[10px] font-mono font-bold px-2 py-0.5 rounded ${
+                    cashAmount + upiAmount + walletAmount === finalBillAmount
+                      ? "bg-emerald-500/15 text-emerald-400 border border-emerald-500/30"
+                      : "bg-rose-500/15 text-rose-400 border border-rose-500/30"
+                  }`}>
+                    {cashAmount + upiAmount + walletAmount === finalBillAmount
+                      ? "✓ Balanced"
+                      : `Diff: ${formatCurrency(finalBillAmount - (cashAmount + upiAmount + walletAmount))}`}
+                  </span>
+                </div>
+
+                <div className="grid grid-cols-3 gap-2">
                   <div className="space-y-1">
-                    <label className="text-[11px] text-[#A1A1AA]">Cash (₹)</label>
+                    <label className="text-[10px] text-[#A1A1AA] font-mono block">Cash (₹)</label>
                     <input
                       type="number"
-                      value={cashAmount}
-                      onChange={(e) => handleCashChange(Number(e.target.value))}
-                      className="w-full px-3 py-1.5 bg-[#151515] border border-[#27272A] rounded-xl text-xs font-mono text-[#F8FAFC] focus:outline-none focus:border-[#FACC15]"
+                      min="0"
+                      value={cashAmount || ""}
+                      onChange={(e) => handleCashChange(Number(e.target.value) || 0)}
+                      className="w-full px-2.5 py-1.5 bg-[#151515] border border-[#27272A] rounded-xl text-xs font-mono text-[#F8FAFC] focus:outline-none focus:border-[#FACC15]"
                     />
                   </div>
                   <div className="space-y-1">
-                    <label className="text-[11px] text-[#A1A1AA]">UPI (₹)</label>
+                    <label className="text-[10px] text-[#A1A1AA] font-mono block">UPI (₹)</label>
                     <input
                       type="number"
-                      value={upiAmount}
-                      onChange={(e) => handleUpiChange(Number(e.target.value))}
-                      className="w-full px-3 py-1.5 bg-[#151515] border border-[#27272A] rounded-xl text-xs font-mono text-[#F8FAFC] focus:outline-none focus:border-[#FACC15]"
+                      min="0"
+                      value={upiAmount || ""}
+                      onChange={(e) => handleUpiChange(Number(e.target.value) || 0)}
+                      className="w-full px-2.5 py-1.5 bg-[#151515] border border-[#27272A] rounded-xl text-xs font-mono text-[#F8FAFC] focus:outline-none focus:border-[#FACC15]"
                     />
                   </div>
+                  <div className="space-y-1">
+                    <label className="text-[10px] text-purple-300 font-mono block">Wallet (₹)</label>
+                    <input
+                      type="number"
+                      min="0"
+                      max={billingCustomer?.walletBalance || 0}
+                      value={walletAmount || ""}
+                      onChange={(e) => handleWalletChange(Number(e.target.value) || 0)}
+                      className="w-full px-2.5 py-1.5 bg-[#151515] border border-[#27272A] rounded-xl text-xs font-mono text-[#F8FAFC] focus:outline-none focus:border-purple-400"
+                    />
+                  </div>
+                </div>
+
+                {/* Quick Auto-balancer buttons */}
+                <div className="flex flex-wrap items-center gap-1.5 pt-1 text-[10px] font-mono">
+                  {billingCustomer && (billingCustomer.walletBalance || 0) > 0 && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const maxW = Math.min(finalBillAmount, billingCustomer.walletBalance || 0);
+                        setWalletAmount(maxW);
+                        setUpiAmount(Math.max(0, finalBillAmount - cashAmount - maxW));
+                      }}
+                      className="px-2 py-0.5 rounded bg-purple-500/20 hover:bg-purple-500/30 text-purple-300 border border-purple-500/30 cursor-pointer"
+                    >
+                      Max Wallet ({formatCurrency(billingCustomer.walletBalance || 0)})
+                    </button>
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => setUpiAmount(Math.max(0, finalBillAmount - cashAmount - walletAmount))}
+                    className="px-2 py-0.5 rounded bg-[#181818] hover:bg-[#202020] text-[#FACC15] border border-[#27272A] cursor-pointer"
+                  >
+                    Rest to UPI
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setCashAmount(Math.max(0, finalBillAmount - upiAmount - walletAmount))}
+                    className="px-2 py-0.5 rounded bg-[#181818] hover:bg-[#202020] text-emerald-400 border border-[#27272A] cursor-pointer"
+                  >
+                    Rest to Cash
+                  </button>
                 </div>
               </div>
             )}
@@ -1378,7 +1690,11 @@ We look forward to seeing you again soon! 💇‍♀️✨`;
               <button
                 type="button"
                 onClick={handleCompleteBillAndSendWhatsApp}
-                className="px-4 py-2 bg-[#10B981] hover:bg-[#0D9468] text-[#080808] font-semibold text-xs rounded-xl shadow-sm flex items-center gap-1.5 cursor-pointer"
+                disabled={
+                  (payMethod === "Split" && cashAmount + upiAmount + walletAmount !== finalBillAmount) ||
+                  (payMethod === "Wallet" && (billingCustomer?.walletBalance || 0) < finalBillAmount)
+                }
+                className="px-4 py-2 bg-[#10B981] hover:bg-[#0D9468] disabled:opacity-40 disabled:cursor-not-allowed text-[#080808] font-semibold text-xs rounded-xl shadow-sm flex items-center gap-1.5 cursor-pointer"
               >
                 <CheckCircle2 className="w-4 h-4" />
                 <span>Complete & Send WhatsApp Bill</span>
@@ -1505,6 +1821,284 @@ We look forward to seeing you again soon! 💇‍♀️✨`;
                 className="px-3.5 py-1.5 bg-[#181818] hover:bg-[#202020] text-xs font-medium rounded-lg text-[#F8FAFC] border border-[#27272A] cursor-pointer"
               >
                 Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ============================================================ */}
+      {/* MODAL 5: SHIFT CASH DRAWER OPEN / CLOSE & HANDOVER (FEATURE 1) */}
+      {/* ============================================================ */}
+      {showShiftModal && (
+        <div className="fixed inset-0 z-50 bg-black/85 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-[#151515] border border-[#27272A] text-[#F8FAFC] rounded-2xl max-w-md w-full p-6 shadow-2xl space-y-4 animate-in fade-in zoom-in-95 duration-200">
+            <div className="flex items-center justify-between pb-3 border-b border-[#27272A]">
+              <div className="flex items-center gap-2.5">
+                <div className="w-9 h-9 rounded-xl bg-emerald-500/15 border border-emerald-500/30 text-emerald-400 flex items-center justify-center">
+                  <Banknote className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-base font-semibold text-[#F8FAFC]">
+                    {currentShift ? "Register Shift Reconciliation" : "Open Front Desk Register Shift"}
+                  </h3>
+                  <p className="text-[11px] text-[#A1A1AA] font-mono">
+                    {currentShift ? `Opened by ${currentShift.openedByName || "Front Desk"}` : "Start of day cash float"}
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => setShowShiftModal(false)}
+                className="w-8 h-8 rounded-xl bg-[#111111] hover:bg-[#1A1A1A] text-[#71717A] hover:text-[#F8FAFC] border border-[#27272A] flex items-center justify-center cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            {!currentShift ? (
+              /* OPEN SHIFT FORM */
+              <div className="space-y-3.5 text-xs">
+                <div className="p-3 bg-[#111111] rounded-xl border border-[#27272A] space-y-1">
+                  <span className="text-[#A1A1AA] block">Opening Cash Float</span>
+                  <p className="text-[11px] text-[#71717A]">
+                    Enter the physical petty cash placed in the register for change.
+                  </p>
+                </div>
+
+                <div className="space-y-1.5">
+                  <label className="text-xs font-mono text-[#A1A1AA]">Quick Float Amount (₹)</label>
+                  <div className="grid grid-cols-4 gap-1.5 font-mono">
+                    {[1000, 2000, 3000, 5000].map((amt) => (
+                      <button
+                        key={amt}
+                        type="button"
+                        onClick={() => setOpeningFloatInput(amt)}
+                        className={`py-2 rounded-xl text-xs font-bold border transition-all cursor-pointer ${
+                          openingFloatInput === amt
+                            ? "bg-[#FACC15] text-[#080808] border-[#FACC15]"
+                            : "bg-[#111111] text-[#A1A1AA] border-[#27272A] hover:bg-[#181818]"
+                        }`}
+                      >
+                        ₹{amt >= 1000 ? `${amt / 1000}k` : amt}
+                      </button>
+                    ))}
+                  </div>
+
+                  <input
+                    type="number"
+                    min="0"
+                    step="100"
+                    value={openingFloatInput || ""}
+                    onChange={(e) => setOpeningFloatInput(Number(e.target.value) || 0)}
+                    placeholder="Enter Float"
+                    className="w-full px-3.5 py-2.5 bg-[#111111] border border-[#27272A] rounded-xl text-sm font-mono font-bold text-[#F8FAFC] focus:outline-none focus:border-[#FACC15]"
+                  />
+                </div>
+
+                <div className="space-y-1">
+                  <label className="text-[11px] font-mono text-[#71717A]">Opening Notes (Optional)</label>
+                  <input
+                    type="text"
+                    value={shiftNotesInput}
+                    onChange={(e) => setShiftNotesInput(e.target.value)}
+                    placeholder="e.g. Morning opening shift verified by cashier"
+                    className="w-full px-3 py-2 bg-[#111111] border border-[#27272A] rounded-xl text-xs text-[#F8FAFC] focus:outline-none focus:border-[#FACC15]"
+                  />
+                </div>
+
+                <button
+                  type="button"
+                  onClick={async () => {
+                    await openRegisterShift(openingFloatInput, shiftNotesInput);
+                    setShowShiftModal(false);
+                    setShiftNotesInput("");
+                  }}
+                  className="w-full py-3 bg-[#FACC15] hover:bg-[#EAB308] text-[#080808] font-bold text-xs rounded-xl shadow-lg shadow-[#FACC15]/10 flex items-center justify-center gap-2 cursor-pointer transition-all"
+                >
+                  <PlayCircle className="w-4 h-4" />
+                  <span>Open Register Shift ({formatCurrency(openingFloatInput)})</span>
+                </button>
+              </div>
+            ) : (
+              /* CLOSE SHIFT RECONCILIATION */
+              <div className="space-y-3.5 text-xs">
+                <div className="p-3.5 bg-[#111111] rounded-xl border border-[#27272A] space-y-2">
+                  <div className="flex justify-between items-center text-[#A1A1AA]">
+                    <span>Opening Float:</span>
+                    <span className="font-mono font-bold text-[#F8FAFC]">{formatCurrency(currentShift.openingFloat)}</span>
+                  </div>
+                  <div className="flex justify-between items-center text-[#A1A1AA]">
+                    <span>Cash Collected Today:</span>
+                    <span className="font-mono font-bold text-emerald-400">
+                      +{formatCurrency(Math.max(0, currentShift.expectedCash - currentShift.openingFloat))}
+                    </span>
+                  </div>
+                  <div className="pt-2 border-t border-[#27272A] flex justify-between items-center font-bold">
+                    <span className="text-[#F8FAFC]">System Expected Drawer Total:</span>
+                    <span className="font-mono text-sm text-[#FACC15]">{formatCurrency(currentShift.expectedCash)}</span>
+                  </div>
+                </div>
+
+                <div className="space-y-1.5">
+                  <label className="text-xs font-mono text-[#A1A1AA] block">Physical Cash Counted in Drawer (₹)</label>
+                  <input
+                    type="number"
+                    min="0"
+                    step="10"
+                    value={countedCashInput || ""}
+                    onChange={(e) => setCountedCashInput(Number(e.target.value) || 0)}
+                    placeholder="Count physical cash notes"
+                    className="w-full px-3.5 py-2.5 bg-[#111111] border border-[#27272A] rounded-xl text-base font-mono font-bold text-[#F8FAFC] focus:outline-none focus:border-[#FACC15]"
+                  />
+                </div>
+
+                {/* Real-time Variance Badge */}
+                {(() => {
+                  const variance = countedCashInput - currentShift.expectedCash;
+                  return (
+                    <div
+                      className={`p-3 rounded-xl border flex items-center justify-between text-xs font-mono font-bold ${
+                        variance === 0
+                          ? "bg-emerald-500/10 border-emerald-500/30 text-emerald-400"
+                          : variance < 0
+                          ? "bg-rose-500/10 border-rose-500/30 text-rose-300"
+                          : "bg-blue-500/10 border-blue-500/30 text-blue-300"
+                      }`}
+                    >
+                      <span>Cash Variance:</span>
+                      <span>
+                        {variance === 0
+                          ? "✓ Exact Match (Balanced)"
+                          : variance < 0
+                          ? `Shortage: -${formatCurrency(Math.abs(variance))}`
+                          : `Overage: +${formatCurrency(variance)}`}
+                      </span>
+                    </div>
+                  );
+                })()}
+
+                <div className="space-y-1">
+                  <label className="text-[11px] font-mono text-[#71717A]">Closing / Handover Notes</label>
+                  <input
+                    type="text"
+                    value={shiftNotesInput}
+                    onChange={(e) => setShiftNotesInput(e.target.value)}
+                    placeholder="e.g. Evening drawer handover to next shift"
+                    className="w-full px-3 py-2 bg-[#111111] border border-[#27272A] rounded-xl text-xs text-[#F8FAFC] focus:outline-none focus:border-[#FACC15]"
+                  />
+                </div>
+
+                <button
+                  type="button"
+                  onClick={async () => {
+                    await closeRegisterShift(countedCashInput, shiftNotesInput);
+                    setShowShiftModal(false);
+                    setShiftNotesInput("");
+                  }}
+                  className="w-full py-3 bg-rose-600 hover:bg-rose-500 text-white font-bold text-xs rounded-xl shadow-lg shadow-rose-600/20 flex items-center justify-center gap-2 cursor-pointer transition-all"
+                >
+                  <CheckCircle2 className="w-4 h-4" />
+                  <span>Reconcile & Close Register Shift</span>
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* ============================================================ */}
+      {/* MODAL 6: MID-SERVICE IN-CHAIR ADD-ON (FEATURE 4) */}
+      {/* ============================================================ */}
+      {inChairAddonApt && (
+        <div className="fixed inset-0 z-50 bg-black/85 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-[#151515] border border-[#27272A] text-[#F8FAFC] rounded-2xl max-w-md w-full p-6 shadow-2xl space-y-4 animate-in fade-in zoom-in-95 duration-200">
+            <div className="flex items-center justify-between pb-3 border-b border-[#27272A]">
+              <div className="flex items-center gap-2.5">
+                <div className="w-8 h-8 rounded-xl bg-purple-500/15 border border-purple-500/30 text-purple-400 flex items-center justify-center">
+                  <Scissors className="w-4 h-4" />
+                </div>
+                <div>
+                  <h3 className="text-base font-semibold text-[#F8FAFC]">Add In-Chair Service</h3>
+                  <p className="text-[11px] text-[#A1A1AA]">{inChairAddonApt.customerName} • In Service</p>
+                </div>
+              </div>
+              <button
+                onClick={() => setInChairAddonApt(null)}
+                className="w-8 h-8 rounded-xl bg-[#111111] hover:bg-[#1A1A1A] text-[#71717A] hover:text-[#F8FAFC] border border-[#27272A] flex items-center justify-center cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="p-3 bg-[#111111] rounded-xl border border-[#27272A] space-y-1 text-xs">
+              <span className="text-[#71717A] uppercase font-mono text-[10px]">Current Session:</span>
+              <div className="flex justify-between items-center text-[#F8FAFC] font-medium">
+                <span>{inChairAddonApt.serviceName}</span>
+                <span className="font-mono text-[#FACC15]">{formatCurrency(inChairAddonApt.price)}</span>
+              </div>
+            </div>
+
+            <div className="space-y-3 text-xs">
+              <div className="space-y-1">
+                <label className="font-medium text-[#A1A1AA]">Select Add-on Service to Append</label>
+                <select
+                  value={addonServiceName}
+                  onChange={(e) => setAddonServiceName(e.target.value)}
+                  className="w-full px-3 py-2 bg-[#111111] border border-[#27272A] rounded-xl text-xs text-[#F8FAFC] focus:outline-none focus:border-[#FACC15]"
+                >
+                  {services.map((s) => (
+                    <option key={s.id} value={s.name} className="bg-[#151515]">
+                      {s.name} (+{formatCurrency(s.price)} • {s.durationMinutes || 30}m)
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="space-y-1">
+                <label className="font-medium text-[#A1A1AA]">Stylist Attribution</label>
+                <select
+                  value={addonStaffName}
+                  onChange={(e) => setAddonStaffName(e.target.value)}
+                  className="w-full px-3 py-2 bg-[#111111] border border-[#27272A] rounded-xl text-xs text-[#F8FAFC] focus:outline-none focus:border-[#FACC15]"
+                >
+                  {staff.map((st) => (
+                    <option key={st.id} value={st.name} className="bg-[#151515]">
+                      {st.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {(() => {
+                const srv = services.find((s) => s.name === addonServiceName) || services[0];
+                return (
+                  <div className="p-3 bg-purple-500/10 border border-purple-500/30 rounded-xl flex items-center justify-between font-mono">
+                    <span className="text-purple-300">New Combined Total:</span>
+                    <span className="font-bold text-purple-200 text-sm">
+                      {formatCurrency(inChairAddonApt.price + (srv?.price || 0))}
+                    </span>
+                  </div>
+                );
+              })()}
+
+              <button
+                type="button"
+                onClick={() => {
+                  const srv = services.find((s) => s.name === addonServiceName) || services[0];
+                  if (srv) {
+                    appendServiceToAppointment(inChairAddonApt.id, {
+                      name: srv.name,
+                      price: srv.price,
+                      durationMinutes: srv.durationMinutes || 30,
+                      staffName: addonStaffName || inChairAddonApt.staffName,
+                    });
+                    setInChairAddonApt(null);
+                  }
+                }}
+                className="w-full py-3 bg-purple-600 hover:bg-purple-500 text-white font-bold text-xs rounded-xl shadow-lg shadow-purple-600/20 flex items-center justify-center gap-1.5 cursor-pointer transition-all"
+              >
+                <Plus className="w-4 h-4" />
+                <span>Append to Active Chair Visit</span>
               </button>
             </div>
           </div>

@@ -17,10 +17,11 @@ import {
   Edit2,
   DollarSign,
   TrendingUp,
+  Package,
 } from "lucide-react";
 
 export function ServicesView() {
-  const { services, addService, updateService } = useBillCare();
+  const { services, inventory, addService, updateService } = useBillCare();
 
   const [activeCategory, setActiveCategory] = useState<string>("All");
   const [searchQuery, setSearchQuery] = useState<string>("");
@@ -36,6 +37,10 @@ export function ServicesView() {
   const [newDuration, setNewDuration] = useState<number>(60);
   const [newPrice, setNewPrice] = useState<number>(2500);
   const [newDescription, setNewDescription] = useState("");
+  const [newMaterialUsed, setNewMaterialUsed] = useState("");
+  const [newMaterialItemId, setNewMaterialItemId] = useState("");
+  const [newMaterialQuantity, setNewMaterialQuantity] = useState<number>(0);
+  const [newMaterialUnit, setNewMaterialUnit] = useState("ml");
   const [newPopular, setNewPopular] = useState(false);
 
   const categories = ["All", "Hair", "Skin & Spa", "Nails", "Beard & Grooming", "Makeup"];
@@ -61,12 +66,21 @@ export function ServicesView() {
       durationMinutes: newDuration,
       price: newPrice,
       description: newDescription,
+      materialUsed: newMaterialUsed,
+      materialItemId: newMaterialItemId || undefined,
+      materialQuantity: newMaterialQuantity || 0,
+      materialUnit: newMaterialUnit,
+      averageMaterialUsed: newMaterialUsed,
       popular: newPopular,
     });
 
     setShowAddModal(false);
     setNewName("");
     setNewDescription("");
+    setNewMaterialUsed("");
+    setNewMaterialItemId("");
+    setNewMaterialQuantity(0);
+    setNewMaterialUnit("ml");
   };
 
   const handleSavePriceEdit = (id: string) => {
@@ -228,6 +242,16 @@ export function ServicesView() {
                 <p className="text-xs text-[#71717A] mt-1 line-clamp-2 leading-relaxed">
                   {service.description}
                 </p>
+
+                {(service.materialUsed || service.averageMaterialUsed) && (
+                  <div className="mt-2.5 px-2.5 py-1.5 rounded-lg bg-[#111111] border border-[#27272A] flex items-center gap-1.5 text-[11px] text-[#A1A1AA]">
+                    <Package className="w-3.5 h-3.5 text-[#FACC15] shrink-0" />
+                    <span className="truncate">
+                      <span className="text-[#71717A]">Material:</span>{" "}
+                      <span className="text-[#F8FAFC] font-medium font-mono">{service.materialUsed || service.averageMaterialUsed}</span>
+                    </span>
+                  </div>
+                )}
               </div>
             </div>
 
@@ -365,6 +389,87 @@ export function ServicesView() {
                   onChange={(e) => setNewDescription(e.target.value)}
                   className="w-full px-3.5 py-2 bg-[#151515] border border-[#27272A] rounded-xl text-[#F8FAFC] focus:outline-none focus:border-[#FACC15]"
                 />
+              </div>
+
+              {/* Consumable Material / Stock Monitoring */}
+              <div className="p-3 bg-[#181818] border border-[#27272A] rounded-xl space-y-2.5">
+                <div className="flex items-center justify-between">
+                  <label className="font-mono text-[11px] text-[#FACC15] font-bold flex items-center gap-1.5">
+                    <Package className="w-3.5 h-3.5" />
+                    <span>Average Material Used (Stock Monitor)</span>
+                  </label>
+                  <span className="text-[10px] text-[#71717A] font-mono">Inventory Link</span>
+                </div>
+
+                <div className="grid grid-cols-3 gap-2">
+                  <div className="col-span-2">
+                    <input
+                      type="text"
+                      placeholder="e.g. Keratin Serum or Majirel 60ml"
+                      value={newMaterialUsed}
+                      onChange={(e) => setNewMaterialUsed(e.target.value)}
+                      className="w-full px-3 py-2 bg-[#121212] border border-[#27272A] rounded-lg text-xs text-[#F8FAFC] focus:outline-none focus:border-[#FACC15]"
+                    />
+                  </div>
+                  <div className="flex items-center gap-1">
+                    <input
+                      type="number"
+                      min={0}
+                      step="any"
+                      placeholder="Qty"
+                      value={newMaterialQuantity || ""}
+                      onChange={(e) => {
+                        const val = Number(e.target.value);
+                        setNewMaterialQuantity(val);
+                        if (!newMaterialUsed && val > 0) {
+                          setNewMaterialUsed(`${val} ${newMaterialUnit}`);
+                        }
+                      }}
+                      className="w-16 px-2 py-2 bg-[#121212] border border-[#27272A] rounded-lg text-xs text-[#F8FAFC] focus:outline-none focus:border-[#FACC15] font-mono"
+                    />
+                    <select
+                      value={newMaterialUnit}
+                      onChange={(e) => setNewMaterialUnit(e.target.value)}
+                      className="flex-1 px-1.5 py-2 bg-[#121212] border border-[#27272A] rounded-lg text-xs text-[#F8FAFC] focus:outline-none focus:border-[#FACC15] font-mono"
+                    >
+                      <option value="ml">ml</option>
+                      <option value="g">g</option>
+                      <option value="units">units</option>
+                      <option value="bottles">btl</option>
+                      <option value="ampoules">amp</option>
+                    </select>
+                  </div>
+                </div>
+
+                {inventory && inventory.length > 0 && (
+                  <div className="pt-1">
+                    <span className="text-[10px] text-[#71717A] block mb-1">Or link to salon stock item:</span>
+                    <select
+                      value={newMaterialItemId}
+                      onChange={(e) => {
+                        const itemId = e.target.value;
+                        setNewMaterialItemId(itemId);
+                        const matched = inventory.find((i) => i.id === itemId);
+                        if (matched) {
+                          setNewMaterialUsed(`${matched.name} (${newMaterialQuantity || 1} ${matched.unit || newMaterialUnit})`);
+                          if (matched.unit) setNewMaterialUnit(matched.unit);
+                        }
+                      }}
+                      className="w-full px-2.5 py-1.5 bg-[#121212] border border-[#27272A] rounded-lg text-[11px] text-[#A1A1AA] focus:outline-none focus:border-[#FACC15]"
+                    >
+                      <option value="">-- Select from Inventory Catalog (Optional) --</option>
+                      {inventory.map((item) => (
+                        <option key={item.id} value={item.id}>
+                          {item.name} ({item.brand}) • {item.currentStock} {item.unit} in stock
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                )}
+
+                <p className="text-[10px] text-[#71717A] leading-relaxed">
+                  BillCare monitors this quantity to forecast backbar product depletion whenever this service is completed.
+                </p>
               </div>
 
               <label className="flex items-center gap-2 cursor-pointer font-bold text-[#F8FAFC]">

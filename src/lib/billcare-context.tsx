@@ -4,6 +4,13 @@ import React, { createContext, useContext, useState, useEffect } from "react";
 import { billcareApi } from "./api-client";
 import { DEMO_PERSONAS } from "./demo-data";
 import { getRoleConfig } from "./role-permissions";
+import { createClient, isSupabaseConfigured } from "./supabase/client";
+import {
+  signUpWithSupabase,
+  signInWithSupabasePassword,
+  signOutWithSupabase,
+  mapSupabaseUserToBillCare,
+} from "./supabase/auth";
 
 // ============================================================================
 // Types & Data Contracts (Modeled on Salonist.io architecture)
@@ -60,6 +67,7 @@ export interface Customer {
   totalSpend: number;
   totalSpent: number;
   loyaltyPoints: number;
+  walletBalance?: number;
   lastVisitDate: string;
   tags: string[];
   notes?: string;
@@ -84,6 +92,11 @@ export interface Service {
   bufferMinutes?: number;
   price: number;
   description: string;
+  materialUsed?: string;
+  materialItemId?: string;
+  materialQuantity?: number;
+  materialUnit?: string;
+  averageMaterialUsed?: string;
   isOnlineBookable?: boolean;
   isActive?: boolean;
   popular?: boolean;
@@ -154,6 +167,25 @@ export interface Appointment {
   source?: string;
   notes?: string;
   createdAt: string;
+  servicesList?: { name: string; price: number; durationMinutes?: number; staffName?: string }[];
+  buzzedAt?: string;
+}
+
+export interface CashRegisterShift {
+  id: string;
+  salonId: string;
+  openedByUserId?: string;
+  openedByName?: string;
+  closedByUserId?: string;
+  closedByName?: string;
+  openingFloat: number;
+  expectedCash: number;
+  countedCash?: number;
+  cashVariance?: number;
+  status: "open" | "closed";
+  openedAt: string;
+  closedAt?: string;
+  notes?: string;
 }
 
 export interface InvoiceItem {
@@ -254,7 +286,7 @@ interface BillCareContextType {
   signup: (
     userData: { name: string; email: string; phone: string; password?: string },
     salonData: { name: string; city: string; category: string; chairs: number; currency?: string; gstin?: string }
-  ) => Promise<{ success: boolean; error?: string }>;
+  ) => Promise<{ success: boolean; error?: string; requiresEmailVerification?: boolean }>;
   logout: () => void;
   updateSalon: (data: Partial<Salon>) => void;
   updateUser: (data: Partial<User>) => void;
@@ -310,12 +342,23 @@ interface BillCareContextType {
     gstAmount?: number;
     grandTotal?: number;
     total?: number;
-    paymentMethod: "UPI" | "Card" | "Cash" | "Split" | string;
-    paymentBreakdown?: { cash?: number; upi?: number; card?: number };
-    splitDetails?: { cash?: number; upi?: number; card?: number };
+    paymentMethod: "UPI" | "Card" | "Cash" | "Split" | "Wallet" | string;
+    paymentBreakdown?: { cash?: number; upi?: number; card?: number; wallet?: number };
+    splitDetails?: { cash?: number; upi?: number; card?: number; wallet?: number };
     notes?: string;
     [key: string]: any;
   }) => Invoice;
+
+  topUpCustomerWallet: (customerId: string, amount: number) => Promise<{ success: boolean; message?: string }>;
+  sendWhatsAppBill: (invoice: Invoice) => Promise<{ success: boolean; message?: string }>;
+  sendWhatsAppReminder: (appointment: Appointment) => Promise<{ success: boolean; message?: string }>;
+
+  // Receptionist & Front Desk Features
+  currentShift: CashRegisterShift | null;
+  openRegisterShift: (openingFloat: number, notes?: string) => Promise<{ success: boolean; shift?: CashRegisterShift; message?: string }>;
+  closeRegisterShift: (countedCash: number, notes?: string) => Promise<{ success: boolean; shift?: CashRegisterShift; message?: string }>;
+  appendServiceToAppointment: (appointmentId: string, serviceItem: { name: string; price: number; durationMinutes?: number; staffName?: string }) => void;
+  sendChairReadyWhatsApp: (appointment: Appointment) => Promise<{ success: boolean; message?: string }>;
 
   addFollowUp: (data: any) => FollowUp;
   markFollowUpSent: (id: string) => void;
@@ -427,6 +470,7 @@ export function BillCareProvider({ children }: { children: React.ReactNode }) {
   const [feedbacks, setFeedbacks] = useState<any[]>(INITIAL_FEEDBACKS);
   const [toasts, setToasts] = useState<ToastNotification[]>([]);
   const [isBackendConnected, setIsBackendConnected] = useState<boolean>(false);
+  const [currentShift, setCurrentShift] = useState<CashRegisterShift | null>(null);
 
   // Helper to persist data to localStorage
   const persist = (key: string, data: any) => {
@@ -466,6 +510,12 @@ export function BillCareProvider({ children }: { children: React.ReactNode }) {
       const storedInvoices = localStorage.getItem("billcare_invoices");
       const storedFollowups = localStorage.getItem("billcare_followups");
       const storedFeedbacks = localStorage.getItem("billcare_feedbacks");
+      const storedShift = localStorage.getItem("billcare_current_shift");
+      if (storedShift) {
+        try {
+          setCurrentShift(JSON.parse(storedShift));
+        } catch {}
+      }
 
       // Only authenticate if both user and valid session token exist
       if (storedUser && storedToken) {
@@ -490,6 +540,34 @@ export function BillCareProvider({ children }: { children: React.ReactNode }) {
       if (storedFeedbacks) setFeedbacks(JSON.parse(storedFeedbacks));
     } catch (e) {
       console.warn("BillCare: Storage hydration warning", e);
+    }
+
+    // Hydrate from active Supabase Session if available
+    if (typeof window !== "undefined" && isSupabaseConfigured()) {
+      const supabase = createClient();
+      supabase.auth.getSession().then(({ data: { session } }) => {
+        if (session?.user) {
+          const mapped = mapSupabaseUserToBillCare(session.user, session);
+          setUser(mapped.user);
+          persist("billcare_user", mapped.user);
+          if (mapped.token) persist("billcare_token", mapped.token);
+        }
+      }).catch((e) => console.warn("Supabase session check:", e));
+
+      const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+        if (session?.user) {
+          const mapped = mapSupabaseUserToBillCare(session.user, session);
+          setUser(mapped.user);
+          persist("billcare_user", mapped.user);
+          if (mapped.token) persist("billcare_token", mapped.token);
+        } else if (event === "SIGNED_OUT") {
+          setUser(null);
+          try {
+            localStorage.removeItem("billcare_user");
+            localStorage.removeItem("billcare_token");
+          } catch { }
+        }
+      });
     }
 
     // Connect and synchronize from live backend database
@@ -539,6 +617,16 @@ export function BillCareProvider({ children }: { children: React.ReactNode }) {
       .catch((err) => {
         console.info("BillCare: Connected via offline cached data:", err.message);
       });
+
+    billcareApi
+      .getCurrentShift()
+      .then((data) => {
+        if (data && data.hasOpenShift && data.shift) {
+          setCurrentShift(data.shift);
+          persist("billcare_current_shift", data.shift);
+        }
+      })
+      .catch(() => {});
   }, []);
 
   // Toast Notification handler
@@ -555,7 +643,7 @@ export function BillCareProvider({ children }: { children: React.ReactNode }) {
   };
 
   // --------------------------------------------------------------------------
-  // Authentication Actions
+  // Authentication Actions (Supabase Complete Auth)
   // --------------------------------------------------------------------------
   const login = async (email: string, password: string = "") => {
     const normalizedEmail = email.toLowerCase().trim();
@@ -567,6 +655,28 @@ export function BillCareProvider({ children }: { children: React.ReactNode }) {
     }
 
     try {
+      // 1. Prioritize Supabase Auth
+      if (isSupabaseConfigured()) {
+        const supaRes = await signInWithSupabasePassword(normalizedEmail, password);
+        if (supaRes.success && supaRes.user) {
+          setUser(supaRes.user);
+          persist("billcare_user", supaRes.user);
+          if (supaRes.token) {
+            persist("billcare_token", supaRes.token);
+          }
+          if (supaRes.salon) {
+            setSalon((prev) => ({ ...prev, ...supaRes.salon }));
+            persist("billcare_salon", { ...salon, ...supaRes.salon });
+          }
+          showToast(`Welcome back to BillCare, ${supaRes.user.name}!`);
+          return { success: true };
+        }
+        if (supaRes.error) {
+          return { success: false, error: supaRes.error };
+        }
+      }
+
+      // 2. Standalone API fallback
       const res = await billcareApi.login({ email: normalizedEmail, password });
       if (res && res.user) {
         setUser(res.user);
@@ -583,7 +693,7 @@ export function BillCareProvider({ children }: { children: React.ReactNode }) {
       }
       return { success: false, error: "Authentication failed. Please verify credentials." };
     } catch (err: any) {
-      console.warn("Backend auth failed:", err.message);
+      console.warn("Auth failed:", err.message);
       return { success: false, error: err.message || "Invalid email or password." };
     }
   };
@@ -600,6 +710,43 @@ export function BillCareProvider({ children }: { children: React.ReactNode }) {
     }
 
     try {
+      // 1. Supabase Auth signup
+      if (isSupabaseConfigured()) {
+        const supaRes = await signUpWithSupabase({
+          email: userData.email,
+          password: userData.password,
+          name: userData.name,
+          phone: userData.phone,
+          salonName: salonData.name,
+          city: salonData.city,
+          category: salonData.category,
+          chairs: salonData.chairs,
+        });
+
+        if (supaRes.requiresEmailVerification) {
+          return { success: true, requiresEmailVerification: true };
+        }
+
+        if (supaRes.success && supaRes.user) {
+          setUser(supaRes.user);
+          persist("billcare_user", supaRes.user);
+          if (supaRes.salon) {
+            setSalon((prev) => ({ ...prev, ...supaRes.salon }));
+            persist("billcare_salon", { ...salon, ...supaRes.salon });
+          }
+          if (supaRes.token) {
+            persist("billcare_token", supaRes.token);
+          }
+          showToast(`Welcome to BillCare! Your workspace for "${salonData.name}" is ready.`);
+          return { success: true };
+        }
+
+        if (supaRes.error) {
+          return { success: false, error: supaRes.error };
+        }
+      }
+
+      // 2. Standalone API fallback
       const res = await billcareApi.signup({
         user: userData,
         salon: salonData,
@@ -617,17 +764,18 @@ export function BillCareProvider({ children }: { children: React.ReactNode }) {
       }
       return { success: false, error: "Failed to create salon account." };
     } catch (err: any) {
-      console.warn("Backend signup failed:", err.message);
+      console.warn("Signup failed:", err.message);
       return { success: false, error: err.message || "Failed to create salon account." };
     }
   };
 
   const logout = () => {
     setUser(null);
+    signOutWithSupabase().catch(() => { });
     try {
       localStorage.removeItem("billcare_user");
       localStorage.removeItem("billcare_token");
-    } catch (e) {}
+    } catch (e) { }
     showToast("Signed out successfully from BillCare.", "info");
   };
 
@@ -1033,12 +1181,14 @@ export function BillCareProvider({ children }: { children: React.ReactNode }) {
     // 2. Transmit to backend database (FastAPI will update customer visits/spend & deduct product stock)
     billcareApi.createInvoice(newInvoice).catch((err) => console.warn("Sync notice createInvoice:", err.message));
 
-    // 3. Optimistically update local customer metrics
+    // 3. Optimistically update local customer metrics & prepaid wallet
     if (data.customerId) {
       setCustomers((prev) => {
+        const isWallet = String(data.paymentMethod).toUpperCase() === "WALLET";
         const updated = prev.map((c) => {
           if (c.id === data.customerId) {
             const addedPoints = Math.round(grandTotalVal * 0.05);
+            const currentWallet = c.walletBalance || 0;
             return {
               ...c,
               totalVisits: (c.totalVisits || 0) + 1,
@@ -1046,6 +1196,7 @@ export function BillCareProvider({ children }: { children: React.ReactNode }) {
               totalSpend: (c.totalSpend || 0) + grandTotalVal,
               totalSpent: (c.totalSpent || c.totalSpend || 0) + grandTotalVal,
               loyaltyPoints: (c.loyaltyPoints || 0) + addedPoints,
+              walletBalance: isWallet ? Math.max(0, currentWallet - grandTotalVal) : currentWallet,
               lastVisitDate: new Date().toISOString().split("T")[0],
             };
           }
@@ -1056,8 +1207,9 @@ export function BillCareProvider({ children }: { children: React.ReactNode }) {
       });
     }
 
-    // 4. Auto-deduct inventory if retail products were sold
+    // 4. Auto-deduct inventory for retail products & service consumable materials
     data.items.forEach((item) => {
+      // 4a. Retail product sale
       if (item.type === "product" && item.id) {
         setInventory((prev) => {
           const updated = prev.map((inv) =>
@@ -1068,6 +1220,22 @@ export function BillCareProvider({ children }: { children: React.ReactNode }) {
           persist("billcare_inventory", updated);
           return updated;
         });
+      }
+      // 4b. Service consumable material deduction (Backbar stock monitor)
+      else if (item.type !== "product") {
+        const srv = services.find((s) => s.id === item.id || s.name === item.name);
+        if (srv?.materialItemId) {
+          const qty = Math.max(1, srv.materialQuantity || 1);
+          setInventory((prev) => {
+            const updated = prev.map((inv) =>
+              inv.id === srv.materialItemId
+                ? { ...inv, currentStock: Math.max(0, inv.currentStock - qty) }
+                : inv
+            );
+            persist("billcare_inventory", updated);
+            return updated;
+          });
+        }
       }
     });
 
@@ -1090,8 +1258,195 @@ export function BillCareProvider({ children }: { children: React.ReactNode }) {
       });
     }
 
+    // 6. Update cash register shift expected cash if cash was received
+    const cashPortion =
+      String(data.paymentMethod).toUpperCase() === "CASH"
+        ? grandTotalVal
+        : Number(data.splitDetails?.cash || data.paymentBreakdown?.cash || 0);
+
+    if (cashPortion > 0) {
+      setCurrentShift((prev) => {
+        if (!prev) return prev;
+        const updated = {
+          ...prev,
+          expectedCash: prev.expectedCash + cashPortion,
+        };
+        persist("billcare_current_shift", updated);
+        return updated;
+      });
+    }
+
     showToast(`Invoice ${invNumber} generated for ${data.customerName}! Payment mode: ${data.paymentMethod}`);
     return newInvoice;
+  };
+
+  const topUpCustomerWallet = async (customerId: string, amount: number) => {
+    setCustomers((prev) => {
+      const updated = prev.map((c) =>
+        c.id === customerId
+          ? { ...c, walletBalance: (c.walletBalance || 0) + amount }
+          : c
+      );
+      persist("billcare_customers", updated);
+      return updated;
+    });
+    showToast(`Added ₹${amount.toLocaleString()} wallet credit!`, "success");
+    billcareApi.request(`/customers/${customerId}/wallet`, {
+      method: "POST",
+      body: JSON.stringify({ amount }),
+    }).catch((e: any) => console.warn("Wallet topup sync notice:", e.message));
+    return { success: true };
+  };
+
+  const sendWhatsAppBill = async (inv: Invoice) => {
+    const rawPhone = (inv.customerPhone || "").replace(/[^0-9]/g, "");
+    const cleanPhone = rawPhone.length === 10 ? `91${rawPhone}` : rawPhone;
+    const text = encodeURIComponent(
+      `*BillCare Receipt - ${salon.name}*\n` +
+      `Invoice: ${inv.invoiceNumber}\n` +
+      `Customer: ${inv.customerName}\n` +
+      `Total: ₹${(inv.grandTotal || inv.total || 0).toLocaleString()}\n` +
+      `Payment: ${inv.paymentMethod}\n\n` +
+      `Thank you for visiting ${salon.name}! Rate your experience: https://g.page/r/billcare/review`
+    );
+    const waUrl = `https://wa.me/${cleanPhone}?text=${text}`;
+    if (typeof window !== "undefined") {
+      window.open(waUrl, "_blank");
+    }
+    showToast(`WhatsApp receipt link opened for ${inv.customerName}!`, "success");
+    billcareApi.request("/whatsapp/send-bill", {
+      method: "POST",
+      body: JSON.stringify({
+        to_phone: cleanPhone,
+        customer_name: inv.customerName,
+        invoice_number: inv.invoiceNumber,
+        total_amount: inv.grandTotal || inv.total || 0,
+        items: inv.items,
+      }),
+    }).catch(() => {});
+    return { success: true };
+  };
+
+  const sendWhatsAppReminder = async (apt: Appointment) => {
+    const rawPhone = (apt.customerPhone || "").replace(/[^0-9]/g, "");
+    const cleanPhone = rawPhone.length === 10 ? `91${rawPhone}` : rawPhone;
+    const text = encodeURIComponent(
+      `*Appointment Reminder - ${salon.name}*\n` +
+      `Hi ${apt.customerName}! Your appointment for *${apt.serviceName}* with stylist *${apt.staffName}* is scheduled for today at *${apt.time}*.\n\n` +
+      `Address: ${salon.address}\n` +
+      `Looking forward to seeing you!`
+    );
+    const waUrl = `https://wa.me/${cleanPhone}?text=${text}`;
+    if (typeof window !== "undefined") {
+      window.open(waUrl, "_blank");
+    }
+    showToast(`WhatsApp reminder dispatched to ${apt.customerName}!`, "info");
+    billcareApi.request("/whatsapp/send-reminder", {
+      method: "POST",
+      body: JSON.stringify({
+        to_phone: cleanPhone,
+        customer_name: apt.customerName,
+        service_name: apt.serviceName,
+        staff_name: apt.staffName,
+        date_time: `${apt.date} at ${apt.time}`,
+      }),
+    }).catch(() => {});
+    return { success: true };
+  };
+
+  const openRegisterShift = async (openingFloat: number, notes?: string) => {
+    const newShift: CashRegisterShift = {
+      id: "shift_" + Date.now(),
+      salonId: salon.id,
+      openedByName: user?.name || "Front Desk Receptionist",
+      openingFloat,
+      expectedCash: openingFloat,
+      status: "open",
+      openedAt: new Date().toISOString(),
+      notes: notes || "Shift opened at Front Desk",
+    };
+    setCurrentShift(newShift);
+    persist("billcare_current_shift", newShift);
+    showToast(`Cash register opened with ₹${openingFloat.toLocaleString()} float!`, "success");
+    billcareApi.openRegisterShift({ openingFloat, notes }).catch(() => {});
+    return { success: true, shift: newShift };
+  };
+
+  const closeRegisterShift = async (countedCash: number, notes?: string) => {
+    if (!currentShift) return { success: false, message: "No open register shift found" };
+    const variance = Math.round((countedCash - currentShift.expectedCash) * 100) / 100;
+    const closedShift: CashRegisterShift = {
+      ...currentShift,
+      countedCash,
+      cashVariance: variance,
+      status: "closed",
+      closedAt: new Date().toISOString(),
+      closedByName: user?.name || "Front Desk Receptionist",
+      notes: notes || `Shift closed with variance of ₹${variance}`,
+    };
+    setCurrentShift(null);
+    localStorage.removeItem("billcare_current_shift");
+    showToast(`Register shift closed! Variance: ₹${variance}`, variance === 0 ? "success" : "warning");
+    billcareApi.closeRegisterShift({ countedCash, notes }).catch(() => {});
+    return { success: true, shift: closedShift };
+  };
+
+  const appendServiceToAppointment = (
+    appointmentId: string,
+    item: { name: string; price: number; durationMinutes?: number; staffName?: string }
+  ) => {
+    setAppointments((prev) => {
+      const updated = prev.map((apt) => {
+        if (apt.id === appointmentId) {
+          const currentServices = apt.servicesList || [
+            { name: apt.serviceName, price: apt.price, durationMinutes: apt.durationMinutes, staffName: apt.staffName },
+          ];
+          const newServices = [...currentServices, item];
+          const combinedNames = newServices.map((s) => s.name).join(" + ");
+          const combinedPrice = newServices.reduce((acc, s) => acc + (s.price || 0), 0);
+          const combinedDuration = newServices.reduce((acc, s) => acc + (s.durationMinutes || 30), 0);
+          return {
+            ...apt,
+            serviceName: combinedNames,
+            price: combinedPrice,
+            durationMinutes: combinedDuration,
+            servicesList: newServices,
+          };
+        }
+        return apt;
+      });
+      persist("billcare_appointments", updated);
+      return updated;
+    });
+    showToast(`Added "${item.name}" to in-chair visit!`, "success");
+  };
+
+  const sendChairReadyWhatsApp = async (apt: Appointment) => {
+    const rawPhone = (apt.customerPhone || "").replace(/[^0-9]/g, "");
+    const cleanPhone = rawPhone.length === 10 ? `91${rawPhone}` : rawPhone;
+    const text = encodeURIComponent(
+      `Hi ${apt.customerName}! ✨ Good news from ${salon.name}: Your chair with stylist ${apt.staffName} is now ready for your ${apt.serviceName} session.\n\nPlease head over to the styling floor. We're ready for you!`
+    );
+    const waUrl = `https://wa.me/${cleanPhone}?text=${text}`;
+    if (typeof window !== "undefined") {
+      window.open(waUrl, "_blank");
+    }
+    setAppointments((prev) => {
+      const updated = prev.map((a) =>
+        a.id === apt.id ? { ...a, buzzedAt: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) } : a
+      );
+      persist("billcare_appointments", updated);
+      return updated;
+    });
+    showToast(`Chair Ready buzz sent to ${apt.customerName}!`, "success");
+    billcareApi
+      .sendWhatsAppCampaign({
+        campaignName: "Chair Ready Buzz",
+        targetPhone: cleanPhone,
+        message: text,
+      })
+      .catch(() => {});
+    return { success: true };
   };
 
   // --------------------------------------------------------------------------
@@ -1197,6 +1552,15 @@ export function BillCareProvider({ children }: { children: React.ReactNode }) {
         deleteAppointment,
 
         createInvoice,
+        topUpCustomerWallet,
+        sendWhatsAppBill,
+        sendWhatsAppReminder,
+
+        currentShift,
+        openRegisterShift,
+        closeRegisterShift,
+        appendServiceToAppointment,
+        sendChairReadyWhatsApp,
 
         addFollowUp,
         markFollowUpSent,
@@ -1234,43 +1598,43 @@ export function BillCareProvider({ children }: { children: React.ReactNode }) {
         updateStaffCommission: (id: string, rate: number) => updateStaff(id, { commissionRate: rate }),
         addStaffMember: addStaff,
         wipeAllData: () => {
-      setCustomers([]);
-      setServices([]);
-      setStaff([]);
-      setInventory([]);
-      setAppointments([]);
-      setInvoices([]);
-      setFollowUps([]);
-      setFeedbacks([]);
-      localStorage.removeItem("billcare_customers");
-      localStorage.removeItem("billcare_services");
-      localStorage.removeItem("billcare_staff");
-      localStorage.removeItem("billcare_inventory");
-      localStorage.removeItem("billcare_appointments");
-      localStorage.removeItem("billcare_invoices");
-      localStorage.removeItem("billcare_followups");
-      localStorage.removeItem("billcare_feedbacks");
-      showToast("Workspace wiped completely clean. Ready for your fresh data!");
-    },
-    resetDemoData: () => {
-      setCustomers([]);
-      setServices([]);
-      setStaff([]);
-      setInventory([]);
-      setAppointments([]);
-      setInvoices([]);
-      setFollowUps([]);
-      setFeedbacks([]);
-      localStorage.removeItem("billcare_customers");
-      localStorage.removeItem("billcare_services");
-      localStorage.removeItem("billcare_staff");
-      localStorage.removeItem("billcare_inventory");
-      localStorage.removeItem("billcare_appointments");
-      localStorage.removeItem("billcare_invoices");
-      localStorage.removeItem("billcare_followups");
-      localStorage.removeItem("billcare_feedbacks");
-      showToast("Workspace wiped completely clean. Ready for your fresh data!");
-    },
+          setCustomers([]);
+          setServices([]);
+          setStaff([]);
+          setInventory([]);
+          setAppointments([]);
+          setInvoices([]);
+          setFollowUps([]);
+          setFeedbacks([]);
+          localStorage.removeItem("billcare_customers");
+          localStorage.removeItem("billcare_services");
+          localStorage.removeItem("billcare_staff");
+          localStorage.removeItem("billcare_inventory");
+          localStorage.removeItem("billcare_appointments");
+          localStorage.removeItem("billcare_invoices");
+          localStorage.removeItem("billcare_followups");
+          localStorage.removeItem("billcare_feedbacks");
+          showToast("Workspace wiped completely clean. Ready for your fresh data!");
+        },
+        resetDemoData: () => {
+          setCustomers([]);
+          setServices([]);
+          setStaff([]);
+          setInventory([]);
+          setAppointments([]);
+          setInvoices([]);
+          setFollowUps([]);
+          setFeedbacks([]);
+          localStorage.removeItem("billcare_customers");
+          localStorage.removeItem("billcare_services");
+          localStorage.removeItem("billcare_staff");
+          localStorage.removeItem("billcare_inventory");
+          localStorage.removeItem("billcare_appointments");
+          localStorage.removeItem("billcare_invoices");
+          localStorage.removeItem("billcare_followups");
+          localStorage.removeItem("billcare_feedbacks");
+          showToast("Workspace wiped completely clean. Ready for your fresh data!");
+        },
         currentPersona: {
           id: user?.id || "usr_owner",
           name: user?.name || "Sunil Kumar",
@@ -1291,15 +1655,14 @@ export function BillCareProvider({ children }: { children: React.ReactNode }) {
         {toasts.map((toast) => (
           <div
             key={toast.id}
-            className={`pointer-events-auto flex items-center justify-between p-3.5 rounded-xl shadow-lg border text-xs font-semibold backdrop-blur-md transition-all animate-in slide-in-from-bottom-2 ${
-              toast.type === "error"
+            className={`pointer-events-auto flex items-center justify-between p-3.5 rounded-xl shadow-lg border text-xs font-semibold backdrop-blur-md transition-all animate-in slide-in-from-bottom-2 ${toast.type === "error"
                 ? "bg-rose-950/90 text-rose-100 border-rose-800"
                 : toast.type === "warning"
-                ? "bg-amber-950/90 text-amber-100 border-amber-800"
-                : toast.type === "info"
-                ? "bg-slate-900/90 text-slate-100 border-slate-700"
-                : "bg-emerald-950/95 text-emerald-100 border-emerald-800"
-            }`}
+                  ? "bg-amber-950/90 text-amber-100 border-amber-800"
+                  : toast.type === "info"
+                    ? "bg-slate-900/90 text-slate-100 border-slate-700"
+                    : "bg-emerald-950/95 text-emerald-100 border-emerald-800"
+              }`}
           >
             <div className="flex items-center gap-2">
               <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>

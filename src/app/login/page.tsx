@@ -8,72 +8,84 @@ import { AuthSplitLayout } from "@/components/auth/auth-split-layout";
 import { AuthInput } from "@/components/auth/auth-input";
 import { AuthButton } from "@/components/auth/auth-button";
 import { DEMO_PERSONAS } from "@/lib/demo-data";
-import { Mail, Lock, Phone, KeyRound, AlertCircle, Sparkles, CheckCircle2, Crown, Headphones } from "lucide-react";
+import { isSupabaseConfigured } from "@/lib/supabase/client";
+import {
+  requestSupabaseEmailOtp,
+  verifySupabaseEmailOtp,
+  signInWithGoogle,
+} from "@/lib/supabase/auth";
+import {
+  Mail,
+  Lock,
+  KeyRound,
+  AlertCircle,
+  Sparkles,
+  CheckCircle2,
+  Crown,
+  Headphones,
+  ArrowRight,
+} from "lucide-react";
 
 export default function LoginPage() {
   const router = useRouter();
   const { salon, login, setSession, showToast } = useBillCare();
 
-  const [authMode, setAuthMode] = useState<"otp" | "password">("otp");
+  const [authMode, setAuthMode] = useState<"manager_otp" | "receptionist_password">("manager_otp");
 
-  // Phone OTP States (Manager Flow)
-  const [phone, setPhone] = useState("+91 98450 33445");
+  // Manager Mail OTP States
+  const [managerEmail, setManagerEmail] = useState("manager@billcare.io");
   const [otp, setOtp] = useState("");
   const [otpSent, setOtpSent] = useState(false);
   const [devOtpHint, setDevOtpHint] = useState<string | null>(null);
   const [otpCooldown, setOtpCooldown] = useState(0);
 
-  // Email & Password States (Receptionist Flow)
-  const [email, setEmail] = useState("");
+  // Receptionist Email & Password States
+  const [receptionistEmail, setReceptionistEmail] = useState("reception@billcare.io");
   const [password, setPassword] = useState("");
   const [rememberMe, setRememberMe] = useState(true);
 
   const [isLoading, setIsLoading] = useState(false);
+  const [isGoogleLoading, setIsGoogleLoading] = useState(false);
   const [errors, setErrors] = useState<{
-    phone?: string;
+    managerEmail?: string;
     otp?: string;
-    email?: string;
+    receptionistEmail?: string;
     password?: string;
     general?: string;
   }>({});
 
-  // 1. Request OTP Flow (Manager)
-  const handleRequestOtp = async (e?: React.FormEvent) => {
+  // 1. Manager: Request Email OTP
+  const handleRequestEmailOtp = async (e?: React.FormEvent) => {
     if (e) e.preventDefault();
     setErrors({});
-    if (!phone || phone.trim().length < 10) {
-      setErrors({ phone: "Please enter a valid 10-digit registered phone number" });
+    const normalized = managerEmail.toLowerCase().trim();
+    if (!normalized || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalized)) {
+      setErrors({ managerEmail: "Please enter a valid work email address" });
       return;
     }
 
     setIsLoading(true);
     try {
-      const res = await fetch("/api/v1/auth/otp/request", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ phone }),
-      });
-      const data = await res.json();
-      if (res.ok && data.success) {
-        setOtpSent(true);
-        if (data.dev_otp) {
-          setDevOtpHint(data.dev_otp);
+      if (isSupabaseConfigured()) {
+        const supaRes = await requestSupabaseEmailOtp(normalized);
+        if (supaRes.success) {
+          setOtpSent(true);
+          showToast(supaRes.message, "info");
+        } else {
+          setErrors({ managerEmail: supaRes.error || "Failed to dispatch email OTP" });
         }
-        showToast(data.message || "OTP code sent to your phone", "info");
       } else {
-        // Fallback for demo / preview environment
+        // Dev / Evaluation mode when Supabase credentials are not yet set
         setOtpSent(true);
         setDevOtpHint("123456");
-        showToast("Dev OTP code: 123456", "info");
+        showToast("Dev Evaluation Code: 123456", "info");
       }
     } catch {
-      // Offline / Netlify standalone preview fallback
       setOtpSent(true);
       setDevOtpHint("123456");
-      showToast("Dev OTP code: 123456 (Evaluation Mode)", "info");
+      showToast("Dev Evaluation Code: 123456 (Preview Mode)", "info");
     } finally {
       setIsLoading(false);
-      // Start 30s resend cooldown
       setOtpCooldown(30);
       const timer = setInterval(() => {
         setOtpCooldown((prev) => {
@@ -87,30 +99,32 @@ export default function LoginPage() {
     }
   };
 
-  // 2. Verify OTP Flow (Manager)
-  const handleVerifyOtp = async (e: React.FormEvent) => {
+  // 2. Manager: Verify Email OTP
+  const handleVerifyEmailOtp = async (e: React.FormEvent) => {
     e.preventDefault();
     setErrors({});
     if (!otp || otp.trim().length < 6) {
-      setErrors({ otp: "Please enter the 6-digit OTP code" });
+      setErrors({ otp: "Please enter the 6-digit verification code" });
       return;
     }
 
     setIsLoading(true);
+    const normalized = managerEmail.toLowerCase().trim();
+
     try {
-      const res = await fetch("/api/v1/auth/otp/verify", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ phone, otp }),
-      });
-      const data = await res.json();
-      if (res.ok && data.success) {
-        if (data.user && data.salon) {
-          setSession(data.user, data.salon, data.token);
+      if (isSupabaseConfigured()) {
+        const supaRes = await verifySupabaseEmailOtp(normalized, otp);
+        if (supaRes.success && supaRes.user && supaRes.salon) {
+          setSession(supaRes.user, { ...salon, ...supaRes.salon } as any, supaRes.token);
+          showToast(`Welcome back, ${supaRes.user.name}! (Salon Manager)`, "success");
+          router.push("/overview");
+          return;
         }
-        showToast(`Welcome back, ${data.user?.name || "Manager"}!`, "success");
-        router.push("/overview");
-        return;
+        if (supaRes.error) {
+          setErrors({ general: supaRes.error });
+          setIsLoading(false);
+          return;
+        }
       }
     } catch {}
 
@@ -121,8 +135,8 @@ export default function LoginPage() {
         {
           id: manager.id,
           name: manager.name,
-          email: manager.email,
-          phone: phone || "+919845033445",
+          email: normalized || manager.email,
+          phone: "+919845033445",
           role: "SALON_MANAGER",
           salonId: salon.id || "sln_billcare_flagship",
           avatar: manager.avatar,
@@ -136,17 +150,17 @@ export default function LoginPage() {
       return;
     }
 
-    setErrors({ general: "Invalid or expired OTP code." });
+    setErrors({ general: "Invalid or expired OTP code. Please request a new one." });
     setIsLoading(false);
   };
 
-  // 3. Email & Password Flow (Receptionist / Manager)
-  const handlePasswordLogin = async (e: React.FormEvent) => {
+  // 3. Receptionist: Email & Password Sign In
+  const handleReceptionistLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setErrors({});
-    const normalized = email.toLowerCase().trim();
+    const normalized = receptionistEmail.toLowerCase().trim();
     if (!normalized || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalized)) {
-      setErrors({ email: "Please enter a valid work email address" });
+      setErrors({ receptionistEmail: "Please enter a valid work email address" });
       return;
     }
     if (!password) {
@@ -161,35 +175,19 @@ export default function LoginPage() {
         if (rememberMe) {
           localStorage.setItem("billcare_remember_email", normalized);
         }
-        showToast("Signed in successfully!", "success");
+        showToast("Signed in to Front Desk!", "success");
         router.push("/front-desk");
         return;
       }
-    } catch {}
-
-    // Test Account Fallback for standalone preview
-    if (normalized === "manager@billcare.io" || normalized === "owner@billcare.io") {
-      const p = DEMO_PERSONAS[0];
-      setSession(
-        {
-          id: p.id,
-          name: p.name,
-          email: p.email,
-          phone: "+919845033445",
-          role: "SALON_MANAGER",
-          salonId: salon.id || "sln_billcare_flagship",
-          avatar: p.avatar,
-        },
-        salon,
-        "dev-jwt-manager-token-2026"
-      );
-      showToast(`Welcome back, ${p.name}! (Salon Manager)`, "success");
-      router.push("/overview");
-      setIsLoading(false);
-      return;
+      if (res.error) {
+        setErrors({ general: res.error });
+      }
+    } catch (err: any) {
+      setErrors({ general: err.message || "Failed to sign in. Please verify credentials." });
     }
 
-    if (normalized === "reception@billcare.io") {
+    // Fallback for demo receptionist credentials in preview mode
+    if (normalized === "reception@billcare.io" && (!password || password === "123456" || password.length >= 4)) {
       const p = DEMO_PERSONAS[1];
       setSession(
         {
@@ -210,8 +208,24 @@ export default function LoginPage() {
       return;
     }
 
-    setErrors({ general: "Invalid email or password. Please try again." });
     setIsLoading(false);
+  };
+
+  // 4. Sign in with Google (OAuth)
+  const handleGoogleSignIn = async () => {
+    setIsGoogleLoading(true);
+    setErrors({});
+
+    try {
+      const res = await signInWithGoogle();
+      if (!res.success && res.error) {
+        setErrors({ general: res.error });
+        setIsGoogleLoading(false);
+      }
+    } catch (err: any) {
+      setErrors({ general: err.message || "Google sign-in could not be initiated." });
+      setIsGoogleLoading(false);
+    }
   };
 
   // Instant 1-Click Evaluation Login
@@ -272,7 +286,7 @@ export default function LoginPage() {
             </span>
           </div>
           <p className="text-xs text-[#A1A1AA] mt-1.5">
-            Two distinct business login flows for Manager and Receptionist.
+            Manager Mail OTP login & Receptionist password access.
           </p>
         </div>
 
@@ -281,31 +295,31 @@ export default function LoginPage() {
           <button
             type="button"
             onClick={() => {
-              setAuthMode("otp");
+              setAuthMode("manager_otp");
               setErrors({});
             }}
             className={`py-2 text-xs font-semibold rounded-lg transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
-              authMode === "otp"
-                ? "bg-[#FACC15] text-[#080808] shadow-sm font-bold"
-                : "text-[#A1A1AA] hover:text-[#F8FAFC]"
-            }`}
-          >
-            <Phone className="w-3.5 h-3.5" />
-            <span>Manager Phone OTP</span>
-          </button>
-          <button
-            type="button"
-            onClick={() => {
-              setAuthMode("password");
-              setErrors({});
-            }}
-            className={`py-2 text-xs font-semibold rounded-lg transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
-              authMode === "password"
+              authMode === "manager_otp"
                 ? "bg-[#FACC15] text-[#080808] shadow-sm font-bold"
                 : "text-[#A1A1AA] hover:text-[#F8FAFC]"
             }`}
           >
             <Mail className="w-3.5 h-3.5" />
+            <span>Manager Mail OTP</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              setAuthMode("receptionist_password");
+              setErrors({});
+            }}
+            className={`py-2 text-xs font-semibold rounded-lg transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
+              authMode === "receptionist_password"
+                ? "bg-[#FACC15] text-[#080808] shadow-sm font-bold"
+                : "text-[#A1A1AA] hover:text-[#F8FAFC]"
+            }`}
+          >
+            <Lock className="w-3.5 h-3.5" />
             <span>Receptionist Login</span>
           </button>
         </div>
@@ -320,44 +334,44 @@ export default function LoginPage() {
           </div>
         )}
 
-        {/* MODE 1: MANAGER PHONE OTP */}
-        {authMode === "otp" ? (
+        {/* MODE 1: MANAGER MAIL OTP */}
+        {authMode === "manager_otp" ? (
           !otpSent ? (
-            <form onSubmit={handleRequestOtp} className="space-y-4">
+            <form onSubmit={handleRequestEmailOtp} className="space-y-4">
               <div className="space-y-1.5">
                 <AuthInput
-                  label="Registered Phone Number"
-                  id="manager-phone"
-                  type="tel"
-                  placeholder="+91 98450 33445"
-                  value={phone}
+                  label="Manager Work Email"
+                  id="manager-email"
+                  type="email"
+                  placeholder="manager@billcare.io"
+                  value={managerEmail}
                   onChange={(e) => {
-                    setPhone(e.target.value);
-                    if (errors.phone) setErrors((prev) => ({ ...prev, phone: undefined }));
+                    setManagerEmail(e.target.value);
+                    if (errors.managerEmail) setErrors((prev) => ({ ...prev, managerEmail: undefined }));
                   }}
-                  error={errors.phone}
-                  icon={<Phone className="w-4 h-4" />}
+                  error={errors.managerEmail}
+                  icon={<Mail className="w-4 h-4" />}
                   required
                   autoFocus
                 />
                 <span className="text-[11px] text-[#71717A] block">
-                  A 6-digit one-time passcode will be sent to this manager number.
+                  A 6-digit one-time passcode will be delivered to your registered email.
                 </span>
               </div>
 
               <div className="pt-2">
                 <AuthButton isLoading={isLoading}>
-                  Send Verification Code
+                  Send Login Code to Email
                 </AuthButton>
               </div>
             </form>
           ) : (
-            <form onSubmit={handleVerifyOtp} className="space-y-4 animate-in fade-in duration-150">
+            <form onSubmit={handleVerifyEmailOtp} className="space-y-4 animate-in fade-in duration-150">
               <div className="bg-[#18181B] border border-[#27272A] rounded-xl p-3 flex items-center justify-between text-xs">
                 <div className="flex items-center gap-2">
                   <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
                   <span className="text-[#A1A1AA]">
-                    Code sent to <span className="text-white font-medium">{phone}</span>
+                    Code sent to <span className="text-white font-medium">{managerEmail}</span>
                   </span>
                 </div>
                 <button
@@ -376,7 +390,7 @@ export default function LoginPage() {
                 <div className="p-3 bg-[#FACC15]/10 border border-[#FACC15]/30 rounded-xl text-xs text-[#FACC15] flex items-center justify-between">
                   <div className="flex items-center gap-1.5">
                     <Sparkles className="w-4 h-4 shrink-0" />
-                    <span>Dev Environment Code: <strong>{devOtpHint}</strong></span>
+                    <span>Dev Evaluation Code: <strong>{devOtpHint}</strong></span>
                   </div>
                   <button
                     type="button"
@@ -390,7 +404,7 @@ export default function LoginPage() {
 
               <div className="space-y-1.5">
                 <AuthInput
-                  label="Enter 6-Digit OTP"
+                  label="Enter 6-Digit Email Code"
                   id="manager-otp"
                   type="text"
                   maxLength={6}
@@ -408,11 +422,11 @@ export default function LoginPage() {
               </div>
 
               <div className="flex items-center justify-between text-xs text-[#71717A]">
-                <span>Didn't receive code?</span>
+                <span>Didn't receive email? Check spam folder or</span>
                 <button
                   type="button"
                   disabled={otpCooldown > 0 || isLoading}
-                  onClick={() => handleRequestOtp()}
+                  onClick={() => handleRequestEmailOtp()}
                   className="text-[#FACC15] hover:underline font-medium disabled:opacity-50 cursor-pointer"
                 >
                   {otpCooldown > 0 ? `Resend in ${otpCooldown}s` : "Resend OTP"}
@@ -428,18 +442,18 @@ export default function LoginPage() {
           )
         ) : (
           /* MODE 2: RECEPTIONIST EMAIL + PASSWORD */
-          <form onSubmit={handlePasswordLogin} className="space-y-4 animate-in fade-in duration-150">
+          <form onSubmit={handleReceptionistLogin} className="space-y-4 animate-in fade-in duration-150">
             <AuthInput
-              label="Receptionist Email"
+              label="Receptionist Work Email"
               id="receptionist-email"
               type="email"
               placeholder="reception@billcare.io"
-              value={email}
+              value={receptionistEmail}
               onChange={(e) => {
-                setEmail(e.target.value);
-                if (errors.email) setErrors((prev) => ({ ...prev, email: undefined }));
+                setReceptionistEmail(e.target.value);
+                if (errors.receptionistEmail) setErrors((prev) => ({ ...prev, receptionistEmail: undefined }));
               }}
-              error={errors.email}
+              error={errors.receptionistEmail}
               icon={<Mail className="w-4 h-4" />}
               required
               autoFocus
@@ -489,44 +503,94 @@ export default function LoginPage() {
           </form>
         )}
 
+        {/* OR DIVIDER */}
+        <div className="relative my-6">
+          <div className="absolute inset-0 flex items-center">
+            <div className="w-full border-t border-[#27272A]" />
+          </div>
+          <div className="relative flex justify-center text-xs uppercase">
+            <span className="bg-[#101010] px-3 text-[#71717A] font-mono tracking-wider">
+              Or continue with
+            </span>
+          </div>
+        </div>
+
+        {/* SIGN IN WITH GOOGLE */}
+        <button
+          type="button"
+          onClick={handleGoogleSignIn}
+          disabled={isGoogleLoading || isLoading}
+          className="w-full py-2.5 px-4 rounded-xl border border-[#27272A] bg-[#18181B] hover:bg-[#202024] text-[#F8FAFC] text-xs font-semibold flex items-center justify-center gap-2.5 transition-all shadow-sm cursor-pointer disabled:opacity-50"
+        >
+          <svg className="w-4 h-4 shrink-0" viewBox="0 0 24 24">
+            <path
+              fill="#4285F4"
+              d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
+            />
+            <path
+              fill="#34A853"
+              d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"
+            />
+            <path
+              fill="#FBBC05"
+              d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z"
+            />
+            <path
+              fill="#EA4335"
+              d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z"
+            />
+          </svg>
+          <span>{isGoogleLoading ? "Connecting to Google..." : "Sign in with Google"}</span>
+        </button>
+
         {/* 1-Click Fast Evaluation Login Cards */}
         <div className="mt-6 pt-5 border-t border-[#27272A] space-y-2.5">
           <div className="flex items-center justify-between">
             <span className="text-[11px] font-mono font-bold text-[#A1A1AA] uppercase tracking-wider flex items-center gap-1.5">
               <Sparkles className="w-3 h-3 text-[#FACC15]" /> Instant Evaluation Login
             </span>
-            <span className="text-[10px] text-emerald-400 font-mono">1-Click</span>
+            <span className="text-[10px] text-[#71717A]">1-Click Sandbox Bypass</span>
           </div>
+
           <div className="grid grid-cols-2 gap-2">
             <button
               type="button"
               onClick={() => handleOneClickLogin("SALON_MANAGER")}
-              className="p-2.5 bg-[#141414] hover:bg-[#1C1C1C] border border-[#FACC15]/30 hover:border-[#FACC15] rounded-xl text-xs font-bold text-[#FACC15] flex items-center justify-center gap-1.5 transition-all cursor-pointer shadow-xs"
-              title="Sign in directly as Kavita Rao (Manager)"
+              className="p-2.5 rounded-xl bg-[#18181B] hover:bg-[#202024] border border-[#27272A] hover:border-[#FACC15]/40 text-left transition-all group cursor-pointer"
             >
-              <Crown className="w-3.5 h-3.5 text-[#FACC15]" />
-              <span>Manager Test</span>
+              <div className="flex items-center gap-1.5 text-xs font-semibold text-[#F8FAFC] group-hover:text-[#FACC15]">
+                <Crown className="w-3.5 h-3.5 text-[#FACC15]" />
+                <span>Salon Manager</span>
+              </div>
+              <span className="text-[11px] text-[#71717A] block mt-0.5 truncate">
+                Kavita Rao • Manager Console
+              </span>
             </button>
+
             <button
               type="button"
               onClick={() => handleOneClickLogin("SALON_RECEPTIONIST")}
-              className="p-2.5 bg-[#141414] hover:bg-[#1C1C1C] border border-[#27272A] hover:border-slate-400 rounded-xl text-xs font-bold text-[#F8FAFC] flex items-center justify-center gap-1.5 transition-all cursor-pointer shadow-xs"
-              title="Sign in directly as Ananya Sen (Receptionist)"
+              className="p-2.5 rounded-xl bg-[#18181B] hover:bg-[#202024] border border-[#27272A] hover:border-[#FACC15]/40 text-left transition-all group cursor-pointer"
             >
-              <Headphones className="w-3.5 h-3.5 text-blue-400" />
-              <span>Receptionist Test</span>
+              <div className="flex items-center gap-1.5 text-xs font-semibold text-[#F8FAFC] group-hover:text-[#FACC15]">
+                <Headphones className="w-3.5 h-3.5 text-emerald-400" />
+                <span>Receptionist</span>
+              </div>
+              <span className="text-[11px] text-[#71717A] block mt-0.5 truncate">
+                Ananya Sen • Front Desk POS
+              </span>
             </button>
           </div>
         </div>
 
-        {/* Footer */}
-        <div className="mt-5 pt-4 border-t border-[#27272A] text-center text-xs text-[#A1A1AA]">
-          <span>Register a new salon studio? </span>
+        {/* Footer Links */}
+        <div className="mt-6 pt-4 border-t border-[#27272A] text-center text-xs text-[#A1A1AA]">
+          Don't have a salon workspace yet?{" "}
           <Link
             href="/signup"
-            className="text-[#FACC15] hover:text-[#EAB308] font-medium"
+            className="text-[#FACC15] hover:text-[#EAB308] font-semibold inline-flex items-center gap-1 ml-1"
           >
-            Start 7-Day Free Trial
+            Start free trial <ArrowRight className="w-3 h-3" />
           </Link>
         </div>
       </div>

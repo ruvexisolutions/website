@@ -4,6 +4,7 @@ import React, { useState, Suspense } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { AuthSplitLayout } from "@/components/auth/auth-split-layout";
+import { createClient, isSupabaseConfigured } from "@/lib/supabase/client";
 import { Mail, CheckCircle2, RefreshCw, ArrowLeft, AlertCircle } from "lucide-react";
 
 function VerifyEmailContent() {
@@ -17,8 +18,19 @@ function VerifyEmailContent() {
     setResentMessage("");
 
     try {
-      // Simulate/trigger resend notification
-      await new Promise((resolve) => setTimeout(resolve, 800));
+      if (isSupabaseConfigured() && email && email.includes("@")) {
+        const supabase = createClient();
+        const { error } = await supabase.auth.resend({
+          type: "signup",
+          email: email.trim().toLowerCase(),
+        });
+        if (error) {
+          setResentMessage(`Supabase: ${error.message}`);
+          return;
+        }
+      } else {
+        await new Promise((resolve) => setTimeout(resolve, 800));
+      }
       setResentMessage("Verification link sent! Please check your inbox and spam folder.");
     } catch {
       setResentMessage("Unable to resend email right now. Please try again shortly.");

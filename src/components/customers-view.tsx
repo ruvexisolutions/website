@@ -27,6 +27,7 @@ import {
   History,
   Gift,
   ChevronDown,
+  Wallet,
 } from "lucide-react";
 
 interface CustomersViewProps {
@@ -35,7 +36,7 @@ interface CustomersViewProps {
 }
 
 export function CustomersView({ onGoToPos, onGoToBooking }: CustomersViewProps) {
-  const { customers, invoices, addCustomer, updateCustomer } = useBillCare();
+  const { customers, invoices, addCustomer, updateCustomer, topUpCustomerWallet } = useBillCare();
 
   const [searchQuery, setSearchQuery] = useState("");
   const [tierFilter, setTierFilter] = useState<string>("All");
@@ -43,6 +44,8 @@ export function CustomersView({ onGoToPos, onGoToBooking }: CustomersViewProps) 
     useState<any>(null);
   const [showAddModal, setShowAddModal] = useState(false);
   const [expandedHistoryCustomerId, setExpandedHistoryCustomerId] = useState<string | null>(null);
+  const [walletTopUpCustomer, setWalletTopUpCustomer] = useState<any>(null);
+  const [topUpAmount, setTopUpAmount] = useState<number>(2000);
 
   // New customer form state
   const [newName, setNewName] = useState("");
@@ -341,6 +344,26 @@ export function CustomersView({ onGoToPos, onGoToBooking }: CustomersViewProps) 
                   </div>
                 </div>
 
+                {/* Prepaid Wallet Bar */}
+                <div className="mt-2.5 p-2 bg-purple-500/10 border border-purple-500/20 rounded-lg flex items-center justify-between text-xs">
+                  <div className="flex items-center gap-1.5 text-purple-300">
+                    <Wallet className="w-3.5 h-3.5 text-purple-400 shrink-0" />
+                    <span className="text-[11px] font-mono">Prepaid Wallet:</span>
+                    <span className="font-bold font-mono text-purple-200">
+                      {formatCurrency(cust.walletBalance || 0)}
+                    </span>
+                  </div>
+                  <button
+                    onClick={() => {
+                      setWalletTopUpCustomer(cust);
+                      setTopUpAmount(2000);
+                    }}
+                    className="px-2 py-0.5 rounded bg-purple-600 hover:bg-purple-500 text-white font-mono text-[10px] font-bold transition-colors cursor-pointer"
+                  >
+                    + Top Up
+                  </button>
+                </div>
+
                 {/* Technical Formula Snippet */}
                 {cust.formulaNotes && (
                   <div className="mt-3 p-2.5 bg-[#101010] rounded-lg border border-[#27272A] text-[11px]">
@@ -567,6 +590,88 @@ export function CustomersView({ onGoToPos, onGoToBooking }: CustomersViewProps) 
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Prepaid Wallet Top-Up Modal */}
+      {walletTopUpCustomer && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-md p-4 animate-in fade-in">
+          <div className="bg-[#101010] border border-[#27272A] rounded-2xl shadow-2xl p-6 w-full max-w-sm space-y-4 animate-in zoom-in-95">
+            <div className="flex items-center justify-between pb-3 border-b border-[#27272A]">
+              <div className="flex items-center gap-2.5">
+                <div className="w-9 h-9 rounded-xl bg-purple-500/20 text-purple-400 flex items-center justify-center border border-purple-500/30">
+                  <Wallet className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="font-bold text-sm text-[#F8FAFC]">Prepaid Wallet Top-Up</h3>
+                  <p className="text-[11px] text-[#71717A]">{walletTopUpCustomer.name}</p>
+                </div>
+              </div>
+              <button
+                onClick={() => setWalletTopUpCustomer(null)}
+                className="text-[#71717A] hover:text-[#F8FAFC] cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="p-3 bg-[#181818] rounded-xl border border-[#27272A] flex justify-between items-center text-xs">
+              <span className="text-[#A1A1AA]">Current Available Balance:</span>
+              <span className="font-mono font-bold text-purple-400 text-sm">
+                {formatCurrency(walletTopUpCustomer.walletBalance || 0)}
+              </span>
+            </div>
+
+            <div className="space-y-2">
+              <label className="text-xs font-mono text-[#A1A1AA] block">Quick Package Amount</label>
+              <div className="grid grid-cols-4 gap-1.5">
+                {[1000, 2000, 5000, 10000].map((amt) => (
+                  <button
+                    key={amt}
+                    type="button"
+                    onClick={() => setTopUpAmount(amt)}
+                    className={`py-2 rounded-xl text-xs font-mono font-bold border transition-all cursor-pointer ${
+                      topUpAmount === amt
+                        ? "bg-purple-600 text-white border-purple-500 shadow-md shadow-purple-600/20"
+                        : "bg-[#181818] text-[#A1A1AA] border-[#27272A] hover:bg-[#27272A]"
+                    }`}
+                  >
+                    ₹{amt >= 1000 ? `${amt / 1000}k` : amt}
+                  </button>
+                ))}
+              </div>
+              <div className="pt-1.5">
+                <label className="text-[11px] font-mono text-[#71717A] block mb-1">Or Enter Custom Top-Up (₹)</label>
+                <input
+                  type="number"
+                  min="100"
+                  step="100"
+                  value={topUpAmount || ""}
+                  onChange={(e) => setTopUpAmount(Number(e.target.value) || 0)}
+                  className="w-full px-3.5 py-2.5 bg-[#181818] border border-[#27272A] rounded-xl font-mono text-sm font-bold text-[#F8FAFC] focus:outline-none focus:border-purple-500"
+                  placeholder="e.g. 3500"
+                />
+              </div>
+            </div>
+
+            <div className="pt-2">
+              <button
+                type="button"
+                disabled={!topUpAmount || topUpAmount <= 0}
+                onClick={async () => {
+                  if (walletTopUpCustomer && topUpAmount > 0) {
+                    await topUpCustomerWallet(walletTopUpCustomer.id, topUpAmount);
+                    setWalletTopUpCustomer(null);
+                    setTopUpAmount(2000);
+                  }
+                }}
+                className="w-full py-3 bg-purple-600 hover:bg-purple-500 disabled:opacity-40 disabled:cursor-not-allowed text-white font-bold text-xs rounded-xl shadow-lg shadow-purple-600/20 transition-all cursor-pointer flex items-center justify-center gap-1.5"
+              >
+                <Wallet className="w-4 h-4" />
+                <span>Credit {formatCurrency(topUpAmount || 0)} to Customer Wallet</span>
+              </button>
+            </div>
           </div>
         </div>
       )}

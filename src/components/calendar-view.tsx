@@ -45,6 +45,7 @@ export function CalendarView({ onGoToPosBilling }: CalendarViewProps) {
     updateCustomer,
     updateAppointmentStatus,
     bookAppointment,
+    sendWhatsAppReminder,
   } = useBillCare();
 
   // View state: "day" (timeline matrix), "week" (7-day column view), or "cards"
@@ -674,6 +675,13 @@ export function CalendarView({ onGoToPosBilling }: CalendarViewProps) {
                 </span>
                 <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
                   <button
+                    onClick={() => sendWhatsAppReminder(apt)}
+                    className="p-1.5 rounded-lg text-emerald-400 hover:bg-[#1C1C1C] border border-[#27272A] transition-colors"
+                    title="Send WhatsApp Reminder"
+                  >
+                    <Phone className="w-3.5 h-3.5" />
+                  </button>
+                  <button
                     onClick={() => handleOpenFormulaCard(apt.customerName)}
                     className="p-1.5 rounded-lg text-[#FACC15] hover:bg-[#1C1C1C] border border-[#27272A]"
                     title="Formula Card"
@@ -809,14 +817,27 @@ export function CalendarView({ onGoToPosBilling }: CalendarViewProps) {
               </div>
             </div>
 
-            <div className="pt-3 border-t border-[#27272A] flex items-center justify-between">
-              <button
-                onClick={() => handleOpenFormulaCard(selectedAppointmentForDetail.customerName)}
-                className="px-3 py-2 rounded-xl bg-[#181818] hover:bg-[#1C1C1C] text-[#FACC15] border border-[#27272A] text-xs font-semibold flex items-center gap-1.5 transition-colors"
-              >
-                <Sparkles className="w-3.5 h-3.5" />
-                <span>Formula Notes</span>
-              </button>
+            <div className="pt-3 border-t border-[#27272A] flex flex-wrap items-center justify-between gap-2">
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => handleOpenFormulaCard(selectedAppointmentForDetail.customerName)}
+                  className="px-3 py-2 rounded-xl bg-[#181818] hover:bg-[#1C1C1C] text-[#FACC15] border border-[#27272A] text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer"
+                >
+                  <Sparkles className="w-3.5 h-3.5" />
+                  <span>Formula Notes</span>
+                </button>
+
+                <button
+                  onClick={() => {
+                    sendWhatsAppReminder(selectedAppointmentForDetail);
+                  }}
+                  className="px-3 py-2 rounded-xl bg-emerald-500/15 hover:bg-emerald-500/25 text-emerald-400 border border-emerald-500/30 text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer"
+                  title="Send 1-Click WhatsApp Appointment Reminder"
+                >
+                  <Phone className="w-3.5 h-3.5" />
+                  <span>Send Reminder</span>
+                </button>
+              </div>
 
               {onGoToPosBilling && (
                 <button
@@ -825,7 +846,7 @@ export function CalendarView({ onGoToPosBilling }: CalendarViewProps) {
                     setSelectedAppointmentForDetail(null);
                     onGoToPosBilling(apt.customerName, apt.serviceName, apt.staffName);
                   }}
-                  className="px-4 py-2 bg-[#FACC15] hover:bg-[#EAB308] text-[#080808] font-bold text-xs uppercase tracking-wider rounded-xl shadow-md transition-all flex items-center gap-1.5"
+                  className="px-4 py-2 bg-[#FACC15] hover:bg-[#EAB308] text-[#080808] font-bold text-xs uppercase tracking-wider rounded-xl shadow-md transition-all flex items-center gap-1.5 cursor-pointer"
                 >
                   <Receipt className="w-4 h-4" />
                   <span>Send to POS Billing</span>

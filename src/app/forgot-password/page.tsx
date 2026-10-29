@@ -6,6 +6,8 @@ import { AuthSplitLayout } from "@/components/auth/auth-split-layout";
 import { AuthInput } from "@/components/auth/auth-input";
 import { AuthButton } from "@/components/auth/auth-button";
 import { billcareApi } from "@/lib/api-client";
+import { requestSupabasePasswordReset } from "@/lib/supabase/auth";
+import { isSupabaseConfigured } from "@/lib/supabase/client";
 import { Mail, CheckCircle2, ArrowLeft, AlertCircle } from "lucide-react";
 
 export default function ForgotPasswordPage() {
@@ -31,10 +33,18 @@ export default function ForgotPasswordPage() {
     setIsLoading(true);
 
     try {
-      await billcareApi.forgotPassword(normalizedEmail);
-      setIsSubmitted(true);
+      if (isSupabaseConfigured()) {
+        const supaRes = await requestSupabasePasswordReset(normalizedEmail);
+        if (supaRes.success) {
+          setIsSubmitted(true);
+        } else {
+          setError(supaRes.error || "Unable to send reset email.");
+        }
+      } else {
+        await billcareApi.forgotPassword(normalizedEmail);
+        setIsSubmitted(true);
+      }
     } catch (err: any) {
-      // Still show confirmation without revealing whether account exists, unless client network fails
       if (err.message && err.message.includes("Network")) {
         setError("Unable to reach the server. Please check your connection.");
       } else {

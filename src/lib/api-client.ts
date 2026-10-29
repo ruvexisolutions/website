@@ -253,6 +253,12 @@ export const billcareApi = {
       method: "POST",
       body: JSON.stringify(data),
     }),
+  topUpWallet: (customerId: string, amount: number) =>
+    request<any>(`/customers/${customerId}/wallet`, {
+      method: "POST",
+      body: JSON.stringify({ amount }),
+    }),
+  request,
 
   // Subscription & 7-Day Trial Management
   getSubscriptionStatus: () => request<any>("/subscription/status"),
@@ -304,5 +310,18 @@ export const billcareApi = {
     }),
   getInvoicePayments: (invoiceId: string) =>
     request<any[]>(`/invoices/${invoiceId}/payments`),
+
+  // Cash Register Shift Management (Front Desk)
+  getCurrentShift: () => request<any>("/register/current"),
+  openRegisterShift: (data: { openingFloat?: number; notes?: string }) =>
+    request<any>("/register/open", {
+      method: "POST",
+      body: JSON.stringify(data),
+    }),
+  closeRegisterShift: (data: { countedCash: number; notes?: string }) =>
+    request<any>("/register/close", {
+      method: "POST",
+      body: JSON.stringify(data),
+    }),
 };
 

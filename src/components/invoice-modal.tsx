@@ -19,11 +19,13 @@ import {
   Copy,
   Check,
   UserCheck,
-  ArrowRight
+  ArrowRight,
+  Calendar,
 } from "lucide-react";
 import QRCode from "qrcode";
 import { ThermalReceipt } from "./pos/thermal-receipt";
 import { billcareApi } from "@/lib/api-client";
+import { useBillCare } from "@/lib/billcare-context";
 
 interface InvoiceModalProps {
   invoice: any;
@@ -33,6 +35,7 @@ interface InvoiceModalProps {
 }
 
 export function InvoiceModal({ invoice: initialInvoice, salon, onClose, onPaymentConfirmed }: InvoiceModalProps) {
+  const { bookAppointment, showToast, sendWhatsAppBill } = useBillCare();
   const [invoice, setInvoice] = useState<any>(initialInvoice);
   const [copied, setCopied] = useState(false);
   const [copiedUpi, setCopiedUpi] = useState(false);
@@ -43,7 +46,43 @@ export function InvoiceModal({ invoice: initialInvoice, salon, onClose, onPaymen
   const [upiIntentUri, setUpiIntentUri] = useState<string>("");
   const [isConfirmingUpi, setIsConfirmingUpi] = useState<boolean>(false);
   const [confirmationError, setConfirmationError] = useState<string | null>(null);
+  const [rebooked, setRebooked] = useState<boolean>(false);
   const printRef = useRef<HTMLDivElement>(null);
+
+  // 4-week rebooking date calculation
+  const rebookDate = new Date();
+  rebookDate.setDate(rebookDate.getDate() + 28);
+  const formattedRebookDate = rebookDate.toISOString().split("T")[0];
+  const displayRebookDate = rebookDate.toLocaleDateString("en-IN", {
+    weekday: "short",
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+  });
+
+  const handleRebook = () => {
+    const primaryItem = invoice.items?.[0];
+    const serviceName = primaryItem?.name || "Styling & Touch-up";
+    const staffName = primaryItem?.staffName || invoice.staffName || "Priya Sharma";
+    try {
+      bookAppointment({
+        customerName: invoice.customerName || "Valued Client",
+        customerPhone: invoice.customerPhone || "+91 90000 00000",
+        serviceName,
+        staffName,
+        time: "11:00 AM",
+        date: formattedRebookDate,
+        durationMinutes: 60,
+        price: primaryItem?.price || 1500,
+        source: "Checkout 4-Week Rebooking Retention",
+        notes: `Auto-rebooked at checkout following invoice #${invoice.invoiceNumber}`,
+      });
+      setRebooked(true);
+      showToast(`Appointment reserved for ${invoice.customerName} on ${displayRebookDate}!`, "success");
+    } catch (e: any) {
+      showToast("Could not reserve appointment: " + (e?.message || "Error"), "error");
+    }
+  };
 
   const isPaid = invoice.status === "paid" || invoice.status === "PAID";
   const isUpi = invoice.paymentMethod?.toUpperCase().includes("UPI");
@@ -108,23 +147,8 @@ export function InvoiceModal({ invoice: initialInvoice, salon, onClose, onPaymen
     setWhatsAppResult(null);
 
     try {
-      const res = await fetch("/api/v1/whatsapp/send-bill", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          customerPhone: invoice.customerPhone,
-          customerName: invoice.customerName,
-          invoiceNumber: invoice.invoiceNumber,
-          totalAmount: invoice.total || invoice.grandTotal || 0,
-          items: invoice.items || [],
-        }),
-      });
-      const data = await res.json();
-      if (data.success) {
-        setWhatsAppResult(data.is_live ? "Dispatched via Meta Graph API v20.0" : "Dispatched via Meta Cloud API");
-      } else {
-        setWhatsAppResult("Direct link ready");
-      }
+      await sendWhatsAppBill(invoice);
+      setWhatsAppResult("WhatsApp Receipt dispatched!");
     } catch {
       setWhatsAppResult("Sent via Web Client");
     } finally {
@@ -358,7 +382,8 @@ export function InvoiceModal({ invoice: initialInvoice, salon, onClose, onPaymen
               {/* Left Column: Settlement & Audit Card */}
               <div className="w-full md:flex-1 space-y-3">
                 {isPaid ? (
-                  /* Paid Invoice Settlement Receipt */
+                  <div className="space-y-3">
+                    {/* Paid Invoice Settlement Receipt */}
                   <div className="p-4 bg-emerald-50/60 rounded-2xl border border-emerald-200 text-xs text-slate-700 space-y-2">
                     <div className="flex items-center gap-2 text-emerald-900 font-extrabold text-sm">
                       <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
@@ -411,6 +436,38 @@ export function InvoiceModal({ invoice: initialInvoice, salon, onClose, onPaymen
                       )}
                     </div>
                   </div>
+
+                  {/* Feature 2: At-Checkout Rebooking Retention Prompt */}
+                  <div className="p-3.5 bg-gradient-to-br from-amber-500/10 via-amber-500/5 to-transparent rounded-2xl border border-amber-500/30 text-xs text-slate-800 space-y-2">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-1.5 font-bold text-xs text-amber-900">
+                        <Calendar className="w-4 h-4 text-amber-600 shrink-0" />
+                        <span>4-Week Retention Rebooking</span>
+                      </div>
+                      <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded-full bg-amber-100 text-amber-800 border border-amber-200">
+                        {displayRebookDate}
+                      </span>
+                    </div>
+                    <p className="text-[11px] text-slate-600 leading-snug">
+                      Reserve the client's next session with <span className="font-semibold text-slate-900">{invoice.items?.[0]?.staffName || invoice.staffName || "their stylist"}</span> in 4 weeks to maximize retention.
+                    </p>
+                    {rebooked ? (
+                      <div className="p-2 rounded-xl bg-emerald-100 border border-emerald-300 text-emerald-900 text-xs font-bold flex items-center gap-2">
+                        <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                        <span>Reserved for {displayRebookDate} at 11:00 AM! Added to Chair Schedule.</span>
+                      </div>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={handleRebook}
+                        className="w-full py-2 px-3 bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-xs rounded-xl shadow-sm flex items-center justify-center gap-1.5 transition-all cursor-pointer"
+                      >
+                        <Calendar className="w-3.5 h-3.5" />
+                        <span>1-Click Rebook for {displayRebookDate}</span>
+                      </button>
+                    )}
+                  </div>
+                </div>
                 ) : (
                   /* Pending Invoice Verification Card */
                   <div className="p-4 bg-amber-50 rounded-2xl border border-amber-300 text-xs text-amber-900 space-y-3">

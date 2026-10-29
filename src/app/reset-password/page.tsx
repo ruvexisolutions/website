@@ -7,6 +7,8 @@ import { AuthSplitLayout } from "@/components/auth/auth-split-layout";
 import { AuthInput } from "@/components/auth/auth-input";
 import { AuthButton } from "@/components/auth/auth-button";
 import { billcareApi } from "@/lib/api-client";
+import { updateSupabasePassword } from "@/lib/supabase/auth";
+import { isSupabaseConfigured } from "@/lib/supabase/client";
 import { Lock, CheckCircle2, AlertCircle, ArrowLeft } from "lucide-react";
 
 function ResetPasswordForm() {
@@ -62,7 +64,7 @@ function ResetPasswordForm() {
     e.preventDefault();
     setErrors({});
 
-    if (!token) {
+    if (!token && !isSupabaseConfigured()) {
       setErrors({
         general: "Missing or invalid reset token. Please request a new password reset link.",
       });
@@ -74,11 +76,20 @@ function ResetPasswordForm() {
     setIsLoading(true);
 
     try {
-      await billcareApi.resetPassword({
-        token,
-        new_password: newPassword,
-      });
-      setIsSuccess(true);
+      if (isSupabaseConfigured()) {
+        const supaRes = await updateSupabasePassword(newPassword);
+        if (supaRes.success) {
+          setIsSuccess(true);
+        } else {
+          setErrors({ general: supaRes.error || "Failed to update password." });
+        }
+      } else {
+        await billcareApi.resetPassword({
+          token,
+          new_password: newPassword,
+        });
+        setIsSuccess(true);
+      }
     } catch (err: any) {
       setErrors({
         general:
