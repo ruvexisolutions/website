@@ -34,7 +34,7 @@ export default function AcceptInvitationPage() {
     async function checkToken() {
       setIsLoading(true);
       try {
-        const res = await fetch(`http://localhost:8000/api/v1/invitations/${token}`);
+        const res = await fetch(`/api/v1/invitations/${token}`);
         if (res.ok) {
           const data = await res.json();
           setInviteData(data);
@@ -61,7 +61,7 @@ export default function AcceptInvitationPage() {
 
     setIsSubmitting(true);
     try {
-      const res = await fetch("http://localhost:8000/api/v1/invitations/accept", {
+      const res = await fetch("/api/v1/invitations/accept", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({

@@ -48,7 +48,7 @@ export default function LoginPage() {
 
     setIsLoading(true);
     try {
-      const res = await fetch("http://localhost:8000/api/v1/auth/otp/request", {
+      const res = await fetch("/api/v1/auth/otp/request", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ phone }),
@@ -98,7 +98,7 @@ export default function LoginPage() {
 
     setIsLoading(true);
     try {
-      const res = await fetch("http://localhost:8000/api/v1/auth/otp/verify", {
+      const res = await fetch("/api/v1/auth/otp/verify", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ phone, otp }),
