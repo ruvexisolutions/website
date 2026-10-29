@@ -3,11 +3,13 @@
  * Seamlessly connects Next.js frontend to FastAPI backend API
  */
 
+const LIVE_BACKEND_URL = "https://billcare-production.up.railway.app/api/v1";
+
 const API_BASE_URL =
   process.env.NEXT_PUBLIC_API_URL ||
   (typeof window !== "undefined" && window.location.origin.includes("3000")
-    ? "http://127.0.0.1:8000/api/v1"
-    : "/api/v1");
+    ? (process.env.NEXT_PUBLIC_API_URL || LIVE_BACKEND_URL)
+    : LIVE_BACKEND_URL);
 
 async function request<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
   const url = `${API_BASE_URL}${endpoint}`;
