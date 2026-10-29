@@ -145,10 +145,10 @@ export const billcareApi = {
     }),
 
   // Staff Invitations & Receptionist Enrollment
-  createInvitation: (email: string) =>
+  createInvitation: (email: string, branchId?: string) =>
     request<{ success: boolean; invitation: any; inviteUrl: string; message: string }>("/invitations", {
       method: "POST",
-      body: JSON.stringify({ email }),
+      body: JSON.stringify({ email, branchId }),
     }),
   getInvitation: (token: string) =>
     request<any>(`/invitations/${token}`),
@@ -156,6 +156,23 @@ export const billcareApi = {
     request<any>("/invitations/accept", {
       method: "POST",
       body: JSON.stringify(data),
+    }),
+
+  // Branches (Multi-Location Studios)
+  getBranches: () => request<any[]>("/branches"),
+  createBranch: (data: { name: string; city: string; address?: string; phone?: string; email?: string; chairs?: number; code?: string }) =>
+    request<any>("/branches", {
+      method: "POST",
+      body: JSON.stringify(data),
+    }),
+  updateBranch: (id: string, data: any) =>
+    request<any>(`/branches/${id}`, {
+      method: "PUT",
+      body: JSON.stringify(data),
+    }),
+  deleteBranch: (id: string) =>
+    request<{ success: boolean }>(`/branches/${id}`, {
+      method: "DELETE",
     }),
 
   // Inventory

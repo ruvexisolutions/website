@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useBillCare } from "@/lib/billcare-context";
 import { formatCurrency } from "@/lib/utils";
 import { billcareApi } from "@/lib/api-client";
@@ -30,6 +30,9 @@ import {
   Check,
   Headphones,
   ExternalLink,
+  Building2,
+  ArrowRightLeft,
+  Store,
 } from "lucide-react";
 
 export function StaffView() {
@@ -43,8 +46,45 @@ export function StaffView() {
   const [generatedLink, setGeneratedLink] = useState<string | null>(null);
   const [hasCopied, setHasCopied] = useState(false);
 
+  // Multi-Branch Management States
+  const [branches, setBranches] = useState<any[]>([]);
+  const [selectedBranchId, setSelectedBranchId] = useState<string>("");
+  const [showBranchModal, setShowBranchModal] = useState(false);
+  const [branchName, setBranchName] = useState("");
+  const [branchCity, setBranchCity] = useState("Bengaluru");
+  const [branchAddress, setBranchAddress] = useState("");
+  const [branchPhone, setBranchPhone] = useState("");
+  const [branchChairs, setBranchChairs] = useState(6);
+  const [isCreatingBranch, setIsCreatingBranch] = useState(false);
+
+  // Staff Re-allotment State
+  const [reallotStaffId, setReallotStaffId] = useState<string | null>(null);
+  const [targetBranchId, setTargetBranchId] = useState<string>("");
+
   const [editingCommissionId, setEditingCommissionId] = useState<string | null>(null);
   const [newCommissionRate, setNewCommissionRate] = useState<number>(15);
+
+  // Load branches
+  useEffect(() => {
+    async function loadBranches() {
+      try {
+        const list = await billcareApi.getBranches();
+        if (Array.isArray(list) && list.length > 0) {
+          setBranches(list);
+          setSelectedBranchId(list[0].id);
+        } else {
+          const fallback = [{ id: "brn_flagship", name: salon.branch || "Flagship Studio", city: salon.city || "Bengaluru" }];
+          setBranches(fallback);
+          setSelectedBranchId("brn_flagship");
+        }
+      } catch {
+        const fallback = [{ id: "brn_flagship", name: salon.branch || "Flagship Studio", city: salon.city || "Bengaluru" }];
+        setBranches(fallback);
+        setSelectedBranchId("brn_flagship");
+      }
+    }
+    loadBranches();
+  }, [salon.id, salon.branch, salon.city]);
 
   // Form State for new staff
   const [name, setName] = useState("");
@@ -87,6 +127,50 @@ export function StaffView() {
     setEditingCommissionId(null);
   };
 
+  const handleCreateBranch = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!branchName.trim()) {
+      showToast("Please enter branch studio name", "error");
+      return;
+    }
+    setIsCreatingBranch(true);
+    try {
+      const newBrn = await billcareApi.createBranch({
+        name: branchName.trim(),
+        city: branchCity.trim(),
+        address: branchAddress.trim(),
+        phone: branchPhone.trim(),
+        chairs: branchChairs,
+      });
+      setBranches((prev) => [...prev, newBrn]);
+      showToast(`Branch "${newBrn.name}" created successfully!`, "success");
+      setShowBranchModal(false);
+      setBranchName("");
+      setBranchAddress("");
+      setBranchPhone("");
+    } catch (err: any) {
+      showToast(err.message || "Failed to create branch studio", "error");
+    } finally {
+      setIsCreatingBranch(false);
+    }
+  };
+
+  const handleReallotBranch = async (staffId: string, newBranchId: string) => {
+    try {
+      await billcareApi.updateStaff(staffId, { branchId: newBranchId });
+      const branchObj = branches.find((b) => b.id === newBranchId);
+      // Optimistically update local staff record
+      const member = staff.find((s) => s.id === staffId);
+      if (member) {
+        member.branchId = newBranchId;
+      }
+      showToast(`Staff allotted to ${branchObj?.name || "new branch studio"}!`, "success");
+      setReallotStaffId(null);
+    } catch (err: any) {
+      showToast(err.message || "Failed to update branch allotment", "error");
+    }
+  };
+
   const handleGenerateInvite = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!inviteEmail.trim() || !inviteEmail.includes("@")) {
@@ -95,7 +179,7 @@ export function StaffView() {
     }
     setIsInviting(true);
     try {
-      const res = await billcareApi.createInvitation(inviteEmail.trim().toLowerCase());
+      const res = await billcareApi.createInvitation(inviteEmail.trim().toLowerCase(), selectedBranchId || undefined);
       if (res.success && res.inviteUrl) {
         const fullUrl = typeof window !== "undefined"
           ? `${window.location.origin}${res.inviteUrl}`
@@ -136,16 +220,31 @@ export function StaffView() {
               </span>
             </div>
             <p className="text-xs text-[#71717A] mt-0.5">
-              Who is working today • Commission earnings • 1-tap clock in / out
+              Multi-branch locations ({branches.length} Active Studios) • Branch allotment • 1-tap clock in
             </p>
           </div>
         </div>
 
         <div className="flex items-center gap-2.5 self-start sm:self-auto flex-wrap">
+          {isOwner && (
+            <button
+              onClick={() => {
+                setBranchName("");
+                setBranchAddress("");
+                setBranchPhone("");
+                setShowBranchModal(true);
+              }}
+              className="inline-flex items-center gap-1.5 px-3 py-2.5 bg-[#151515] hover:bg-[#1E1E1E] text-slate-300 hover:text-white border border-[#27272A] hover:border-slate-500 font-semibold text-xs rounded-xl shadow-xs transition-all cursor-pointer"
+              title="Create a new studio branch location"
+            >
+              <Building2 className="w-4 h-4 text-[#FACC15]" /> Add Branch
+            </button>
+          )}
           <button
             onClick={() => {
               setInviteEmail("");
               setGeneratedLink(null);
+              setSelectedBranchId(branches[0]?.id || "");
               setShowInviteModal(true);
             }}
             className="inline-flex items-center gap-2 px-3.5 py-2.5 bg-[#151515] hover:bg-[#1E1E1E] text-[#FACC15] border border-[#FACC15]/30 hover:border-[#FACC15] font-bold text-xs rounded-xl shadow-xs transition-all cursor-pointer"
@@ -272,6 +371,28 @@ export function StaffView() {
                     </span>
                   </div>
                   <p className="text-xs text-[#FACC15] font-bold mt-0.5">{member.role}</p>
+
+                  {/* Branch Studio Allotment Badge */}
+                  <div className="flex items-center gap-2 mt-1.5 flex-wrap">
+                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-[#181818] border border-[#27272A] text-[10px] font-mono text-[#F8FAFC]">
+                      <Building2 className="w-3 h-3 text-[#FACC15]" />
+                      <span>{branches.find((b) => b.id === member.branchId)?.name || member.branchId || salon.branch || "Flagship Studio"}</span>
+                    </span>
+                    {isOwner && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setReallotStaffId(member.id);
+                          setTargetBranchId(member.branchId || branches[0]?.id || "");
+                        }}
+                        className="text-[10px] font-mono text-[#FACC15] hover:underline flex items-center gap-0.5 cursor-pointer"
+                        title="Re-allot to a different studio branch"
+                      >
+                        <ArrowRightLeft className="w-3 h-3" /> Re-allot
+                      </button>
+                    )}
+                  </div>
+
                   <p className="text-[11px] text-[#71717A] font-mono flex items-center gap-2 mt-1">
                     <Phone className="w-3 h-3 text-[#71717A]" /> {member.phone} •{" "}
                     <span className="text-[#FACC15] font-bold flex items-center gap-0.5">
@@ -512,6 +633,27 @@ export function StaffView() {
                   </div>
                 </div>
 
+                <div>
+                  <label className="font-mono text-[11px] text-[#A1A1AA] block mb-1">Allot to Branch Studio</label>
+                  <div className="relative">
+                    <Building2 className="w-4 h-4 text-[#71717A] absolute left-3.5 top-1/2 -translate-y-1/2" />
+                    <select
+                      value={selectedBranchId}
+                      onChange={(e) => setSelectedBranchId(e.target.value)}
+                      className="w-full pl-10 pr-3.5 py-2.5 bg-[#151515] border border-[#27272A] rounded-xl text-[#F8FAFC] focus:outline-none focus:border-[#FACC15] font-mono text-xs font-bold"
+                    >
+                      {branches.map((b) => (
+                        <option key={b.id} value={b.id} className="bg-[#151515] text-[#F8FAFC]">
+                          {b.name} ({b.city || salon.city || "Indiranagar"})
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <p className="text-[10px] text-[#71717A] mt-1 font-mono">
+                    The receptionist will be restricted strictly to this location's appointments, POS cash drawer, and staff.
+                  </p>
+                </div>
+
                 <div className="pt-2 flex gap-2">
                   <button
                     type="button"
@@ -560,7 +702,8 @@ export function StaffView() {
                   <button
                     type="button"
                     onClick={() => {
-                      const msg = `Hi! You have been invited to join ${salon?.name || "our salon"} as Front Desk Receptionist on BillCare. Please click this link to set your password and activate your account: ${generatedLink}`;
+                      const bName = branches.find((b) => b.id === selectedBranchId)?.name || salon.name;
+                      const msg = `Hi! You have been invited to join ${salon?.name || "our salon"} (${bName}) as Front Desk Receptionist on BillCare. Please click this link to set your password and activate your account: ${generatedLink}`;
                       window.open(`https://wa.me/?text=${encodeURIComponent(msg)}`, "_blank");
                     }}
                     className="py-2.5 bg-[#181818] hover:bg-[#222] border border-[#27272A] text-emerald-400 font-semibold rounded-xl flex items-center justify-center gap-2 cursor-pointer"
@@ -580,6 +723,159 @@ export function StaffView() {
                 </div>
               </div>
             )}
+          </div>
+        </div>
+      )}
+
+      {/* Create Branch Modal */}
+      {showBranchModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-md p-4 animate-in fade-in">
+          <div className="bg-[#101010] border border-[#27272A] rounded-2xl shadow-2xl p-6 w-full max-w-md animate-in zoom-in-95">
+            <div className="flex items-center justify-between pb-3.5 border-b border-[#27272A]">
+              <div className="flex items-center gap-2.5">
+                <div className="w-8 h-8 rounded-lg bg-[#FACC15]/10 border border-[#FACC15]/30 flex items-center justify-center text-[#FACC15]">
+                  <Building2 className="w-4 h-4" />
+                </div>
+                <div>
+                  <h3 className="font-serif font-bold text-[#F8FAFC] text-base">Add New Branch Studio</h3>
+                  <p className="text-[11px] text-[#A1A1AA] font-mono">Multi-location enterprise management</p>
+                </div>
+              </div>
+              <button onClick={() => setShowBranchModal(false)} className="text-[#71717A] hover:text-[#F8FAFC] cursor-pointer">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <form onSubmit={handleCreateBranch} className="mt-4 space-y-3.5 text-xs">
+              <div>
+                <label className="font-mono text-[11px] text-[#A1A1AA] block mb-1">Branch Studio Name</label>
+                <input
+                  type="text"
+                  required
+                  placeholder="e.g. Koramangala Atelier & Spa"
+                  value={branchName}
+                  onChange={(e) => setBranchName(e.target.value)}
+                  className="w-full px-3.5 py-2.5 bg-[#151515] border border-[#27272A] rounded-xl text-[#F8FAFC] focus:outline-none focus:border-[#FACC15] font-bold"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="font-mono text-[11px] text-[#A1A1AA] block mb-1">City</label>
+                  <input
+                    type="text"
+                    required
+                    placeholder="e.g. Bengaluru"
+                    value={branchCity}
+                    onChange={(e) => setBranchCity(e.target.value)}
+                    className="w-full px-3.5 py-2.5 bg-[#151515] border border-[#27272A] rounded-xl text-[#F8FAFC] focus:outline-none focus:border-[#FACC15]"
+                  />
+                </div>
+                <div>
+                  <label className="font-mono text-[11px] text-[#A1A1AA] block mb-1">Chairs Capacity</label>
+                  <input
+                    type="number"
+                    min={1}
+                    max={100}
+                    value={branchChairs}
+                    onChange={(e) => setBranchChairs(Number(e.target.value))}
+                    className="w-full px-3.5 py-2.5 bg-[#151515] border border-[#27272A] rounded-xl text-[#FACC15] focus:outline-none focus:border-[#FACC15] font-mono font-bold"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="font-mono text-[11px] text-[#A1A1AA] block mb-1">Address / Landmark</label>
+                <input
+                  type="text"
+                  placeholder="e.g. 100ft Road, 4th Block, Koramangala"
+                  value={branchAddress}
+                  onChange={(e) => setBranchAddress(e.target.value)}
+                  className="w-full px-3.5 py-2.5 bg-[#151515] border border-[#27272A] rounded-xl text-[#F8FAFC] focus:outline-none focus:border-[#FACC15]"
+                />
+              </div>
+
+              <div>
+                <label className="font-mono text-[11px] text-[#A1A1AA] block mb-1">Contact Phone</label>
+                <input
+                  type="tel"
+                  placeholder="+91 98..."
+                  value={branchPhone}
+                  onChange={(e) => setBranchPhone(e.target.value)}
+                  className="w-full px-3.5 py-2.5 bg-[#151515] border border-[#27272A] rounded-xl text-[#F8FAFC] focus:outline-none focus:border-[#FACC15] font-mono"
+                />
+              </div>
+
+              <div className="pt-3 flex gap-2">
+                <button
+                  type="button"
+                  onClick={() => setShowBranchModal(false)}
+                  className="flex-1 py-2.5 bg-[#181818] text-[#A1A1AA] hover:text-[#F8FAFC] font-bold rounded-xl border border-[#27272A] cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={isCreatingBranch}
+                  className="flex-1 py-2.5 bg-[#FACC15] hover:bg-[#EAB308] text-[#080808] font-bold rounded-xl shadow-md shadow-[#FACC15]/10 cursor-pointer disabled:opacity-50"
+                >
+                  {isCreatingBranch ? "Creating Branch..." : "Create Branch Studio"}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Re-allot Branch Modal */}
+      {reallotStaffId && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-md p-4 animate-in fade-in">
+          <div className="bg-[#101010] border border-[#27272A] rounded-2xl shadow-2xl p-6 w-full max-w-sm animate-in zoom-in-95">
+            <div className="flex items-center justify-between pb-3.5 border-b border-[#27272A]">
+              <div className="flex items-center gap-2">
+                <ArrowRightLeft className="w-4 h-4 text-[#FACC15]" />
+                <h3 className="font-serif font-bold text-[#F8FAFC] text-sm">Re-allot Staff Branch</h3>
+              </div>
+              <button onClick={() => setReallotStaffId(null)} className="text-[#71717A] hover:text-[#F8FAFC] cursor-pointer">
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="mt-4 space-y-3.5 text-xs">
+              <p className="text-[11px] text-[#A1A1AA] leading-relaxed">
+                Select the studio branch to allot this staff member / receptionist to:
+              </p>
+              <div>
+                <select
+                  value={targetBranchId}
+                  onChange={(e) => setTargetBranchId(e.target.value)}
+                  className="w-full px-3.5 py-2.5 bg-[#151515] border border-[#27272A] rounded-xl text-[#F8FAFC] focus:outline-none focus:border-[#FACC15] font-mono text-xs font-bold"
+                >
+                  {branches.map((b) => (
+                    <option key={b.id} value={b.id} className="bg-[#151515] text-[#F8FAFC]">
+                      {b.name} ({b.city || salon.city || "Bengaluru"})
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="pt-2 flex gap-2">
+                <button
+                  type="button"
+                  onClick={() => setReallotStaffId(null)}
+                  className="flex-1 py-2 bg-[#181818] text-[#A1A1AA] hover:text-[#F8FAFC] font-bold rounded-xl border border-[#27272A] cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleReallotBranch(reallotStaffId, targetBranchId)}
+                  className="flex-1 py-2 bg-[#FACC15] hover:bg-[#EAB308] text-[#080808] font-bold rounded-xl shadow-md cursor-pointer"
+                >
+                  Confirm Allotment
+                </button>
+              </div>
+            </div>
           </div>
         </div>
       )}
