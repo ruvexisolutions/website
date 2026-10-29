@@ -233,15 +233,9 @@ export function LandingPage() {
             <div className="flex items-center gap-2 sm:gap-3">
               <Link
                 href="/login"
-                className="px-3 py-2 text-xs tracking-wider uppercase font-medium text-slate-300 hover:text-white rounded hover:bg-white/5 transition-colors"
+                className="px-3.5 py-2 text-xs tracking-wider uppercase font-medium text-slate-300 hover:text-white rounded hover:bg-white/5 transition-colors"
               >
                 Sign In
-              </Link>
-              <Link
-                href="/dashboard"
-                className="hidden sm:inline-flex items-center gap-1.5 px-3.5 py-2 border border-white/15 hover:border-white/30 text-white font-medium text-xs tracking-wider uppercase rounded hover:bg-white/5 transition-colors"
-              >
-                <span>Console</span>
               </Link>
               <Link
                 href="/signup"
@@ -319,11 +313,11 @@ export function LandingPage() {
 
             <div className="pt-2 flex flex-col gap-2">
               <Link
-                href="/dashboard"
+                href="/login"
                 onClick={() => setMobileMenuOpen(false)}
                 className="w-full py-2.5 bg-white/10 text-white font-medium text-xs uppercase tracking-wider rounded text-center border border-white/15"
               >
-                Open Salon Console
+                Sign In
               </Link>
               <Link
                 href="/signup"
