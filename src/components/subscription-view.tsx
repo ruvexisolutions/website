@@ -28,18 +28,96 @@ export function SubscriptionView() {
   const isTrialActive = salon.isTrialActive !== false && salon.subscriptionStatus === "trial";
   const isPaidActive = salon.subscriptionStatus === "active";
 
-  const handleUpgrade = async (plan: "pro" | "enterprise") => {
+  const loadRazorpayScript = (): Promise<boolean> => {
+    return new Promise((resolve) => {
+      if (typeof window !== "undefined" && (window as any).Razorpay) {
+        resolve(true);
+        return;
+      }
+      const script = document.createElement("script");
+      script.src = "https://checkout.razorpay.com/v1/checkout.js";
+      script.onload = () => resolve(true);
+      script.onerror = () => resolve(false);
+      document.body.appendChild(script);
+    });
+  };
+
+  const handleRazorpaySubscription = async (plan: "pro" | "enterprise") => {
     setIsUpgrading(true);
     try {
-      const data = await billcareApi.upgradeSubscription(plan);
-      updateSalon({
-        subscriptionStatus: "active",
-        subscriptionPlan: plan,
-        isTrialActive: true,
-      });
-      showToast(`Successfully upgraded to BillCare ${plan.toUpperCase()}! Full salon features unlocked.`, "success");
+      // 1. Create dedicated SaaS platform subscription order
+      const orderData = await billcareApi.createSubscriptionOrder(plan);
+      const isLive = orderData.is_live;
+      const scriptLoaded = await loadRazorpayScript();
+
+      if (scriptLoaded && typeof (window as any).Razorpay !== "undefined" && isLive) {
+        // 2. Open standard Razorpay Checkout modal
+        const options = {
+          key: orderData.key_id,
+          amount: Math.round(orderData.amount * 100),
+          currency: "INR",
+          name: "BillCare Platform",
+          description: `BillCare ${plan.toUpperCase()} Salon Software Subscription`,
+          order_id: orderData.order_id,
+          prefill: {
+            name: orderData.manager_name || salon.name,
+            email: orderData.manager_email || "",
+            contact: orderData.manager_phone || "",
+          },
+          theme: {
+            color: "#FACC15",
+          },
+          handler: async function (response: any) {
+            try {
+              const verifyRes = await billcareApi.verifySubscriptionPayment({
+                razorpay_order_id: response.razorpay_order_id,
+                razorpay_payment_id: response.razorpay_payment_id,
+                razorpay_signature: response.razorpay_signature,
+                plan: plan,
+              });
+
+              updateSalon({
+                subscriptionStatus: "active",
+                subscriptionPlan: plan,
+                isTrialActive: true,
+              });
+              showToast(`Payment successful! BillCare ${plan.toUpperCase()} subscription is now active.`, "success");
+            } catch (err: any) {
+              showToast(err.message || "Payment verification failed. Please contact support.", "error");
+            }
+          },
+          modal: {
+            ondismiss: function () {
+              setIsUpgrading(false);
+            },
+          },
+        };
+
+        const rzp = new (window as any).Razorpay(options);
+        rzp.open();
+      } else {
+        // Fallback / Sandbox activation if live Razorpay keys are pending in backend .env
+        const verifyRes = await billcareApi.verifySubscriptionPayment({
+          razorpay_order_id: orderData.order_id,
+          razorpay_payment_id: `pay_mock_${Date.now()}`,
+          razorpay_signature: "mock_signature_sandbox",
+          plan: plan,
+        });
+
+        updateSalon({
+          subscriptionStatus: "active",
+          subscriptionPlan: plan,
+          isTrialActive: true,
+        });
+        showToast(
+          orderData.notice
+            ? `${orderData.notice} — Activated ${plan.toUpperCase()} successfully!`
+            : `Successfully activated BillCare ${plan.toUpperCase()}! Full salon features unlocked.`,
+          "success"
+        );
+      }
     } catch (err: any) {
-      showToast(err.message || "Upgrade request failed. Please check backend connection.", "error");
+      showToast(err.message || "Subscription upgrade failed. Please try again.", "error");
     } finally {
       setIsUpgrading(false);
     }
@@ -273,16 +351,17 @@ export function SubscriptionView() {
             <button
               onClick={(e) => {
                 e.stopPropagation();
-                handleUpgrade("pro");
+                handleRazorpaySubscription("pro");
               }}
               disabled={isUpgrading}
               className="w-full py-3 rounded-xl bg-[#FACC15] hover:bg-[#EAB308] text-[#080808] font-bold text-xs uppercase tracking-wider transition-all flex items-center justify-center gap-2 shadow-md cursor-pointer disabled:opacity-50"
             >
               {isUpgrading && selectedPlan === "pro" ? (
-                <span>Activating...</span>
+                <span>Processing Razorpay Checkout...</span>
               ) : (
                 <>
-                  <span>Activate Pro Plan</span>
+                  <CreditCard className="w-4 h-4" />
+                  <span>Activate Pro with Razorpay</span>
                   <ArrowRight className="w-4 h-4" />
                 </>
               )}
@@ -339,16 +418,17 @@ export function SubscriptionView() {
             <button
               onClick={(e) => {
                 e.stopPropagation();
-                handleUpgrade("enterprise");
+                handleRazorpaySubscription("enterprise");
               }}
               disabled={isUpgrading}
               className="w-full py-3 rounded-xl bg-[#27272A] hover:bg-[#3F3F46] text-white font-bold text-xs uppercase tracking-wider transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
             >
               {isUpgrading && selectedPlan === "enterprise" ? (
-                <span>Activating...</span>
+                <span>Processing Razorpay Checkout...</span>
               ) : (
                 <>
-                  <span>Activate Enterprise Plan</span>
+                  <CreditCard className="w-4 h-4 text-purple-400" />
+                  <span>Activate Enterprise with Razorpay</span>
                   <ArrowRight className="w-4 h-4" />
                 </>
               )}

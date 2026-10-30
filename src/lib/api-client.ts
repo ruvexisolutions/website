@@ -293,8 +293,23 @@ export const billcareApi = {
     }),
   request,
 
-  // Subscription & 7-Day Trial Management
+  // Subscription & 7-Day Trial Management (Razorpay Platform Billing)
   getSubscriptionStatus: () => request<any>("/subscription/status"),
+  createSubscriptionOrder: (plan: string) =>
+    request<any>("/subscription/create-order", {
+      method: "POST",
+      body: JSON.stringify({ plan }),
+    }),
+  verifySubscriptionPayment: (data: {
+    razorpay_order_id: string;
+    razorpay_payment_id: string;
+    razorpay_signature: string;
+    plan: string;
+  }) =>
+    request<any>("/subscription/verify-payment", {
+      method: "POST",
+      body: JSON.stringify(data),
+    }),
   upgradeSubscription: (plan: string) =>
     request<any>("/subscription/upgrade", {
       method: "POST",
