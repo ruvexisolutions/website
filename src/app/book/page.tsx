@@ -4,7 +4,7 @@ import React, { Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import { BookingPreviewView } from "@/components/booking-preview-view";
 import Link from "next/link";
-import { ArrowLeft, Home, Laptop, Sparkles } from "lucide-react";
+import { ShieldCheck, Sparkles, Building2, Lock } from "lucide-react";
 
 function BookingContent() {
   const searchParams = useSearchParams();
@@ -15,34 +15,44 @@ function BookingContent() {
 
 export default function BookPage() {
   return (
-    <div className="min-h-screen bg-[#09090b] text-slate-100 py-6 sm:py-8 px-3 sm:px-6 lg:px-8 selection:bg-[#5865F2] selection:text-white">
-      <div className="max-w-5xl mx-auto mb-6 flex items-center justify-between gap-3">
-        <Link
-          href="/dashboard"
-          className="inline-flex items-center gap-2 text-xs font-mono uppercase tracking-wider text-slate-300 hover:text-white bg-[#121316] hover:bg-white/[0.08] px-4 py-2.5 rounded-xl border border-white/[0.1] transition-all shadow-lg"
-        >
-          <Laptop className="w-3.5 h-3.5 text-[#FACC15]" /> Back to Console
-        </Link>
+    <div className="min-h-screen bg-[#08090c] text-slate-100 py-6 sm:py-10 px-3 sm:px-6 lg:px-8 selection:bg-amber-400 selection:text-slate-950">
+      {/* Top Client Brand & Trust Header */}
+      <div className="max-w-5xl mx-auto mb-6 flex items-center justify-between gap-3 px-1">
+        <div className="flex items-center gap-2 text-xs font-mono text-slate-400">
+          <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+          <span className="font-semibold text-slate-200">BillCare Concierge</span>
+          <span className="hidden sm:inline-flex items-center gap-1 text-[11px] text-slate-500 border-l border-white/[0.1] pl-2">
+            <Lock className="w-3 h-3 text-amber-400/80" />
+            Verified Direct Booking
+          </span>
+        </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-3">
           <Link
-            href="/"
-            className="inline-flex items-center gap-2 text-xs font-mono uppercase tracking-wider text-slate-400 hover:text-white bg-[#121316] hover:bg-white/[0.08] px-4 py-2.5 rounded-xl border border-white/[0.1] transition-all shadow-lg"
+            href="/login"
+            className="text-[11px] font-mono uppercase tracking-wider text-slate-400 hover:text-amber-300 transition-colors"
           >
-            <Home className="w-3.5 h-3.5 text-slate-400" /> BillCare Home
+            Salon Staff Login
           </Link>
         </div>
       </div>
 
       <Suspense
         fallback={
-          <div className="max-w-5xl mx-auto p-12 text-center text-slate-400 font-mono text-xs">
-            Loading salon booking concierge...
+          <div className="max-w-5xl mx-auto p-16 text-center text-slate-400 font-mono text-xs flex flex-col items-center justify-center gap-3">
+            <div className="w-6 h-6 border-2 border-amber-400 border-t-transparent rounded-full animate-spin" />
+            Loading luxury salon concierge...
           </div>
         }
       >
         <BookingContent />
       </Suspense>
+
+      {/* Subtle Trust Footer */}
+      <div className="max-w-5xl mx-auto mt-10 text-center text-[11px] text-slate-500 font-mono flex items-center justify-center gap-2">
+        <ShieldCheck className="w-3.5 h-3.5 text-amber-400/80" />
+        <span>Direct appointment booking with zero booking fees • Instant WhatsApp confirmation</span>
+      </div>
     </div>
   );
 }

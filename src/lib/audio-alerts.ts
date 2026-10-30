@@ -54,3 +54,4 @@ export function playPaymentAlertSound(type: "success" | "failure") {
     console.warn("[BillCare Audio Alert Notice]", err);
   }
 }
+

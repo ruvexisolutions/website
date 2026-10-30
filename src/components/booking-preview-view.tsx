@@ -4,14 +4,6 @@ import React, { useState, useEffect, useMemo } from "react";
 import { useBillCare } from "@/lib/billcare-context";
 import { formatCurrency } from "@/lib/utils";
 import {
-  DISCORD_BANNER_PRESETS,
-  RESPECTED_SALONS,
-  RespectedSalonProfile,
-  resolveSalonBannerStyle,
-  findRespectedSalonBySlug,
-} from "@/lib/banner-presets";
-import { DiscordBannerCustomizerModal } from "./booking/discord-banner-customizer-modal";
-import {
   Sparkles,
   Scissors,
   Calendar,
@@ -25,20 +17,20 @@ import {
   ChevronRight,
   Heart,
   Crown,
-  Building2,
-  Award,
-  Palette,
   Share2,
   Copy,
   Check,
   Search,
-  Filter,
-  Zap,
-  ExternalLink,
   MessageCircle,
+  ExternalLink,
+  Navigation,
+  Sparkle,
+  BadgeCheck,
+  ArrowRight,
+  RefreshCw,
   QrCode,
-  Flame,
-  Layers,
+  CalendarCheck,
+  Info,
 } from "lucide-react";
 
 interface BookingPreviewViewProps {
@@ -50,986 +42,854 @@ export function BookingPreviewView({
   salonSlug,
   isStandalone = false,
 }: BookingPreviewViewProps) {
-  const {
-    salon: currentContextSalon,
-    services: contextServices,
-    staff: contextStaff,
-    bookAppointment,
-    updateSalonProfile,
-    showToast,
-  } = useBillCare();
+  const { salon, services = [], staff = [], createAppointment } = useBillCare();
 
-  // Selected respected salon: check if matching salon exists in RESPECTED_SALONS, or fallback to context salon
-  const matchedPresetSalon = useMemo(() => {
-    if (salonSlug) {
-      return findRespectedSalonBySlug(salonSlug);
-    }
-    return undefined;
-  }, [salonSlug]);
-
-  const [activeSalonSlug, setActiveSalonSlug] = useState<string>(
-    matchedPresetSalon?.slug || currentContextSalon.slug || "billcare-atelier"
-  );
-
-  // Switchable respected salon profile
-  const activeSalon = useMemo(() => {
-    const fromRegistry = RESPECTED_SALONS.find((s) => s.slug === activeSalonSlug);
-    if (fromRegistry) {
-      // If the active registry salon matches the context salon slug, overlay user's custom changes
-      if (fromRegistry.slug === currentContextSalon.slug) {
-        return {
-          ...fromRegistry,
-          ...currentContextSalon,
-          name: currentContextSalon.name || fromRegistry.name,
-          tagline: currentContextSalon.tagline || fromRegistry.tagline,
-          bannerPreset: currentContextSalon.bannerPreset || fromRegistry.bannerPreset,
-          bannerUrl: currentContextSalon.bannerUrl ?? fromRegistry.bannerUrl,
-          bannerGradient: currentContextSalon.bannerGradient ?? fromRegistry.bannerGradient,
-          accentColor: currentContextSalon.accentColor || fromRegistry.accentColor,
-        };
-      }
-      return fromRegistry;
-    }
-    // Fallback to current context salon
-    return {
-      ...currentContextSalon,
-      bannerPreset: currentContextSalon.bannerPreset || "discord-blurple",
-      accentColor: currentContextSalon.accentColor || "#FACC15",
-      tagline: currentContextSalon.tagline || "Bespoke Styling, Organic Hair Therapy & Modern Skin Wellness",
-      badges: currentContextSalon.badges || ["👑 Official Flagship", "✨ Verified Atelier", "💎 Boost Level 3"],
-      services: contextServices.length > 0 ? contextServices : RESPECTED_SALONS[0].services,
-      staff: contextStaff.length > 0 ? contextStaff : RESPECTED_SALONS[0].staff,
-    };
-  }, [activeSalonSlug, currentContextSalon, contextServices, contextStaff]);
-
-  // Available services & staff for this respective salon
-  const availableServices = useMemo(() => {
-    if (activeSalon.services && activeSalon.services.length > 0) {
-      return activeSalon.services;
-    }
-    if (contextServices.length > 0) return contextServices;
-    return RESPECTED_SALONS[0].services;
-  }, [activeSalon, contextServices]);
-
-  const availableStaff = useMemo(() => {
-    if (activeSalon.staff && activeSalon.staff.length > 0) {
-      return activeSalon.staff;
-    }
-    if (contextStaff.length > 0) return contextStaff;
-    return RESPECTED_SALONS[0].staff;
-  }, [activeSalon, contextStaff]);
-
-  // Stepper state
-  const [step, setStep] = useState<1 | 2 | 3 | 4>(1);
-  const [selectedCategory, setSelectedCategory] = useState<string>("All");
-  const [searchQuery, setSearchQuery] = useState<string>("");
-
-  const [selectedServiceId, setSelectedServiceId] = useState<string>(
-    availableServices[0]?.id || ""
-  );
-  const [selectedStaffId, setSelectedStaffId] = useState<string>(
-    availableStaff[0]?.id || ""
-  );
-  const [selectedDate, setSelectedDate] = useState<string>("Tomorrow, Oct 13");
-  const [selectedTime, setSelectedTime] = useState<string>("11:30 AM");
-
+  // Local state for interactive booking workflow
+  const [selectedServices, setSelectedServices] = useState<string[]>([]);
+  const [selectedStaff, setSelectedStaff] = useState<string>("any");
+  const [selectedDate, setSelectedDate] = useState<string>("");
+  const [selectedTime, setSelectedTime] = useState<string>("");
   const [clientName, setClientName] = useState<string>("");
   const [clientPhone, setClientPhone] = useState<string>("");
-  const [confirmed, setConfirmed] = useState<boolean>(false);
-  const [confirmationCode, setConfirmationCode] = useState<string>("");
+  const [clientNotes, setClientNotes] = useState<string>("");
+  const [activeCategory, setActiveCategory] = useState<string>("all");
+  const [searchQuery, setSearchQuery] = useState<string>("");
+  const [step, setStep] = useState<"services" | "datetime" | "details" | "confirmation">("services");
+  const [isCopied, setIsCopied] = useState<boolean>(false);
+  const [bookingPassCode, setBookingPassCode] = useState<string>("");
+  const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
 
-  // Discord Banner Customizer Modal state
-  const [isCustomizerOpen, setIsCustomizerOpen] = useState<boolean>(false);
-  const [copiedLink, setCopiedLink] = useState<boolean>(false);
-
-  // Sync initial selection when availableServices / availableStaff change
+  // Set default date to today
   useEffect(() => {
-    if (availableServices.length > 0 && !availableServices.some((s) => s.id === selectedServiceId)) {
-      setSelectedServiceId(availableServices[0].id);
+    const today = new Date();
+    setSelectedDate(today.toISOString().split("T")[0]);
+  }, []);
+
+  // Display Salon Information
+  const salonName = salon?.name || "Luxe Salon & Spa";
+  const salonBranch = salon?.branch || "Flagship Studio";
+  const salonCity = salon?.city || "Bangalore";
+  const salonAddress = salon?.address || "100ft Road, Indiranagar, 1st Stage";
+  const salonPhone = salon?.phone || "+91 98765 43210";
+  const salonRating = salon?.rating || 4.9;
+  const salonReviews = salon?.reviewCount || 428;
+  const salonTiming = salon?.timing || "10:00 AM – 09:00 PM";
+  const salonTagline = salon?.tagline || "Luxury Hair, Skin, Aesthetic & Wellness Sanctuary";
+
+  // Clean phone for tel: and wa.me links
+  const cleanPhone = salonPhone.replace(/[^0-9]/g, "");
+  const mapsQueryUrl = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(
+    `${salonName} ${salonAddress} ${salonCity}`
+  )}`;
+  const whatsappSalonUrl = `https://wa.me/${cleanPhone.length >= 10 ? (cleanPhone.startsWith("91") ? cleanPhone : `91${cleanPhone}`) : "919876543210"}?text=${encodeURIComponent(
+    `Hello ${salonName}, I would like to book an appointment.`
+  )}`;
+
+  // Public Booking Link
+  const publicBookingUrl = typeof window !== "undefined"
+    ? `${window.location.origin}/book?salon=${salon?.slug || "luxury-studio"}`
+    : `https://billcare.co/book?salon=${salon?.slug || "luxury-studio"}`;
+
+  const copyBookingLink = () => {
+    if (typeof navigator !== "undefined" && navigator.clipboard) {
+      navigator.clipboard.writeText(publicBookingUrl);
+      setIsCopied(true);
+      setTimeout(() => setIsCopied(false), 2500);
     }
-  }, [availableServices, selectedServiceId]);
+  };
 
-  useEffect(() => {
-    if (availableStaff.length > 0 && !availableStaff.some((st) => st.id === selectedStaffId)) {
-      setSelectedStaffId(availableStaff[0].id);
-    }
-  }, [availableStaff, selectedStaffId]);
-
-  const selectedService =
-    availableServices.find((s) => s.id === selectedServiceId) || availableServices[0];
-  const selectedStaff =
-    availableStaff.find((s) => s.id === selectedStaffId) || availableStaff[0];
-
-  // Accent color from active salon
-  const accentColor = activeSalon.accentColor || "#FACC15";
-
-  // Filtered services
-  const filteredServices = useMemo(() => {
-    return availableServices.filter((srv) => {
-      const matchCat = selectedCategory === "All" || srv.category === selectedCategory;
-      const matchQuery =
-        !searchQuery.trim() ||
-        srv.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        srv.description.toLowerCase().includes(searchQuery.toLowerCase());
-      return matchCat && matchQuery;
-    });
-  }, [availableServices, selectedCategory, searchQuery]);
-
-  // Categories list
+  // Distinct Categories
   const categories = useMemo(() => {
-    const set = new Set<string>(["All"]);
-    availableServices.forEach((s) => {
+    const set = new Set<string>();
+    services.forEach((s) => {
       if (s.category) set.add(s.category);
     });
-    return Array.from(set);
-  }, [availableServices]);
+    return ["all", ...Array.from(set)];
+  }, [services]);
 
-  const handleConfirmBooking = (e: React.FormEvent) => {
+  // Filtered Services
+  const filteredServices = useMemo(() => {
+    return services.filter((s) => {
+      const matchCat = activeCategory === "all" || s.category?.toLowerCase() === activeCategory.toLowerCase();
+      const matchSearch =
+        searchQuery.trim() === "" ||
+        s.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        (s.description && s.description.toLowerCase().includes(searchQuery.toLowerCase()));
+      return matchCat && matchSearch;
+    });
+  }, [services, activeCategory, searchQuery]);
+
+  // Selected Services objects & total price/duration
+  const selectedServiceObjs = useMemo(() => {
+    return services.filter((s) => selectedServices.includes(s.id));
+  }, [services, selectedServices]);
+
+  const totalPrice = useMemo(() => {
+    return selectedServiceObjs.reduce((sum, s) => sum + (Number(s.price) || 0), 0);
+  }, [selectedServiceObjs]);
+
+  const totalDuration = useMemo(() => {
+    return selectedServiceObjs.reduce((sum, s) => sum + (Number(s.duration || s.durationMin) || 45), 0);
+  }, [selectedServiceObjs]);
+
+  const toggleService = (id: string) => {
+    setSelectedServices((prev) =>
+      prev.includes(id) ? prev.filter((item) => item !== id) : [...prev, id]
+    );
+  };
+
+  // Dates (Next 7 days)
+  const availableDates = useMemo(() => {
+    const list = [];
+    const today = new Date();
+    for (let i = 0; i < 7; i++) {
+      const d = new Date(today);
+      d.setDate(today.getDate() + i);
+      const iso = d.toISOString().split("T")[0];
+      const weekday = d.toLocaleDateString("en-US", { weekday: "short" });
+      const dayNum = d.getDate();
+      const month = d.toLocaleDateString("en-US", { month: "short" });
+      list.push({ iso, weekday, dayNum, month, isToday: i === 0 });
+    }
+    return list;
+  }, []);
+
+  // Time Slots
+  const timeSlots = [
+    { label: "10:00 AM", period: "Morning" },
+    { label: "11:00 AM", period: "Morning" },
+    { label: "11:45 AM", period: "Morning" },
+    { label: "01:00 PM", period: "Afternoon" },
+    { label: "02:30 PM", period: "Afternoon" },
+    { label: "03:45 PM", period: "Afternoon" },
+    { label: "05:00 PM", period: "Evening" },
+    { label: "06:15 PM", period: "Evening" },
+    { label: "07:30 PM", period: "Evening" },
+  ];
+
+  // Handle Form Submission
+  const handleConfirmBooking = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!clientName.trim() || !clientPhone.trim()) return;
+    if (!clientName.trim() || !clientPhone.trim()) {
+      alert("Please provide your name and contact phone number.");
+      return;
+    }
 
-    const refCode = "BC-" + Math.floor(100000 + Math.random() * 900000);
-    setConfirmationCode(refCode);
+    setIsSubmitting(true);
+    const passCode = `BC-${Math.floor(100000 + Math.random() * 900000)}`;
+    setBookingPassCode(passCode);
 
-    bookAppointment({
-      customerName: clientName,
-      customerPhone: clientPhone,
-      serviceName: selectedService.name,
-      staffName: selectedStaff.name,
-      staffId: selectedStaff.id,
-      time: selectedTime,
-      durationMinutes: selectedService.durationMinutes,
-      price: selectedService.price,
-      source: "Online Booking",
-    });
-
-    // Auto-dispatch Meta WhatsApp booking pass
-    fetch("/api/v1/whatsapp/send-reminder", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        customerPhone: clientPhone,
-        customerName: clientName,
-        salonName: activeSalon.name,
-        serviceName: selectedService.name,
-        staffName: selectedStaff.name,
-        dateTime: `${selectedDate} at ${selectedTime}`,
-        bookingCode: refCode,
-      }),
-    }).catch((err) => console.warn("WhatsApp reminder notice:", err));
-
-    setConfirmed(true);
-    showToast(`Appointment confirmed at ${activeSalon.name}! WhatsApp pass dispatched.`, "success");
+    try {
+      if (createAppointment) {
+        await createAppointment({
+          customerName: clientName,
+          customerPhone: clientPhone,
+          serviceIds: selectedServices,
+          date: selectedDate,
+          time: selectedTime || "11:00 AM",
+          notes: clientNotes,
+          specialistId: selectedStaff !== "any" ? selectedStaff : undefined,
+          status: "confirmed",
+        });
+      }
+    } catch (err) {
+      console.warn("Local reservation pass generated:", err);
+    } finally {
+      setIsSubmitting(false);
+      setStep("confirmation");
+    }
   };
 
-  const handleCopyLink = () => {
-    const origin = typeof window !== "undefined" ? window.location.origin : "https://billcare.io";
-    const shareUrl = `${origin}/book/${activeSalon.slug || "atelier"}`;
-    navigator.clipboard.writeText(shareUrl).then(() => {
-      setCopiedLink(true);
-      showToast(`Copied ${activeSalon.name} direct booking link!`, "info");
-      setTimeout(() => setCopiedLink(false), 2500);
-    });
+  // Reset for another booking
+  const handleReset = () => {
+    setSelectedServices([]);
+    setSelectedStaff("any");
+    setSelectedTime("");
+    setClientName("");
+    setClientPhone("");
+    setClientNotes("");
+    setStep("services");
+    setBookingPassCode("");
   };
-
-  const handleSaveBanner = (updates: {
-    name?: string;
-    tagline?: string;
-    bannerPreset?: string;
-    bannerUrl?: string;
-    bannerGradient?: string;
-    accentColor?: string;
-  }) => {
-    updateSalonProfile(updates);
-    showToast("✨ Salon brand & Discord banner updated successfully!", "success");
-  };
-
-  // Resolve active banner style
-  const bannerStyle = resolveSalonBannerStyle(activeSalon);
 
   return (
-    <div className="space-y-6 max-w-5xl mx-auto text-slate-100 pb-12">
-      {/* Top Salon Navigation Bar / Brand Switcher */}
-      <div className="bg-[#121316] text-[#F8FAFC] p-4 sm:p-5 rounded-2xl shadow-xl border border-[#27272A] flex flex-col md:flex-row items-start md:items-center justify-between gap-4 relative overflow-hidden">
-        <div
-          className="absolute top-0 right-0 w-80 h-80 blur-[100px] pointer-events-none opacity-20"
-          style={{ backgroundColor: accentColor }}
-        />
-
-        <div className="relative z-10 space-y-1">
-          <div className="flex items-center gap-2 flex-wrap">
-            <span
-              className="px-2.5 py-0.5 rounded-full text-[10px] font-mono tracking-widest uppercase font-bold border flex items-center gap-1 shadow-sm"
-              style={{
-                backgroundColor: `${accentColor}15`,
-                color: accentColor,
-                borderColor: `${accentColor}40`,
-              }}
-            >
-              <Crown className="w-3 h-3" /> Respected Salon Concierge
-            </span>
-            <span className="px-2.5 py-0.5 rounded-full text-[10px] font-mono uppercase bg-[#18191C] text-slate-400 border border-[#27272A]">
-              0% Marketplace Fee
-            </span>
+    <div className="w-full max-w-5xl mx-auto font-sans text-slate-100">
+      {/* Top Console Action Bar (Only visible when embedded inside dashboard) */}
+      {!isStandalone && (
+        <div className="mb-6 bg-[#16181f] border border-amber-500/20 rounded-2xl p-4 sm:p-5 flex flex-col md:flex-row items-center justify-between gap-4 shadow-xl shadow-black/40">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-amber-500/20 to-amber-400/10 border border-amber-500/30 flex items-center justify-center text-amber-400">
+              <Crown className="w-5 h-5" />
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <h3 className="font-semibold text-white text-sm">Public Salon VIP Booking Link</h3>
+                <span className="text-[10px] font-mono tracking-wider uppercase px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+                  Live Online
+                </span>
+              </div>
+              <p className="text-xs text-slate-400 mt-0.5">
+                Share this link with your Instagram bio, Google Business profile, and WhatsApp broadcasts.
+              </p>
+            </div>
           </div>
 
-          <h2 className="font-serif text-lg sm:text-2xl font-bold tracking-tight text-[#F8FAFC]">
-            {activeSalon.name}
-          </h2>
-          <p className="text-xs text-[#949BA4] font-mono">
-            Direct Concierge:{" "}
-            <span className="underline font-bold" style={{ color: accentColor }}>
-              {activeSalon.slug || "salon"}.billcare.io
-            </span>
-          </p>
-        </div>
-
-        {/* Respected Salon Quick Switcher & Actions */}
-        <div className="flex items-center gap-2.5 flex-wrap relative z-10 w-full md:w-auto">
-          {/* Respected Salon Switcher Dropdown */}
-          <div className="flex items-center gap-2 bg-[#18191C] px-3 py-2 rounded-xl border border-[#27272A] text-xs font-mono text-[#DBDEE1]">
-            <Building2 className="w-3.5 h-3.5 text-[#949BA4]" />
-            <span className="text-[#949BA4] text-[11px] hidden sm:inline">Salon:</span>
-            <select
-              value={activeSalonSlug}
-              onChange={(e) => {
-                setActiveSalonSlug(e.target.value);
-                setStep(1);
-                setConfirmed(false);
-              }}
-              className="bg-transparent text-white font-bold text-xs focus:outline-none cursor-pointer"
+          <div className="flex items-center gap-2.5 w-full md:w-auto">
+            <button
+              onClick={copyBookingLink}
+              className="flex-1 md:flex-none inline-flex items-center justify-center gap-2 px-4 py-2 rounded-xl text-xs font-semibold bg-white/[0.06] hover:bg-white/[0.12] text-white border border-white/10 transition-all active:scale-95"
             >
-              {RESPECTED_SALONS.map((s) => (
-                <option key={s.slug} value={s.slug} className="bg-[#18191C] text-white">
-                  {s.name} ({s.city})
-                </option>
-              ))}
-            </select>
+              {isCopied ? <Check className="w-4 h-4 text-emerald-400" /> : <Copy className="w-4 h-4 text-slate-300" />}
+              {isCopied ? "Link Copied!" : "Copy Link"}
+            </button>
+            <a
+              href={`/book?salon=${salon?.slug || "luxury-studio"}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center justify-center gap-2 px-4 py-2 rounded-xl text-xs font-semibold bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-slate-950 font-medium transition-all shadow-lg shadow-amber-500/20 active:scale-95"
+            >
+              <ExternalLink className="w-4 h-4" />
+              Open Live Page
+            </a>
           </div>
-
-          {/* Copy Direct Link */}
-          <button
-            onClick={handleCopyLink}
-            className="px-3.5 py-2 bg-[#18191C] hover:bg-[#232428] text-xs font-mono text-white rounded-xl border border-[#27272A] transition-all flex items-center gap-1.5 cursor-pointer shadow-md"
-            title="Copy shareable client booking link"
-          >
-            {copiedLink ? (
-              <>
-                <Check className="w-3.5 h-3.5 text-emerald-400" />
-                <span className="text-emerald-400">Copied!</span>
-              </>
-            ) : (
-              <>
-                <Share2 className="w-3.5 h-3.5 text-[#949BA4]" />
-                <span className="hidden sm:inline">Share</span>
-              </>
-            )}
-          </button>
-
-          {/* Discord Banner Customizer Trigger Button */}
-          <button
-            onClick={() => setIsCustomizerOpen(true)}
-            className="px-4 py-2 text-xs font-mono font-bold uppercase tracking-wider rounded-xl transition-all flex items-center gap-2 cursor-pointer shadow-lg hover:scale-[1.02]"
-            style={{
-              backgroundColor: accentColor,
-              color: "#080808",
-            }}
-          >
-            <Palette className="w-3.5 h-3.5 text-[#080808]" />
-            <span>Customize Banner</span>
-            <span className="px-1.5 py-0.2 text-[9px] font-bold rounded bg-black/20 text-[#080808]">
-              Nitro
-            </span>
-          </button>
         </div>
-      </div>
+      )}
 
-      {/* Branded Salon Profile Card with Discord-Style Choosable Banner */}
-      <div className="rounded-2xl overflow-hidden border border-[#27272A] bg-[#111214] shadow-2xl">
-        {/* DISCORD-STYLE HERO COVER BANNER */}
-        <div
-          className="h-56 sm:h-64 md:h-72 relative transition-all duration-500 overflow-hidden group"
-          style={bannerStyle}
-        >
-          {/* Subtle gradient darkening at bottom for crisp readability */}
-          <div className="absolute inset-0 bg-gradient-to-t from-[#111214] via-[#111214]/40 to-transparent pointer-events-none" />
+      {/* Main Luxury Container */}
+      <div className="relative rounded-3xl overflow-hidden border border-amber-500/20 bg-gradient-to-b from-[#121318] via-[#0d0e12] to-[#090a0d] shadow-2xl shadow-black/80">
+        {/* Subtle Luxury Glow Effects */}
+        <div className="absolute top-0 right-1/4 w-96 h-96 bg-amber-500/[0.04] rounded-full blur-3xl pointer-events-none" />
+        <div className="absolute top-40 left-10 w-80 h-80 bg-amber-600/[0.03] rounded-full blur-3xl pointer-events-none" />
 
-          {/* Top banner badges */}
-          <div className="absolute top-4 left-4 right-4 flex items-center justify-between gap-2 z-10">
-            <div className="flex items-center gap-2 flex-wrap">
-              <span className="px-3 py-1 rounded-full text-xs font-mono uppercase tracking-wider bg-black/60 backdrop-blur-md text-emerald-400 border border-emerald-500/30 flex items-center gap-1.5 shadow-lg">
-                <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-                Reservations Active
-              </span>
-              <span className="hidden sm:inline-flex px-3 py-1 rounded-full text-xs font-mono uppercase tracking-wider bg-black/60 backdrop-blur-md text-[#FACC15] border border-[#FACC15]/30 items-center gap-1 shadow-lg">
-                <Zap className="w-3 h-3 fill-[#FACC15]" /> Discord Boost Level 3
-              </span>
+        {/* 1. HERO HEADER: Salon Branding & Luxury Ambience */}
+        <div className="relative border-b border-white/[0.08] px-6 py-8 sm:p-10 bg-gradient-to-b from-[#181a22] to-transparent">
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
+            <div className="space-y-2.5 max-w-2xl">
+              <div className="flex flex-wrap items-center gap-2.5">
+                <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-semibold tracking-wide uppercase bg-amber-500/10 text-amber-300 border border-amber-500/30">
+                  <BadgeCheck className="w-3.5 h-3.5 text-amber-400" />
+                  Verified Premier Salon
+                </span>
+                <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium bg-white/[0.06] text-slate-300 border border-white/[0.08]">
+                  <Star className="w-3.5 h-3.5 fill-amber-400 text-amber-400" />
+                  <span className="font-semibold text-white">{salonRating}</span>
+                  <span className="text-slate-400">({salonReviews} reviews)</span>
+                </span>
+              </div>
+
+              <h1 className="text-2xl sm:text-4xl font-serif tracking-tight text-white font-bold">
+                {salonName}
+              </h1>
+
+              <p className="text-xs sm:text-sm text-slate-300 font-light leading-relaxed">
+                {salonTagline}
+              </p>
             </div>
 
-            {/* Quick edit banner hover button on banner (Discord Profile style) */}
-            <button
-              onClick={() => setIsCustomizerOpen(true)}
-              className="px-3 py-1.5 rounded-xl bg-black/60 hover:bg-black/90 backdrop-blur-md text-white text-xs font-mono border border-white/20 transition-all flex items-center gap-1.5 shadow-xl cursor-pointer"
-            >
-              <Palette className="w-3.5 h-3.5 text-[#FACC15]" />
-              <span className="hidden sm:inline font-bold">Edit Salon Banner</span>
-            </button>
-          </div>
-
-          {/* Bottom Banner Info: Salon details */}
-          <div className="absolute bottom-4 left-4 right-4 sm:bottom-6 sm:left-6 sm:right-6 flex flex-col md:flex-row md:items-end justify-between gap-4 z-10">
-            {/* Salon Logo Avatar + Title */}
-            <div className="flex items-end gap-4">
-              <div
-                className="w-20 h-20 sm:w-24 sm:h-24 md:w-28 md:h-28 rounded-2xl bg-[#111214] border-4 border-[#111214] overflow-hidden shadow-2xl relative shrink-0 transition-transform duration-300 group-hover:scale-105"
-                style={{ boxShadow: `0 0 30px ${accentColor}40` }}
+            {/* Quick Action Badges */}
+            <div className="flex flex-wrap items-center gap-2.5">
+              <a
+                href={`tel:${cleanPhone}`}
+                className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-semibold bg-white/[0.06] hover:bg-white/[0.12] text-white border border-white/10 transition-all hover:border-amber-500/40"
               >
-                <img
-                  src={activeSalon.logo || activeSalon.logoUrl || "/images/billcare-logo.png"}
-                  alt={activeSalon.name}
-                  className="w-full h-full object-cover"
-                />
-                <div
-                  className="absolute bottom-1 right-1 w-4 h-4 sm:w-5 sm:h-5 rounded-full bg-[#23A55A] border-3 border-[#111214]"
-                  title="Salon Open · Accepting Walk-ins & Bookings"
-                />
-              </div>
+                <Phone className="w-3.5 h-3.5 text-amber-400" />
+                Call Salon
+              </a>
+              <a
+                href={whatsappSalonUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-semibold bg-emerald-600/20 hover:bg-emerald-600/30 text-emerald-300 border border-emerald-500/30 transition-all"
+              >
+                <MessageCircle className="w-3.5 h-3.5 text-emerald-400" />
+                WhatsApp Concierge
+              </a>
+            </div>
+          </div>
 
-              <div className="space-y-1">
-                <div className="flex items-center gap-2 flex-wrap">
-                  <h1 className="font-serif text-xl sm:text-2xl md:text-3xl font-bold tracking-tight text-white drop-shadow-md">
-                    {activeSalon.name}
-                  </h1>
-                  <ShieldCheck className="w-5 h-5 text-[#5865F2] shrink-0" />
-                </div>
-                <p className="text-xs sm:text-sm text-[#DBDEE1] line-clamp-1 font-sans">
-                  {activeSalon.tagline}
-                </p>
-                <p className="text-[11px] sm:text-xs text-[#949BA4] flex items-center gap-1.5 font-mono">
-                  <MapPin className="w-3.5 h-3.5 shrink-0" style={{ color: accentColor }} />
-                  <span className="line-clamp-1">{activeSalon.address}</span>
-                </p>
+          {/* 2. SALON ESSENTIALS BAR: Location & Operating Hours */}
+          <div className="mt-8 pt-6 border-t border-white/[0.06] grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            {/* Location & Directions */}
+            <div className="flex items-start gap-3 p-3.5 rounded-2xl bg-white/[0.03] border border-white/[0.05]">
+              <div className="w-9 h-9 rounded-xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center text-amber-400 shrink-0 mt-0.5">
+                <MapPin className="w-4 h-4" />
+              </div>
+              <div className="min-w-0 flex-1">
+                <span className="text-[10px] font-mono uppercase tracking-wider text-slate-400">Location</span>
+                <p className="text-xs font-medium text-white truncate">{salonAddress}</p>
+                <p className="text-[11px] text-slate-400">{salonBranch}, {salonCity}</p>
+                <a
+                  href={mapsQueryUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="mt-1.5 inline-flex items-center gap-1 text-[11px] font-semibold text-amber-400 hover:text-amber-300 underline underline-offset-2"
+                >
+                  <Navigation className="w-3 h-3" />
+                  Get Directions in Google Maps
+                </a>
               </div>
             </div>
 
-            {/* Rating & Verified Review Badge */}
-            <div className="flex items-center gap-3 self-start md:self-auto shrink-0">
-              <div className="bg-[#18191C]/90 backdrop-blur-xl px-4 py-2.5 rounded-xl border border-[#27272A] text-center shadow-xl">
-                <div
-                  className="text-xs font-mono font-bold flex items-center justify-center gap-1"
-                  style={{ color: accentColor }}
-                >
-                  <Star className="w-3.5 h-3.5 fill-current" />
-                  <span>{activeSalon.rating || 4.95}</span>
-                </div>
-                <div className="text-[10px] text-[#949BA4] font-mono mt-0.5">
-                  {activeSalon.reviewCount || 428} Verified Reviews
-                </div>
+            {/* Operating Hours */}
+            <div className="flex items-start gap-3 p-3.5 rounded-2xl bg-white/[0.03] border border-white/[0.05]">
+              <div className="w-9 h-9 rounded-xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center text-amber-400 shrink-0 mt-0.5">
+                <Clock className="w-4 h-4" />
+              </div>
+              <div>
+                <span className="text-[10px] font-mono uppercase tracking-wider text-slate-400">Timings</span>
+                <p className="text-xs font-medium text-white">{salonTiming}</p>
+                <span className="mt-1 inline-flex items-center gap-1 text-[11px] text-emerald-400 font-medium">
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                  Open Today for Walk-ins & Bookings
+                </span>
+              </div>
+            </div>
+
+            {/* Direct Contact Phone */}
+            <div className="flex items-start gap-3 p-3.5 rounded-2xl bg-white/[0.03] border border-white/[0.05] sm:col-span-2 lg:col-span-1">
+              <div className="w-9 h-9 rounded-xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center text-amber-400 shrink-0 mt-0.5">
+                <Phone className="w-4 h-4" />
+              </div>
+              <div>
+                <span className="text-[10px] font-mono uppercase tracking-wider text-slate-400">Reception Desk</span>
+                <p className="text-xs font-semibold text-white tracking-wide">{salonPhone}</p>
+                <p className="text-[11px] text-slate-400">Instant confirmation via SMS & WhatsApp</p>
               </div>
             </div>
           </div>
         </div>
 
-        {/* Discord Banner Quick Presets Strip */}
-        <div className="bg-[#18191C] px-4 py-2.5 border-b border-[#27272A] flex items-center justify-between gap-3 text-xs font-mono overflow-x-auto">
-          <div className="flex items-center gap-2 text-[#949BA4] shrink-0">
-            <Sparkles className="w-3.5 h-3.5 text-[#5865F2]" />
-            <span className="hidden sm:inline font-bold text-white">Discord Themes:</span>
-          </div>
+        {/* 3. BOOKING WIZARD STEPS PROGRESS */}
+        <div className="px-6 sm:px-10 py-4 bg-[#14151b] border-b border-white/[0.06] flex items-center justify-between overflow-x-auto text-xs">
+          <div className="flex items-center gap-2 sm:gap-6 min-w-max">
+            <button
+              onClick={() => setStep("services")}
+              className={`flex items-center gap-2 font-medium transition-all ${
+                step === "services"
+                  ? "text-amber-400 font-semibold"
+                  : selectedServices.length > 0
+                  ? "text-slate-300"
+                  : "text-slate-500"
+              }`}
+            >
+              <span className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold ${
+                step === "services"
+                  ? "bg-amber-400 text-slate-950"
+                  : selectedServices.length > 0
+                  ? "bg-amber-500/20 text-amber-400 border border-amber-500/30"
+                  : "bg-white/[0.08] text-slate-400"
+              }`}>
+                1
+              </span>
+              <span>1. Choose Treatments</span>
+              {selectedServices.length > 0 && (
+                <span className="text-[10px] px-1.5 py-0.2 rounded-md bg-amber-500/20 text-amber-300">
+                  {selectedServices.length}
+                </span>
+              )}
+            </button>
 
-          <div className="flex items-center gap-2 overflow-x-auto py-0.5">
-            {DISCORD_BANNER_PRESETS.slice(0, 6).map((preset) => {
-              const isActive = activeSalon.bannerPreset === preset.id;
-              return (
-                <button
-                  key={preset.id}
-                  onClick={() => {
-                    updateSalonProfile({
-                      bannerPreset: preset.id,
-                      bannerGradient: "",
-                      bannerUrl: "",
-                      accentColor: preset.accentColor,
-                    });
-                    showToast(`Applied ${preset.name} theme!`, "info");
-                  }}
-                  className={`px-2.5 py-1 rounded-lg text-[11px] font-mono transition-all flex items-center gap-1.5 shrink-0 cursor-pointer border ${
-                    isActive
-                      ? "border-white bg-[#232428] text-white font-bold ring-1 ring-white/30"
-                      : "border-[#27272A] bg-[#111214] text-[#949BA4] hover:text-white hover:bg-[#232428]"
-                  }`}
-                >
-                  <div
-                    className="w-2.5 h-2.5 rounded-full shrink-0"
-                    style={{ backgroundColor: preset.accentColor }}
-                  />
-                  <span>{preset.name.split(" ")[0]}</span>
-                </button>
-              );
-            })}
+            <ChevronRight className="w-3.5 h-3.5 text-slate-600" />
 
             <button
-              onClick={() => setIsCustomizerOpen(true)}
-              className="text-[11px] text-[#5865F2] hover:underline font-bold px-2 py-1 shrink-0 cursor-pointer"
+              disabled={selectedServices.length === 0}
+              onClick={() => setStep("datetime")}
+              className={`flex items-center gap-2 font-medium transition-all ${
+                step === "datetime"
+                  ? "text-amber-400 font-semibold"
+                  : selectedDate && selectedTime
+                  ? "text-slate-300"
+                  : "text-slate-500 disabled:opacity-40"
+              }`}
             >
-              More Themes (12) →
+              <span className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold ${
+                step === "datetime"
+                  ? "bg-amber-400 text-slate-950"
+                  : selectedDate && selectedTime
+                  ? "bg-amber-500/20 text-amber-400 border border-amber-500/30"
+                  : "bg-white/[0.08] text-slate-400"
+              }`}>
+                2
+              </span>
+              <span>2. Date & Time</span>
+            </button>
+
+            <ChevronRight className="w-3.5 h-3.5 text-slate-600" />
+
+            <button
+              disabled={selectedServices.length === 0 || !selectedTime}
+              onClick={() => setStep("details")}
+              className={`flex items-center gap-2 font-medium transition-all ${
+                step === "details"
+                  ? "text-amber-400 font-semibold"
+                  : "text-slate-500 disabled:opacity-40"
+              }`}
+            >
+              <span className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold ${
+                step === "details"
+                  ? "bg-amber-400 text-slate-950"
+                  : "bg-white/[0.08] text-slate-400"
+              }`}>
+                3
+              </span>
+              <span>3. Contact & VIP Pass</span>
             </button>
           </div>
+
+          {/* Running Cart Mini Badge */}
+          {selectedServices.length > 0 && step !== "confirmation" && (
+            <div className="hidden sm:flex items-center gap-3 pl-4 border-l border-white/[0.08]">
+              <div className="text-right">
+                <p className="text-[10px] font-mono uppercase tracking-wider text-slate-400">Estimated Total</p>
+                <p className="text-xs font-bold text-amber-400">{formatCurrency(totalPrice)} • {totalDuration} min</p>
+              </div>
+            </div>
+          )}
         </div>
 
-        {/* Booking Wizard Content */}
-        <div className="p-4 sm:p-8 md:p-10">
-          {!confirmed ? (
-            <div className="space-y-6 sm:space-y-8">
-              {/* Stepper Progress */}
-              <div className="flex items-center justify-between max-w-lg mx-auto text-xs font-mono uppercase tracking-wider text-[#71717A] px-1 border-b border-[#27272A] pb-4">
-                <div
-                  className={`flex items-center gap-2 transition-colors ${
-                    step >= 1 ? "font-bold text-white" : ""
-                  }`}
-                >
-                  <span
-                    className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold transition-all ${
-                      step >= 1 ? "text-[#080808]" : "bg-[#18191C] text-[#71717A]"
-                    }`}
-                    style={step >= 1 ? { backgroundColor: accentColor } : {}}
-                  >
-                    1
-                  </span>
-                  <span>1. Treatment</span>
+        {/* 4. CONTENT SECTIONS */}
+        <div className="p-6 sm:p-10">
+          {/* STEP 1: SERVICES CATALOG SHOWCASE */}
+          {step === "services" && (
+            <div className="space-y-6">
+              {/* Category Pills & Search */}
+              <div className="flex flex-col md:flex-row items-stretch md:items-center justify-between gap-4">
+                <div className="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-none">
+                  {categories.map((cat) => (
+                    <button
+                      key={cat}
+                      onClick={() => setActiveCategory(cat)}
+                      className={`px-3.5 py-1.5 rounded-full text-xs font-medium whitespace-nowrap transition-all ${
+                        activeCategory === cat
+                          ? "bg-gradient-to-r from-amber-500 to-amber-600 text-slate-950 font-bold shadow-md shadow-amber-500/20"
+                          : "bg-white/[0.05] text-slate-300 hover:bg-white/[0.09] hover:text-white border border-white/[0.06]"
+                      }`}
+                    >
+                      {cat === "all" ? "All Offerings" : cat}
+                    </button>
+                  ))}
                 </div>
-                <ChevronRight className="w-3.5 h-3.5 text-[#27272A]" />
-                <div
-                  className={`flex items-center gap-2 transition-colors ${
-                    step >= 2 ? "font-bold text-white" : ""
-                  }`}
-                >
-                  <span
-                    className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold transition-all ${
-                      step >= 2 ? "text-[#080808]" : "bg-[#18191C] text-[#71717A]"
-                    }`}
-                    style={step >= 2 ? { backgroundColor: accentColor } : {}}
-                  >
-                    2
-                  </span>
-                  <span>2. Master Artist</span>
-                </div>
-                <ChevronRight className="w-3.5 h-3.5 text-[#27272A]" />
-                <div
-                  className={`flex items-center gap-2 transition-colors ${
-                    step >= 3 ? "font-bold text-white" : ""
-                  }`}
-                >
-                  <span
-                    className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold transition-all ${
-                      step >= 3 ? "text-[#080808]" : "bg-[#18191C] text-[#71717A]"
-                    }`}
-                    style={step >= 3 ? { backgroundColor: accentColor } : {}}
-                  >
-                    3
-                  </span>
-                  <span>3. Schedule &amp; Pass</span>
+
+                <div className="relative w-full md:w-64">
+                  <Search className="w-3.5 h-3.5 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
+                  <input
+                    type="text"
+                    placeholder="Search services..."
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    className="w-full bg-[#181a22] border border-white/[0.08] focus:border-amber-500/50 rounded-xl pl-9 pr-4 py-2 text-xs text-white placeholder-slate-500 focus:outline-none transition-all"
+                  />
                 </div>
               </div>
 
-              {/* Step 1: Select Service */}
-              {step === 1 && (
-                <div className="space-y-5 animate-in fade-in duration-200">
-                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                    <div>
-                      <h3 className="font-serif text-xl sm:text-2xl font-bold text-[#F8FAFC] tracking-tight">
-                        Curated Treatment Menu
-                      </h3>
-                      <p className="text-xs text-[#949BA4]">
-                        Select the bespoke treatment you wish to reserve at {activeSalon.name}
-                      </p>
-                    </div>
-
-                    {/* Search Bar */}
-                    <div className="relative w-full sm:w-64">
-                      <Search className="w-3.5 h-3.5 text-[#949BA4] absolute left-3 top-1/2 -translate-y-1/2" />
-                      <input
-                        type="text"
-                        placeholder="Search treatments..."
-                        value={searchQuery}
-                        onChange={(e) => setSearchQuery(e.target.value)}
-                        className="w-full pl-9 pr-3 py-2 bg-[#18191C] border border-[#27272A] rounded-xl text-xs text-white placeholder-[#71717A] focus:border-[#5865F2] focus:outline-none"
-                      />
-                    </div>
+              {/* Service Cards Grid */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {filteredServices.length === 0 ? (
+                  <div className="col-span-full py-12 text-center text-slate-400 font-light text-sm">
+                    No services match your search or filter.
                   </div>
-
-                  {/* Category Filter Pills */}
-                  <div className="flex items-center gap-2 overflow-x-auto pb-1 text-xs font-mono">
-                    {categories.map((cat) => {
-                      const isActive = selectedCategory === cat;
-                      return (
-                        <button
-                          key={cat}
-                          onClick={() => setSelectedCategory(cat)}
-                          className={`px-3.5 py-1.5 rounded-xl font-bold transition-all cursor-pointer whitespace-nowrap ${
-                            isActive
-                              ? "text-[#080808] shadow-md"
-                              : "bg-[#18191C] text-[#949BA4] hover:text-white border border-[#27272A]"
-                          }`}
-                          style={isActive ? { backgroundColor: accentColor } : {}}
-                        >
-                          {cat}
-                        </button>
-                      );
-                    })}
-                  </div>
-
-                  {/* Services Grid */}
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    {filteredServices.map((srv) => {
-                      const isSelected = selectedServiceId === srv.id;
-                      return (
-                        <div
-                          key={srv.id}
-                          onClick={() => setSelectedServiceId(srv.id)}
-                          className={`p-5 rounded-xl transition-all cursor-pointer flex flex-col justify-between border ${
-                            isSelected
-                              ? "bg-[#18191C] shadow-xl"
-                              : "bg-[#141518] border-[#27272A] hover:border-[#383A40] hover:bg-[#18191C]/60"
-                          }`}
-                          style={
-                            isSelected
-                              ? {
-                                  borderColor: accentColor,
-                                  boxShadow: `0 0 20px ${accentColor}15`,
-                                }
-                              : {}
-                          }
-                        >
-                          <div>
-                            <div className="flex justify-between items-start gap-2">
-                              <span
-                                className="text-[10px] font-mono uppercase tracking-wider px-2.5 py-0.5 rounded-full border font-bold"
-                                style={{
-                                  backgroundColor: `${accentColor}15`,
-                                  color: accentColor,
-                                  borderColor: `${accentColor}30`,
-                                }}
-                              >
-                                {srv.category}
+                ) : (
+                  filteredServices.map((svc) => {
+                    const isSelected = selectedServices.includes(svc.id);
+                    return (
+                      <div
+                        key={svc.id}
+                        onClick={() => toggleService(svc.id)}
+                        className={`group cursor-pointer rounded-2xl p-5 border transition-all duration-200 flex flex-col justify-between ${
+                          isSelected
+                            ? "bg-amber-500/[0.08] border-amber-500/60 shadow-lg shadow-amber-500/10"
+                            : "bg-[#161820] hover:bg-[#1b1e28] border-white/[0.06] hover:border-white/[0.14]"
+                        }`}
+                      >
+                        <div>
+                          <div className="flex items-start justify-between gap-3 mb-2">
+                            <div>
+                              <span className="text-[10px] font-mono uppercase tracking-wider text-amber-400/80">
+                                {svc.category || "Treatment"}
                               </span>
-                              <span className="text-xs text-[#949BA4] font-mono flex items-center gap-1">
-                                <Clock className="w-3 h-3 text-[#949BA4]" /> {srv.durationMinutes} mins
-                              </span>
+                              <h3 className="text-base font-semibold text-white group-hover:text-amber-300 transition-colors">
+                                {svc.name}
+                              </h3>
                             </div>
-                            <h4 className="font-bold text-[#F8FAFC] text-sm mt-3">{srv.name}</h4>
-                            <p className="text-xs text-[#949BA4] mt-1 line-clamp-2 leading-relaxed">
-                              {srv.description}
-                            </p>
+                            <span className="text-sm font-bold text-amber-400 bg-amber-500/10 px-2.5 py-1 rounded-lg border border-amber-500/20 whitespace-nowrap">
+                              {formatCurrency(Number(svc.price) || 0)}
+                            </span>
                           </div>
 
-                          <div className="mt-4 pt-3 border-t border-[#27272A] flex items-center justify-between">
-                            <span
-                              className="text-base font-mono font-bold"
-                              style={{ color: accentColor }}
-                            >
-                              {formatCurrency(srv.price)}
-                            </span>
-                            <span
-                              className={`text-xs font-mono uppercase tracking-wider font-bold ${
-                                isSelected ? "" : "text-[#71717A]"
-                              }`}
-                              style={isSelected ? { color: accentColor } : {}}
-                            >
-                              {isSelected ? "✓ Selected" : "Select"}
-                            </span>
-                          </div>
+                          <p className="text-xs text-slate-400 line-clamp-2 leading-relaxed">
+                            {svc.description || "Indulgent luxury care crafted by certified master stylists and aesthetic professionals."}
+                          </p>
                         </div>
-                      );
-                    })}
-                  </div>
 
-                  <div className="flex justify-end pt-4">
-                    <button
-                      onClick={() => setStep(2)}
-                      className="px-7 py-3.5 font-bold text-xs uppercase tracking-wider rounded-xl shadow-xl transition-all flex items-center gap-2 cursor-pointer hover:scale-[1.02]"
-                      style={{
-                        backgroundColor: accentColor,
-                        color: "#080808",
-                      }}
-                    >
-                      <span>Continue to Artist Selection</span>
-                      <ChevronRight className="w-4 h-4" />
-                    </button>
-                  </div>
-                </div>
-              )}
+                        <div className="mt-4 pt-3.5 border-t border-white/[0.06] flex items-center justify-between text-xs">
+                          <span className="inline-flex items-center gap-1.5 text-slate-400">
+                            <Clock className="w-3.5 h-3.5 text-amber-400/70" />
+                            {svc.duration || svc.durationMin || 45} mins
+                          </span>
 
-              {/* Step 2: Select Stylist */}
-              {step === 2 && (
-                <div className="space-y-5 animate-in fade-in duration-200">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <h3 className="font-serif text-xl sm:text-2xl font-bold text-[#F8FAFC] tracking-tight">
-                        Select Master Specialist
-                      </h3>
-                      <p className="text-xs text-[#949BA4]">
-                        Choose the artist you want dedicated to your appointment session
-                      </p>
-                    </div>
-                    <button
-                      onClick={() => setStep(1)}
-                      className="text-xs font-mono hover:underline cursor-pointer"
-                      style={{ color: accentColor }}
-                    >
-                      ← Change Treatment
-                    </button>
-                  </div>
-
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    {availableStaff.map((st) => {
-                      const isSelected = selectedStaffId === st.id;
-                      return (
-                        <div
-                          key={st.id}
-                          onClick={() => setSelectedStaffId(st.id)}
-                          className={`p-5 rounded-xl transition-all cursor-pointer flex items-center gap-4 border ${
-                            isSelected
-                              ? "bg-[#18191C] shadow-xl"
-                              : "bg-[#141518] border-[#27272A] hover:border-[#383A40] hover:bg-[#18191C]/60"
-                          }`}
-                          style={
-                            isSelected
-                              ? {
-                                  borderColor: accentColor,
-                                  boxShadow: `0 0 20px ${accentColor}15`,
-                                }
-                              : {}
-                          }
-                        >
-                          <img
-                            src={st.avatar}
-                            alt={st.name}
-                            className="w-14 h-14 rounded-xl object-cover border border-[#27272A] shadow-md"
-                          />
-                          <div className="flex-1">
-                            <h4 className="font-bold text-[#F8FAFC] text-sm">{st.name}</h4>
-                            <p className="text-xs text-[#949BA4] font-mono">{st.role}</p>
-                            <div
-                              className="text-[11px] font-mono flex items-center gap-1 mt-1 font-bold"
-                              style={{ color: accentColor }}
-                            >
-                              <Star className="w-3 h-3 fill-current" />
-                              <span>{st.rating} Verified Master</span>
-                            </div>
-                            {st.specialty && (
-                              <div className="flex gap-1.5 mt-2 flex-wrap">
-                                {st.specialty.slice(0, 2).map((sp) => (
-                                  <span
-                                    key={sp}
-                                    className="px-2 py-0.5 rounded text-[10px] font-mono bg-[#111214] text-[#DBDEE1] border border-[#27272A]"
-                                  >
-                                    {sp}
-                                  </span>
-                                ))}
-                              </div>
-                            )}
-                          </div>
-                          <div
-                            className="text-sm font-mono font-bold"
-                            style={isSelected ? { color: accentColor } : { color: "#27272A" }}
+                          <button
+                            type="button"
+                            className={`px-3 py-1 rounded-lg text-xs font-semibold transition-all ${
+                              isSelected
+                                ? "bg-amber-400 text-slate-950 font-bold"
+                                : "bg-white/[0.06] hover:bg-white/[0.12] text-slate-200"
+                            }`}
                           >
-                            {isSelected ? "✓" : ""}
-                          </div>
+                            {isSelected ? "Selected ✓" : "+ Add Service"}
+                          </button>
                         </div>
-                      );
-                    })}
+                      </div>
+                    );
+                  })
+                )}
+              </div>
+
+              {/* Bottom Sticky Action Bar */}
+              {selectedServices.length > 0 && (
+                <div className="pt-4 flex flex-col sm:flex-row items-center justify-between gap-4 border-t border-white/[0.08]">
+                  <div className="text-center sm:text-left">
+                    <p className="text-xs text-slate-400">
+                      <span className="font-semibold text-white">{selectedServices.length}</span> services selected • Approx.{" "}
+                      <span className="font-semibold text-amber-400">{totalDuration} mins</span>
+                    </p>
+                    <p className="text-lg font-bold text-white">
+                      Total: <span className="text-amber-400">{formatCurrency(totalPrice)}</span>
+                    </p>
                   </div>
 
-                  <div className="flex justify-between pt-4">
-                    <button
-                      onClick={() => setStep(1)}
-                      className="px-5 py-3 bg-[#18191C] hover:bg-[#27272A] text-[#DBDEE1] font-bold text-xs uppercase tracking-wider rounded-xl border border-[#27272A] cursor-pointer"
-                    >
-                      Back
-                    </button>
-                    <button
-                      onClick={() => setStep(3)}
-                      className="px-7 py-3.5 font-bold text-xs uppercase tracking-wider rounded-xl shadow-xl transition-all flex items-center gap-2 cursor-pointer hover:scale-[1.02]"
-                      style={{
-                        backgroundColor: accentColor,
-                        color: "#080808",
-                      }}
-                    >
-                      <span>Continue to Time Slot</span>
-                      <ChevronRight className="w-4 h-4" />
-                    </button>
-                  </div>
+                  <button
+                    onClick={() => setStep("datetime")}
+                    className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-6 py-3 rounded-xl text-sm font-bold bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-slate-950 shadow-lg shadow-amber-500/20 active:scale-95 transition-all"
+                  >
+                    Select Date & Time
+                    <ArrowRight className="w-4 h-4" />
+                  </button>
                 </div>
-              )}
-
-              {/* Step 3: Date, Time & WhatsApp Digital Pass */}
-              {step === 3 && (
-                <form onSubmit={handleConfirmBooking} className="space-y-6 animate-in fade-in duration-200">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <h3 className="font-serif text-xl sm:text-2xl font-bold text-[#F8FAFC] tracking-tight">
-                        Select Date &amp; Time
-                      </h3>
-                      <p className="text-xs text-[#949BA4]">
-                        Real-time chair calendar slot locking at {activeSalon.name}
-                      </p>
-                    </div>
-                    <button
-                      type="button"
-                      onClick={() => setStep(2)}
-                      className="text-xs font-mono hover:underline cursor-pointer"
-                      style={{ color: accentColor }}
-                    >
-                      ← Change Artist
-                    </button>
-                  </div>
-
-                  {/* Date pills */}
-                  <div className="flex items-center gap-2.5 overflow-x-auto pb-1 text-xs font-mono">
-                    {[
-                      "Today, Oct 12",
-                      "Tomorrow, Oct 13",
-                      "Wed, Oct 14",
-                      "Thu, Oct 15",
-                      "Fri, Oct 16",
-                      "Sat, Oct 17",
-                    ].map((d) => {
-                      const isSelected = selectedDate === d;
-                      return (
-                        <button
-                          key={d}
-                          type="button"
-                          onClick={() => setSelectedDate(d)}
-                          className={`px-4 py-2.5 rounded-xl whitespace-nowrap transition-all cursor-pointer ${
-                            isSelected
-                              ? "text-[#080808] font-bold shadow-lg"
-                              : "bg-[#18191C] text-[#949BA4] border border-[#27272A] hover:text-[#F8FAFC]"
-                          }`}
-                          style={isSelected ? { backgroundColor: accentColor } : {}}
-                        >
-                          {d}
-                        </button>
-                      );
-                    })}
-                  </div>
-
-                  {/* Time slots */}
-                  <div className="grid grid-cols-3 sm:grid-cols-6 gap-2.5 text-xs font-mono">
-                    {[
-                      "10:00 AM",
-                      "11:30 AM",
-                      "01:00 PM",
-                      "02:30 PM",
-                      "04:00 PM",
-                      "05:30 PM",
-                      "07:00 PM",
-                      "08:15 PM",
-                    ].map((t) => {
-                      const isSelected = selectedTime === t;
-                      return (
-                        <button
-                          key={t}
-                          type="button"
-                          onClick={() => setSelectedTime(t)}
-                          className={`py-3 px-1 rounded-xl text-center border transition-all cursor-pointer ${
-                            isSelected
-                              ? "text-[#080808] font-bold shadow-md"
-                              : "bg-[#18191C] text-[#949BA4] border-[#27272A] hover:text-[#F8FAFC]"
-                          }`}
-                          style={
-                            isSelected
-                              ? {
-                                  backgroundColor: accentColor,
-                                  borderColor: accentColor,
-                                }
-                              : {}
-                          }
-                        >
-                          {t}
-                        </button>
-                      );
-                    })}
-                  </div>
-
-                  {/* Summary Box */}
-                  <div className="p-5 bg-[#18191C] rounded-xl border border-[#27272A] text-xs space-y-2">
-                    <div className="flex justify-between font-bold text-[#F8FAFC] text-sm">
-                      <span>{selectedService.name}</span>
-                      <span className="font-mono" style={{ color: accentColor }}>
-                        {formatCurrency(selectedService.price)}
-                      </span>
-                    </div>
-                    <div className="text-[#949BA4] flex items-center justify-between font-mono">
-                      <span>
-                        Specialist:{" "}
-                        <strong className="text-[#F8FAFC] font-bold">{selectedStaff.name}</strong>
-                      </span>
-                      <span style={{ color: accentColor }}>
-                        {selectedDate} at {selectedTime}
-                      </span>
-                    </div>
-                    <div className="text-[#71717A] text-[11px] pt-2 border-t border-[#27272A] font-mono">
-                      Location: {activeSalon.address}
-                    </div>
-                  </div>
-
-                  {/* Client Details Form */}
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
-                    <div>
-                      <label className="font-mono text-[#949BA4] text-[11px] block mb-1.5 uppercase tracking-wider">
-                        Client Full Name
-                      </label>
-                      <input
-                        type="text"
-                        required
-                        placeholder="e.g. Shalini Roy"
-                        value={clientName}
-                        onChange={(e) => setClientName(e.target.value)}
-                        className="w-full px-4 py-3 bg-[#18191C] border border-[#27272A] rounded-xl text-[#F8FAFC] placeholder-[#71717A] focus:border-[#5865F2] focus:outline-none font-bold"
-                      />
-                    </div>
-                    <div>
-                      <label className="font-mono text-[#949BA4] text-[11px] block mb-1.5 uppercase tracking-wider">
-                        WhatsApp Contact Number
-                      </label>
-                      <input
-                        type="tel"
-                        required
-                        placeholder="+91 98450..."
-                        value={clientPhone}
-                        onChange={(e) => setClientPhone(e.target.value)}
-                        className="w-full px-4 py-3 bg-[#18191C] border border-[#27272A] rounded-xl text-[#F8FAFC] placeholder-[#71717A] focus:border-[#5865F2] focus:outline-none font-mono"
-                      />
-                    </div>
-                  </div>
-
-                  <div className="flex justify-between pt-4">
-                    <button
-                      type="button"
-                      onClick={() => setStep(2)}
-                      className="px-5 py-3 bg-[#18191C] hover:bg-[#27272A] text-[#DBDEE1] font-bold text-xs uppercase tracking-wider rounded-xl border border-[#27272A] cursor-pointer"
-                    >
-                      Back
-                    </button>
-                    <button
-                      type="submit"
-                      className="px-8 py-3.5 font-bold text-xs uppercase tracking-wider rounded-xl shadow-xl transition-all flex items-center gap-2 cursor-pointer hover:scale-[1.02]"
-                      style={{
-                        backgroundColor: accentColor,
-                        color: "#080808",
-                      }}
-                    >
-                      <span>Confirm &amp; Reserve Chair</span>
-                      <CheckCircle2 className="w-4 h-4 text-[#080808]" />
-                    </button>
-                  </div>
-                </form>
               )}
             </div>
-          ) : (
-            /* Booking Confirmed State */
-            <div className="text-center py-10 space-y-6 max-w-lg mx-auto animate-in fade-in zoom-in-95">
-              <div className="w-16 h-16 bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 rounded-full flex items-center justify-center mx-auto shadow-xl">
+          )}
+
+          {/* STEP 2: DATE, TIME & SPECIALIST */}
+          {step === "datetime" && (
+            <div className="space-y-8">
+              {/* Specialist Selection */}
+              <div>
+                <label className="block text-xs font-mono uppercase tracking-wider text-slate-400 mb-3">
+                  Preferred Specialist (Optional)
+                </label>
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                  <div
+                    onClick={() => setSelectedStaff("any")}
+                    className={`cursor-pointer p-3.5 rounded-2xl border text-center transition-all ${
+                      selectedStaff === "any"
+                        ? "bg-amber-500/10 border-amber-500/60 shadow-md shadow-amber-500/10"
+                        : "bg-[#161820] border-white/[0.06] hover:bg-[#1b1e28]"
+                    }`}
+                  >
+                    <div className="w-10 h-10 rounded-full mx-auto bg-amber-500/20 text-amber-400 flex items-center justify-center font-bold mb-2">
+                      <Sparkles className="w-5 h-5" />
+                    </div>
+                    <p className="text-xs font-semibold text-white">Any Top Stylist</p>
+                    <p className="text-[10px] text-slate-400 mt-0.5">Maximum flexibility</p>
+                  </div>
+
+                  {staff.slice(0, 3).map((st) => (
+                    <div
+                      key={st.id}
+                      onClick={() => setSelectedStaff(st.id)}
+                      className={`cursor-pointer p-3.5 rounded-2xl border text-center transition-all ${
+                        selectedStaff === st.id
+                          ? "bg-amber-500/10 border-amber-500/60 shadow-md shadow-amber-500/10"
+                          : "bg-[#161820] border-white/[0.06] hover:bg-[#1b1e28]"
+                      }`}
+                    >
+                      <div className="w-10 h-10 rounded-full mx-auto bg-white/[0.08] text-white flex items-center justify-center font-bold mb-2">
+                        {st.name.charAt(0)}
+                      </div>
+                      <p className="text-xs font-semibold text-white truncate">{st.name}</p>
+                      <p className="text-[10px] text-slate-400 mt-0.5 truncate">{st.role || "Specialist"}</p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Date Selection */}
+              <div>
+                <label className="block text-xs font-mono uppercase tracking-wider text-slate-400 mb-3">
+                  Select Appointment Date
+                </label>
+                <div className="grid grid-cols-3 sm:grid-cols-7 gap-2.5">
+                  {availableDates.map((item) => {
+                    const isSelected = selectedDate === item.iso;
+                    return (
+                      <button
+                        key={item.iso}
+                        type="button"
+                        onClick={() => setSelectedDate(item.iso)}
+                        className={`p-3 rounded-2xl border text-center transition-all flex flex-col items-center ${
+                          isSelected
+                            ? "bg-amber-500 text-slate-950 font-bold border-amber-400 shadow-lg shadow-amber-500/20 scale-105"
+                            : "bg-[#161820] border-white/[0.06] hover:bg-[#1b1e28] text-slate-300"
+                        }`}
+                      >
+                        <span className="text-[11px] uppercase tracking-wider opacity-80">{item.weekday}</span>
+                        <span className="text-lg font-bold my-0.5">{item.dayNum}</span>
+                        <span className="text-[10px] opacity-75">{item.month}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* Time Slots */}
+              <div>
+                <label className="block text-xs font-mono uppercase tracking-wider text-slate-400 mb-3">
+                  Select Convenient Time Slot
+                </label>
+                <div className="grid grid-cols-3 sm:grid-cols-3 md:grid-cols-5 gap-2.5">
+                  {timeSlots.map((slot) => {
+                    const isSelected = selectedTime === slot.label;
+                    return (
+                      <button
+                        key={slot.label}
+                        type="button"
+                        onClick={() => setSelectedTime(slot.label)}
+                        className={`py-3 px-2 rounded-xl text-xs font-medium border text-center transition-all ${
+                          isSelected
+                            ? "bg-amber-400 text-slate-950 font-bold border-amber-300 shadow-md shadow-amber-500/20"
+                            : "bg-[#161820] border-white/[0.06] text-slate-300 hover:bg-[#1b1e28] hover:border-white/10"
+                        }`}
+                      >
+                        {slot.label}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* Step 2 Actions */}
+              <div className="pt-4 flex items-center justify-between gap-4 border-t border-white/[0.08]">
+                <button
+                  type="button"
+                  onClick={() => setStep("services")}
+                  className="px-5 py-2.5 rounded-xl text-xs font-medium bg-white/[0.06] hover:bg-white/[0.1] text-slate-300"
+                >
+                  ← Back to Services
+                </button>
+
+                <button
+                  type="button"
+                  disabled={!selectedDate || !selectedTime}
+                  onClick={() => setStep("details")}
+                  className="inline-flex items-center gap-2 px-6 py-2.5 rounded-xl text-xs font-bold bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 text-slate-950 shadow-lg shadow-amber-500/20 disabled:opacity-40 transition-all"
+                >
+                  Continue to Details
+                  <ArrowRight className="w-4 h-4" />
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* STEP 3: CLIENT DETAILS & RESERVATION */}
+          {step === "details" && (
+            <form onSubmit={handleConfirmBooking} className="max-w-xl mx-auto space-y-6">
+              <div className="text-center mb-6">
+                <h3 className="text-xl font-serif font-bold text-white">Guest Reservation Details</h3>
+                <p className="text-xs text-slate-400 mt-1">
+                  We will send instant confirmation & appointment pass directly to your WhatsApp.
+                </p>
+              </div>
+
+              {/* Booking Summary Box */}
+              <div className="p-4 rounded-2xl bg-[#161820] border border-amber-500/20 space-y-2">
+                <div className="flex justify-between text-xs">
+                  <span className="text-slate-400">Date & Time:</span>
+                  <span className="font-semibold text-white">{selectedDate} at {selectedTime}</span>
+                </div>
+                <div className="flex justify-between text-xs">
+                  <span className="text-slate-400">Services ({selectedServices.length}):</span>
+                  <span className="font-semibold text-amber-400">{formatCurrency(totalPrice)}</span>
+                </div>
+                <div className="flex justify-between text-xs">
+                  <span className="text-slate-400">Duration:</span>
+                  <span className="text-slate-200">~{totalDuration} Minutes</span>
+                </div>
+              </div>
+
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-xs font-mono uppercase tracking-wider text-slate-300 mb-1.5">
+                    Your Full Name *
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    placeholder="e.g. Priya Sharma"
+                    value={clientName}
+                    onChange={(e) => setClientName(e.target.value)}
+                    className="w-full bg-[#181a22] border border-white/[0.1] focus:border-amber-500 rounded-xl px-4 py-2.5 text-xs text-white focus:outline-none"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-mono uppercase tracking-wider text-slate-300 mb-1.5">
+                    WhatsApp Phone Number *
+                  </label>
+                  <input
+                    type="tel"
+                    required
+                    placeholder="+91 98765 43210"
+                    value={clientPhone}
+                    onChange={(e) => setClientPhone(e.target.value)}
+                    className="w-full bg-[#181a22] border border-white/[0.1] focus:border-amber-500 rounded-xl px-4 py-2.5 text-xs text-white focus:outline-none"
+                  />
+                  <span className="text-[10px] text-slate-500 mt-1 block">
+                    Zero spam. Only your appointment digital pass and reminders.
+                  </span>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-mono uppercase tracking-wider text-slate-300 mb-1.5">
+                    Special Requests or Hair/Skin Notes (Optional)
+                  </label>
+                  <textarea
+                    rows={2}
+                    placeholder="Any specific styling instructions or allergies..."
+                    value={clientNotes}
+                    onChange={(e) => setClientNotes(e.target.value)}
+                    className="w-full bg-[#181a22] border border-white/[0.1] focus:border-amber-500 rounded-xl px-4 py-2 text-xs text-white focus:outline-none resize-none"
+                  />
+                </div>
+              </div>
+
+              <div className="pt-4 flex items-center justify-between gap-4 border-t border-white/[0.08]">
+                <button
+                  type="button"
+                  onClick={() => setStep("datetime")}
+                  className="px-5 py-2.5 rounded-xl text-xs font-medium bg-white/[0.06] hover:bg-white/[0.1] text-slate-300"
+                >
+                  ← Back
+                </button>
+
+                <button
+                  type="submit"
+                  disabled={isSubmitting}
+                  className="inline-flex items-center gap-2 px-8 py-3 rounded-xl text-xs font-bold bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 text-slate-950 shadow-xl shadow-amber-500/25 active:scale-95 transition-all"
+                >
+                  {isSubmitting ? (
+                    <>
+                      <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                      Reserving VIP Slot...
+                    </>
+                  ) : (
+                    <>
+                      <Sparkles className="w-3.5 h-3.5" />
+                      Confirm & Generate VIP Pass
+                    </>
+                  )}
+                </button>
+              </div>
+            </form>
+          )}
+
+          {/* STEP 4: LUXURY VIP BOOKING PASS CONFIRMATION */}
+          {step === "confirmation" && (
+            <div className="max-w-lg mx-auto space-y-6 text-center">
+              <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 mx-auto">
                 <CheckCircle2 className="w-8 h-8" />
               </div>
 
               <div>
-                <span
-                  className="px-3 py-1 rounded-full text-[10px] font-mono uppercase tracking-wider font-bold border inline-block mb-2"
-                  style={{
-                    backgroundColor: `${accentColor}15`,
-                    color: accentColor,
-                    borderColor: `${accentColor}40`,
-                  }}
-                >
-                  Pass Ref: #{confirmationCode || "BC-789211"}
+                <span className="text-[11px] font-mono uppercase tracking-widest text-amber-400">
+                  Appointment Confirmed
                 </span>
-                <h2 className="font-serif text-2xl sm:text-3xl font-bold text-[#F8FAFC] tracking-tight">
-                  Reservation Confirmed!
+                <h2 className="text-2xl font-serif font-bold text-white mt-1">
+                  We look forward to hosting you, {clientName}
                 </h2>
-                <p className="text-xs text-[#949BA4] mt-1 leading-relaxed">
-                  Thank you, <strong className="text-white">{clientName}</strong>! Your seat has been reserved at{" "}
-                  <strong className="text-white">{activeSalon.name}</strong>. A digital booking pass and WhatsApp reminder has been dispatched to{" "}
-                  <strong className="font-mono text-white">{clientPhone}</strong>.
+                <p className="text-xs text-slate-400 mt-1.5">
+                  Your VIP reservation has been logged at {salonName}.
                 </p>
               </div>
 
-              {/* Digital Pass Ticket Card */}
-              <div className="p-6 bg-[#18191C] rounded-2xl border border-[#27272A] text-xs text-left space-y-3 shadow-2xl relative overflow-hidden">
-                <div
-                  className="absolute top-0 right-0 w-32 h-32 blur-[60px] pointer-events-none opacity-20"
-                  style={{ backgroundColor: accentColor }}
-                />
-
-                <div className="flex items-center justify-between pb-3 border-b border-[#27272A]">
+              {/* VIP Digital Card */}
+              <div className="relative rounded-3xl bg-gradient-to-br from-[#1b1d28] via-[#14151e] to-[#0e0f14] border border-amber-500/30 p-6 text-left shadow-2xl">
+                <div className="flex items-center justify-between pb-4 border-b border-white/[0.08]">
                   <div>
-                    <h5 className="font-bold text-white text-sm">{activeSalon.name}</h5>
-                    <span className="text-[10px] text-[#949BA4] font-mono">{activeSalon.branch}</span>
+                    <span className="text-[10px] font-mono uppercase tracking-wider text-slate-400">Salon</span>
+                    <h4 className="text-base font-serif font-bold text-white">{salonName}</h4>
+                    <p className="text-[11px] text-slate-400">{salonAddress}, {salonCity}</p>
                   </div>
-                  <div
-                    className="p-2 rounded-xl bg-black/40 border border-white/10"
-                    title="Digital Pass Barcode"
-                  >
-                    <QrCode className="w-6 h-6 text-white" />
+                  <div className="text-right">
+                    <span className="text-[10px] font-mono uppercase tracking-wider text-amber-400">Pass Code</span>
+                    <p className="text-sm font-mono font-bold text-amber-300">{bookingPassCode}</p>
                   </div>
                 </div>
 
-                <div className="space-y-1.5 pt-1">
-                  <div className="font-bold text-[#F8FAFC] text-sm">{selectedService.name}</div>
-                  <div className="text-[#949BA4] font-mono flex items-center justify-between">
-                    <span>
-                      Specialist: <strong className="text-white">{selectedStaff.name}</strong>
-                    </span>
-                    <span className="font-bold font-mono" style={{ color: accentColor }}>
-                      {formatCurrency(selectedService.price)}
-                    </span>
+                <div className="py-4 grid grid-cols-2 gap-4 text-xs">
+                  <div>
+                    <span className="text-slate-400 text-[10px] uppercase font-mono">Date</span>
+                    <p className="font-semibold text-white">{selectedDate}</p>
                   </div>
-                  <div className="font-mono font-bold" style={{ color: accentColor }}>
-                    🗓️ {selectedDate} at {selectedTime}
+                  <div>
+                    <span className="text-slate-400 text-[10px] uppercase font-mono">Slot</span>
+                    <p className="font-semibold text-amber-400">{selectedTime}</p>
                   </div>
-                  <div className="text-[#71717A] text-[11px] pt-2 border-t border-[#27272A] font-mono">
-                    📍 {activeSalon.address}
+                  <div>
+                    <span className="text-slate-400 text-[10px] uppercase font-mono">Guest</span>
+                    <p className="font-semibold text-white">{clientName}</p>
                   </div>
+                  <div>
+                    <span className="text-slate-400 text-[10px] uppercase font-mono">Total Estimated</span>
+                    <p className="font-semibold text-amber-400">{formatCurrency(totalPrice)}</p>
+                  </div>
+                </div>
+
+                <div className="pt-3 border-t border-white/[0.08] flex items-center justify-between text-xs">
+                  <a
+                    href={mapsQueryUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-1.5 text-amber-400 hover:text-amber-300 font-medium"
+                  >
+                    <Navigation className="w-3.5 h-3.5" />
+                    Open Google Maps Directions
+                  </a>
+
+                  <a
+                    href={`tel:${cleanPhone}`}
+                    className="inline-flex items-center gap-1.5 text-slate-300 hover:text-white"
+                  >
+                    <Phone className="w-3.5 h-3.5 text-amber-400" />
+                    Call Front Desk
+                  </a>
                 </div>
               </div>
 
-              <div className="flex flex-col sm:flex-row items-center justify-center gap-3 pt-2">
-                <button
-                  onClick={() => {
-                    setConfirmed(false);
-                    setStep(1);
-                    setClientName("");
-                    setClientPhone("");
-                  }}
-                  className="w-full sm:w-auto px-6 py-3 font-bold text-xs uppercase tracking-wider rounded-xl transition-all cursor-pointer shadow-lg hover:scale-[1.02]"
-                  style={{
-                    backgroundColor: accentColor,
-                    color: "#080808",
-                  }}
+              {/* Action Buttons */}
+              <div className="pt-2 flex flex-col sm:flex-row items-center justify-center gap-3">
+                <a
+                  href={`https://wa.me/${cleanPhone.length >= 10 ? cleanPhone : "919876543210"}?text=${encodeURIComponent(
+                    `Hi ${salonName}, I just booked appointment ${bookingPassCode} for ${clientName} on ${selectedDate} at ${selectedTime}.`
+                  )}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl text-xs font-semibold bg-emerald-600 hover:bg-emerald-500 text-white shadow-lg transition-all"
                 >
-                  Book Another Appointment
-                </button>
+                  <MessageCircle className="w-4 h-4" />
+                  Message Salon on WhatsApp
+                </a>
 
                 <button
-                  onClick={handleCopyLink}
-                  className="w-full sm:w-auto px-5 py-3 bg-[#18191C] hover:bg-[#232428] text-white font-mono text-xs font-bold uppercase tracking-wider rounded-xl border border-[#27272A] transition-all flex items-center justify-center gap-2 cursor-pointer"
+                  onClick={handleReset}
+                  className="w-full sm:w-auto px-5 py-2.5 rounded-xl text-xs font-semibold bg-white/[0.06] hover:bg-white/[0.1] text-slate-300 transition-all"
                 >
-                  <Share2 className="w-3.5 h-3.5" />
-                  <span>Share Salon Link</span>
+                  Book Another Appointment
                 </button>
               </div>
             </div>
           )}
         </div>
       </div>
-
-      {/* Discord Banner Customizer Modal */}
-      <DiscordBannerCustomizerModal
-        isOpen={isCustomizerOpen}
-        onClose={() => setIsCustomizerOpen(false)}
-        salon={activeSalon}
-        onSave={handleSaveBanner}
-      />
     </div>
   );
 }
