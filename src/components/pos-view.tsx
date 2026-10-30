@@ -38,9 +38,10 @@ import {
   Wallet,
 } from "lucide-react";
 import QRCode from "qrcode";
+import { playPaymentAlertSound } from "@/lib/audio-alerts";
 
 export function PosView() {
-  const { salon, staff, services, inventory, customers, invoices, createInvoice } = useBillCare();
+  const { salon, staff, services, inventory, customers, invoices, createInvoice, showToast } = useBillCare();
 
   // Selected tab: "terminal" or "history"
   const [activeSubTab, setActiveSubTab] = useState<"terminal" | "history">("terminal");
@@ -339,9 +340,16 @@ export function PosView() {
       setUpiConfirmedByStaff(false);
       setManualUtr("");
 
+      // Instant Receptionist Soundbox Notice
+      if (status === "paid") {
+        playPaymentAlertSound("success");
+        showToast(`Payment of ${formatCurrency(grandTotal)} confirmed via ${method}!`, "success");
+      }
+
       // Open Printable/Viewable Invoice Modal
       setActiveInvoice(newInvoice);
     } catch (err: any) {
+      playPaymentAlertSound("failure");
       setCheckoutError(err.message || "Checkout failed. Please try again.");
     } finally {
       setIsSubmitting(false);

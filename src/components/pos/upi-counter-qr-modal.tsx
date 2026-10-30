@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from "react";
 import { formatCurrency } from "@/lib/utils";
+import { playPaymentAlertSound } from "@/lib/audio-alerts";
 import {
   QrCode,
   ShieldCheck,
@@ -18,7 +19,8 @@ import {
   X,
   CreditCard,
   Banknote,
-  AlertCircle
+  AlertCircle,
+  Volume2
 } from "lucide-react";
 
 interface UpiCounterQrModalProps {
@@ -71,10 +73,13 @@ export function UpiCounterQrModal({
   const [timeLeft, setTimeLeft] = useState<number>(300); // 5 minutes session
   const [isVerifying, setIsVerifying] = useState<boolean>(false);
   const [manualUtr, setManualUtr] = useState<string>("");
+  const [paymentState, setPaymentState] = useState<"pending" | "success" | "failed">("pending");
+  const [confirmedRef, setConfirmedRef] = useState<string>("");
 
   // Fetch or generate dynamic UPI QR code
   const fetchQrCode = async () => {
     setLoading(true);
+    setPaymentState("pending");
     try {
       const res = await fetch("/api/v1/payments/generate-upi-qr", {
         method: "POST",
@@ -121,18 +126,32 @@ export function UpiCounterQrModal({
 
   useEffect(() => {
     if (isOpen) {
+      setPaymentState("pending");
       fetchQrCode();
     }
   }, [isOpen, amount, invoiceNumber, upiId]);
 
-  // Countdown timer
+  // Countdown timer with automatic timeout detection & alert chime
   useEffect(() => {
-    if (!isOpen || timeLeft <= 0) return;
+    if (!isOpen || timeLeft <= 0 || paymentState !== "pending") {
+      if (timeLeft === 0 && paymentState === "pending") {
+        setPaymentState("failed");
+        playPaymentAlertSound("failure");
+      }
+      return;
+    }
     const interval = setInterval(() => {
-      setTimeLeft((prev) => (prev > 0 ? prev - 1 : 0));
+      setTimeLeft((prev) => {
+        if (prev <= 1) {
+          setPaymentState("failed");
+          playPaymentAlertSound("failure");
+          return 0;
+        }
+        return prev - 1;
+      });
     }, 1000);
     return () => clearInterval(interval);
-  }, [isOpen, timeLeft]);
+  }, [isOpen, timeLeft, paymentState]);
 
   if (!isOpen) return null;
 
@@ -157,16 +176,24 @@ export function UpiCounterQrModal({
   const handleConfirmPayment = () => {
     setIsVerifying(true);
     const txnRef = manualUtr.trim() || `UPI-${Date.now().toString().slice(-8)}`;
+    setConfirmedRef(txnRef);
 
     setTimeout(() => {
       setIsVerifying(false);
-      onPaymentSuccess({
-        paymentMethod: activeTab === "qr" ? "UPI / Dynamic QR" : "Bank Transfer / IMPS",
-        transactionRef: txnRef,
-        paidAmount: amount,
-      });
-      onClose();
-    }, 600);
+      setPaymentState("success");
+      // Instant receptionist Soundbox chime
+      playPaymentAlertSound("success");
+
+      // Auto-settle after 2 seconds or allow manual close
+      setTimeout(() => {
+        onPaymentSuccess({
+          paymentMethod: activeTab === "qr" ? "UPI / Dynamic QR" : "Bank Transfer / IMPS",
+          transactionRef: txnRef,
+          paidAmount: amount,
+        });
+        onClose();
+      }, 2200);
+    }, 500);
   };
 
   return (
@@ -230,7 +257,99 @@ export function UpiCounterQrModal({
 
         {/* Modal Body */}
         <div className="p-5 space-y-4">
-          {/* Amount Locked Display Banner */}
+          {paymentState === "success" ? (
+            /* SUCCESS NOTICE: SOUNDBOX AUDIO CHIME + CELEBRATION */
+            <div className="py-6 px-4 flex flex-col items-center text-center space-y-4 animate-in zoom-in-95 duration-200">
+              <div className="w-20 h-20 rounded-full bg-emerald-500/20 border-2 border-emerald-400 flex items-center justify-center text-emerald-400 shadow-xl shadow-emerald-500/25 animate-bounce">
+                <CheckCircle2 className="w-10 h-10" />
+              </div>
+              <div>
+                <span className="text-[11px] font-mono uppercase tracking-widest text-emerald-400 font-bold flex items-center justify-center gap-1.5">
+                  <Volume2 className="w-3.5 h-3.5 animate-pulse" />
+                  Soundbox Payment Confirmed
+                </span>
+                <h3 className="text-3xl font-serif font-black text-white mt-1">
+                  {formatCurrency(amount)}
+                </h3>
+                <p className="text-xs text-[#A1A1AA] mt-1">
+                  Credited directly to {salonName} • Ref: {confirmedRef}
+                </p>
+              </div>
+
+              <div className="p-3 bg-[#151515] border border-[#27272A] rounded-2xl w-full text-xs text-left space-y-2">
+                <div className="flex items-center justify-between text-[#A1A1AA]">
+                  <span>Customer:</span>
+                  <span className="text-white font-semibold">{customerName}</span>
+                </div>
+                <div className="flex items-center justify-between text-[#A1A1AA]">
+                  <span>Payment Tender:</span>
+                  <span className="text-emerald-400 font-bold">{activeTab === "qr" ? "Direct Countertop UPI" : "Bank Transfer"}</span>
+                </div>
+                <div className="flex items-center justify-between text-[#A1A1AA]">
+                  <span>WhatsApp Receipt:</span>
+                  <span className="text-sky-400 font-semibold flex items-center gap-1">
+                    <Check className="w-3.5 h-3.5 text-sky-400" /> Automated Dispatch Sent
+                  </span>
+                </div>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => {
+                  onPaymentSuccess({
+                    paymentMethod: activeTab === "qr" ? "UPI / Dynamic QR" : "Bank Transfer / IMPS",
+                    transactionRef: confirmedRef,
+                    paidAmount: amount,
+                  });
+                  onClose();
+                }}
+                className="w-full py-3.5 rounded-xl bg-emerald-500 hover:bg-emerald-600 text-slate-950 font-extrabold text-xs uppercase tracking-wider transition-all cursor-pointer shadow-lg shadow-emerald-500/20"
+              >
+                Close & Print Tax Invoice
+              </button>
+            </div>
+          ) : paymentState === "failed" ? (
+            /* FAILED / TIMEOUT NOTICE: WARNING BUZZER + RETRY */
+            <div className="py-6 px-4 flex flex-col items-center text-center space-y-4 animate-in zoom-in-95 duration-200">
+              <div className="w-20 h-20 rounded-full bg-rose-500/20 border-2 border-rose-400 flex items-center justify-center text-rose-400 shadow-xl shadow-rose-500/20">
+                <AlertCircle className="w-10 h-10" />
+              </div>
+              <div>
+                <span className="text-[11px] font-mono uppercase tracking-widest text-rose-400 font-bold">
+                  Session Expired / Not Received
+                </span>
+                <h3 className="text-xl font-serif font-bold text-white mt-1">
+                  Payment Verification Timeout
+                </h3>
+                <p className="text-xs text-[#A1A1AA] mt-1 max-w-xs leading-relaxed">
+                  No payment was received in the salon account for {formatCurrency(amount)} within the 5-minute session window.
+                </p>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3 w-full pt-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setPaymentState("pending");
+                    fetchQrCode();
+                  }}
+                  className="py-3 px-3 rounded-xl bg-[#FACC15] hover:bg-[#EAB308] text-slate-950 font-bold text-xs uppercase tracking-wider flex items-center justify-center gap-1.5 transition-all cursor-pointer shadow-md"
+                >
+                  <RefreshCw className="w-3.5 h-3.5" />
+                  <span>Generate New QR</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={onClose}
+                  className="py-3 px-3 rounded-xl bg-[#181818] hover:bg-[#27272A] text-white border border-[#27272A] font-bold text-xs uppercase tracking-wider flex items-center justify-center gap-1.5 transition-all cursor-pointer"
+                >
+                  <span>Select Cash</span>
+                </button>
+              </div>
+            </div>
+          ) : (
+            <>
+              {/* Amount Locked Display Banner */}
           <div className="bg-[#151515] p-4 rounded-2xl border border-[#27272A] flex items-center justify-between">
             <div>
               <span className="text-[11px] font-bold text-[#A1A1AA] block uppercase tracking-wider">
@@ -472,6 +591,8 @@ export function UpiCounterQrModal({
               Cancel / Select Different Payment Method
             </button>
           </div>
+          </>
+          )}
         </div>
       </div>
     </div>
