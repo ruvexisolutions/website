@@ -42,7 +42,7 @@ export function BookingPreviewView({
   salonSlug,
   isStandalone = false,
 }: BookingPreviewViewProps) {
-  const { salon, services = [], staff = [], createAppointment } = useBillCare();
+  const { salon, services = [], staff = [], addAppointment } = useBillCare();
 
   // Local state for interactive booking workflow
   const [selectedServices, setSelectedServices] = useState<string[]>([]);
@@ -180,16 +180,20 @@ export function BookingPreviewView({
     setBookingPassCode(passCode);
 
     try {
-      if (createAppointment) {
-        await createAppointment({
+      if (addAppointment) {
+        addAppointment({
           customerName: clientName,
           customerPhone: clientPhone,
-          serviceIds: selectedServices,
+          serviceId: selectedServices[0] || "",
+          serviceName: selectedServiceObjs.map((s) => s.name).join(", ") || "Salon Treatment",
           date: selectedDate,
           time: selectedTime || "11:00 AM",
           notes: clientNotes,
-          specialistId: selectedStaff !== "any" ? selectedStaff : undefined,
+          staffId: selectedStaff !== "any" ? selectedStaff : (staff[0]?.id || "stf_1"),
+          staffName: staff.find((s) => s.id === selectedStaff)?.name || "Master Specialist",
           status: "confirmed",
+          price: totalPrice,
+          durationMinutes: totalDuration,
         });
       }
     } catch (err) {
