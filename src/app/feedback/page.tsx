@@ -1,9 +1,9 @@
-"use client";
+﻿"use client";
 
 import React, { useState, Suspense } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import { useBillCare } from "@/lib/billcare-context";
+import { useRuvexi } from "@/lib/ruvexi-context";
 import {
   Star,
   Sparkles,
@@ -24,7 +24,7 @@ import {
 
 function FeedbackFormContent() {
   const searchParams = useSearchParams();
-  const { salon, staff, addFeedback, showToast } = useBillCare();
+  const { salon, staff, addFeedback, showToast } = useRuvexi();
 
   const customerName = searchParams.get("name") || "Ananya Sharma";
   const customerPhone = searchParams.get("phone") || "+91 98450 12890";
@@ -90,7 +90,7 @@ function FeedbackFormContent() {
               {salon.name}
             </h1>
             <p className="text-xs text-slate-500 font-medium">
-              Client Feedback • Powered by BillCare Solution
+              Client Feedback • Powered by Ruvexi Solutions
             </p>
           </div>
         </div>
@@ -294,7 +294,7 @@ function FeedbackFormContent() {
 
       {/* Footer */}
       <footer className="text-center text-[11px] text-slate-400 py-2">
-        Powered by BillCare Solution Salon OS • Private & Verified Feedback
+        Powered by Ruvexi Solutions Salon OS • Private & Verified Feedback
       </footer>
     </div>
   );

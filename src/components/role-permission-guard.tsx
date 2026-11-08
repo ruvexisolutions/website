@@ -1,7 +1,7 @@
-"use client";
+﻿"use client";
 
 import React from "react";
-import { useBillCare } from "@/lib/billcare-context";
+import { useRuvexi } from "@/lib/ruvexi-context";
 import { getRoleConfig, getRequiredRoleForTab, DashboardTab } from "@/lib/role-permissions";
 import { ShieldAlert, ArrowLeft, Lock, KeyRound } from "lucide-react";
 
@@ -12,7 +12,7 @@ interface RolePermissionGuardProps {
 }
 
 export function RolePermissionGuard({ tab, tabLabel, onNavigateToAllowedTab }: RolePermissionGuardProps) {
-  const { user } = useBillCare();
+  const { user } = useRuvexi();
   const currentConfig = getRoleConfig(user?.role);
   const requiredRole = getRequiredRoleForTab(tab);
 
@@ -74,7 +74,7 @@ export function RolePermissionGuard({ tab, tabLabel, onNavigateToAllowedTab }: R
               <span>Permission Notice</span>
             </div>
             <p className="text-[12px] text-[#A1A1AA] leading-relaxed">
-              BillCare enforces strict isolation between daily Front Desk Receptionist workflows and Salon Manager business administration. If you require access to this section, please contact your salon manager.
+              Ruvexi enforces strict isolation between daily Front Desk Receptionist workflows and Salon Manager business administration. If you require access to this section, please contact your salon manager.
             </p>
           </div>
 

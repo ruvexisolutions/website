@@ -1,16 +1,16 @@
-"use client";
+﻿"use client";
 
 import React, { useState, useEffect } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
-import { BillCareLogo } from "@/components/brand/billcare-logo";
+import { RuvexiLogo } from "@/components/brand/ruvexi-logo";
 import { ShieldCheck, UserCheck, Lock, User, Phone, ArrowRight, AlertCircle, CheckCircle2 } from "lucide-react";
-import { useBillCare } from "@/lib/billcare-context";
+import { useRuvexi } from "@/lib/ruvexi-context";
 
 export default function AcceptInvitationPage() {
   const params = useParams();
   const router = useRouter();
-  const { setSession, showToast } = useBillCare();
+  const { setSession, showToast } = useRuvexi();
   const token = params?.token as string;
 
   const [isLoading, setIsLoading] = useState(true);
@@ -95,7 +95,7 @@ export default function AcceptInvitationPage() {
         {/* Brand Logo */}
         <div className="text-center space-y-2">
           <div className="inline-block">
-            <BillCareLogo size="md" variant="light" showSubtitle={true} />
+            <RuvexiLogo size="md" variant="light" showSubtitle={true} />
           </div>
           <p className="text-xs text-[#71717A] tracking-wide font-mono uppercase">
             Receptionist Enrollment Portal

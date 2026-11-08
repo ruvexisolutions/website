@@ -1,9 +1,9 @@
-"use client";
+﻿"use client";
 
 import React, { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useBillCare } from "@/lib/billcare-context";
+import { useRuvexi } from "@/lib/ruvexi-context";
 import { AuthSplitLayout } from "@/components/auth/auth-split-layout";
 import { AuthInput } from "@/components/auth/auth-input";
 import { AuthButton } from "@/components/auth/auth-button";
@@ -12,7 +12,7 @@ import { Building2, User, Mail, Lock, AlertCircle } from "lucide-react";
 
 export default function SignupPage() {
   const router = useRouter();
-  const { signup } = useBillCare();
+  const { signup } = useRuvexi();
 
   const [salonName, setSalonName] = useState("");
   const [fullName, setFullName] = useState("");

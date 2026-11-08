@@ -1,5 +1,5 @@
-// ============================================================================
-// BillCare Countertop Audio Alert System (Web Audio API Synthesizer)
+﻿// ============================================================================
+// Ruvexi Countertop Audio Alert System (Web Audio API Synthesizer)
 // Provides instant Soundbox-style audio chimes for receptionist payment completion
 // and warning buzzers for payment failure / timeout with zero external mp3 files.
 // ============================================================================
@@ -51,7 +51,7 @@ export function playPaymentAlertSound(type: "success" | "failure") {
       });
     }
   } catch (err) {
-    console.warn("[BillCare Audio Alert Notice]", err);
+    console.warn("[Ruvexi Audio Alert Notice]", err);
   }
 }
 

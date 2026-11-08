@@ -1,7 +1,7 @@
-"use client";
+﻿"use client";
 
 import React, { useState } from "react";
-import { useBillCare } from "@/lib/billcare-context";
+import { useRuvexi } from "@/lib/ruvexi-context";
 import { InvoiceItem, Invoice } from "@/lib/types";
 import { formatCurrency } from "@/lib/utils";
 import { InvoiceModal } from "./invoice-modal";
@@ -41,7 +41,7 @@ import QRCode from "qrcode";
 import { playPaymentAlertSound } from "@/lib/audio-alerts";
 
 export function PosView() {
-  const { salon, staff, services, inventory, customers, invoices, createInvoice, showToast } = useBillCare();
+  const { salon, staff, services, inventory, customers, invoices, createInvoice, showToast } = useRuvexi();
 
   // Selected tab: "terminal" or "history"
   const [activeSubTab, setActiveSubTab] = useState<"terminal" | "history">("terminal");

@@ -1,7 +1,7 @@
-"use client";
+﻿"use client";
 
 import React, { useState, useMemo, useEffect, useRef } from "react";
-import { useBillCare } from "@/lib/billcare-context";
+import { useRuvexi } from "@/lib/ruvexi-context";
 import { formatCurrency } from "@/lib/utils";
 import {
   Calendar,
@@ -63,7 +63,7 @@ export function FrontDeskView({ onNavigateTab, onGoToPosBilling }: FrontDeskView
     closeRegisterShift,
     appendServiceToAppointment,
     sendChairReadyWhatsApp,
-  } = useBillCare();
+  } = useRuvexi();
 
   // Shift Cash Drawer Modal
   const [showShiftModal, setShowShiftModal] = useState<boolean>(false);
@@ -470,7 +470,7 @@ export function FrontDeskView({ onNavigateTab, onGoToPosBilling }: FrontDeskView
     updateAppointmentStatus(billingApt.id, "Completed");
 
     const cleanPhone = billingApt.customerPhone.replace(/[^0-9]/g, "");
-    const feedbackUrl = `https://billcare.io/feedback?name=${encodeURIComponent(
+    const feedbackUrl = `https://Ruvexi.io/feedback?name=${encodeURIComponent(
       billingApt.customerName
     )}&phone=${encodeURIComponent(cleanPhone)}&staff=${encodeURIComponent(
       billingApt.staffName
@@ -1512,7 +1512,7 @@ We look forward to seeing you again soon! 💇‍♀️✨`;
                   {salon.name} Counter QR • {formatCurrency(payMethod === "Split" ? upiAmount : finalBillAmount)}
                 </div>
                 <div className="text-[11px] text-[#A1A1AA] font-mono">
-                  UPI ID: {salon.upiId || `billcare.${salon.slug || "terminal"}@axisbank`}
+                  UPI ID: {salon.upiId || `Ruvexi.${salon.slug || "terminal"}@axisbank`}
                 </div>
                 <p className="text-[11px] text-[#10B981]">
                   Instant scan via Google Pay, PhonePe, Paytm, or BHIM.

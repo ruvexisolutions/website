@@ -1,2 +1,2 @@
-// Re-export from BillCare core context
-export * from "./billcare-context";
+﻿// Re-export from Ruvexi core context
+export * from "./ruvexi-context";

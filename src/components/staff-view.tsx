@@ -1,9 +1,9 @@
-"use client";
+﻿"use client";
 
 import React, { useState, useEffect } from "react";
-import { useBillCare } from "@/lib/billcare-context";
+import { useRuvexi } from "@/lib/ruvexi-context";
 import { formatCurrency } from "@/lib/utils";
-import { billcareApi } from "@/lib/api-client";
+import { RuvexiApi } from "@/lib/api-client";
 import {
   Users,
   Clock,
@@ -36,7 +36,7 @@ import {
 } from "lucide-react";
 
 export function StaffView() {
-  const { user, salon, staff, toggleStaffStatus, updateStaffCommission, addStaffMember, showToast } = useBillCare();
+  const { user, salon, staff, toggleStaffStatus, updateStaffCommission, addStaffMember, showToast } = useRuvexi();
   const isOwner = user?.role === "owner" || user?.role === "admin" || user?.role === "SALON_MANAGER";
 
   const [showAddModal, setShowAddModal] = useState(false);
@@ -68,7 +68,7 @@ export function StaffView() {
   useEffect(() => {
     async function loadBranches() {
       try {
-        const list = await billcareApi.getBranches();
+        const list = await RuvexiApi.getBranches();
         if (Array.isArray(list) && list.length > 0) {
           setBranches(list);
           setSelectedBranchId(list[0].id);
@@ -135,7 +135,7 @@ export function StaffView() {
     }
     setIsCreatingBranch(true);
     try {
-      const newBrn = await billcareApi.createBranch({
+      const newBrn = await RuvexiApi.createBranch({
         name: branchName.trim(),
         city: branchCity.trim(),
         address: branchAddress.trim(),
@@ -157,7 +157,7 @@ export function StaffView() {
 
   const handleReallotBranch = async (staffId: string, newBranchId: string) => {
     try {
-      await billcareApi.updateStaff(staffId, { branchId: newBranchId });
+      await RuvexiApi.updateStaff(staffId, { branchId: newBranchId });
       const branchObj = branches.find((b) => b.id === newBranchId);
       // Optimistically update local staff record
       const member = staff.find((s) => s.id === staffId);
@@ -179,7 +179,7 @@ export function StaffView() {
     }
     setIsInviting(true);
     try {
-      const res = await billcareApi.createInvitation(inviteEmail.trim().toLowerCase(), selectedBranchId || undefined);
+      const res = await RuvexiApi.createInvitation(inviteEmail.trim().toLowerCase(), selectedBranchId || undefined);
       if (res.success && res.inviteUrl) {
         const fullUrl = typeof window !== "undefined"
           ? `${window.location.origin}${res.inviteUrl}`
@@ -710,7 +710,7 @@ export function StaffView() {
                     type="button"
                     onClick={() => {
                       const bName = branches.find((b) => b.id === selectedBranchId)?.name || salon.name;
-                      const msg = `Hi! You have been invited to join ${salon?.name || "our salon"} (${bName}) as Front Desk Receptionist on BillCare. Please click this link to set your password and activate your account: ${generatedLink}`;
+                      const msg = `Hi! You have been invited to join ${salon?.name || "our salon"} (${bName}) as Front Desk Receptionist on Ruvexi. Please click this link to set your password and activate your account: ${generatedLink}`;
                       window.open(`https://wa.me/?text=${encodeURIComponent(msg)}`, "_blank");
                     }}
                     className="py-2.5 bg-[#181818] hover:bg-[#222] border border-[#27272A] text-emerald-400 font-semibold rounded-xl flex items-center justify-center gap-2 cursor-pointer"

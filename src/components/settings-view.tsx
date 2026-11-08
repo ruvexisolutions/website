@@ -1,7 +1,7 @@
-"use client";
+﻿"use client";
 
 import React, { useState, useRef } from "react";
-import { useBillCare } from "@/lib/billcare-context";
+import { useRuvexi } from "@/lib/ruvexi-context";
 import { getRoleConfig } from "@/lib/role-permissions";
 import {
   Settings,
@@ -25,7 +25,7 @@ import {
   Check,
   ExternalLink,
 } from "lucide-react";
-import { billcareApi } from "@/lib/api-client";
+import { RuvexiApi } from "@/lib/api-client";
 import QRCode from "qrcode";
 import { MetaEmbeddedSignupModal } from "./meta-embedded-signup-modal";
 import { WhatsAppSettingsView } from "./whatsapp-settings-view";
@@ -38,7 +38,7 @@ interface SettingsViewProps {
 }
 
 export function SettingsView({ initialSubTab = "general" }: SettingsViewProps) {
-  const { salon, updateSalonProfile, resetDemoData, user } = useBillCare();
+  const { salon, updateSalonProfile, resetDemoData, user } = useRuvexi();
 
   const roleConfig = getRoleConfig(user?.role);
   const canEditBusiness = roleConfig.capabilities.canEditSalonSettings;
@@ -70,7 +70,7 @@ export function SettingsView({ initialSubTab = "general" }: SettingsViewProps) {
   // Live UPI QR code generator for test verification
   React.useEffect(() => {
     if (upiId && upiId.includes("@")) {
-      const testIntent = `upi://pay?pa=${encodeURIComponent(upiId.trim())}&pn=${encodeURIComponent(upiPayeeName || salon.name)}&cu=INR&tn=${encodeURIComponent("BillCare Test QR")}`;
+      const testIntent = `upi://pay?pa=${encodeURIComponent(upiId.trim())}&pn=${encodeURIComponent(upiPayeeName || salon.name)}&cu=INR&tn=${encodeURIComponent("Ruvexi Test QR")}`;
       QRCode.toDataURL(testIntent, { width: 200, margin: 1 })
         .then(setPreviewQrUrl)
         .catch(() => setPreviewQrUrl(""));
@@ -133,7 +133,7 @@ export function SettingsView({ initialSubTab = "general" }: SettingsViewProps) {
         }
 
         // Call backend payment settings endpoint
-        await billcareApi.updatePaymentSettings({
+        await RuvexiApi.updatePaymentSettings({
           cashEnabled,
           upiEnabled,
           upiId: upiId.trim(),
@@ -627,7 +627,7 @@ export function SettingsView({ initialSubTab = "general" }: SettingsViewProps) {
                         className="w-full px-3.5 py-2.5 bg-[#181818] border border-[#27272A] rounded-xl focus:outline-none focus:border-[#FACC15] font-mono font-bold text-[#FACC15]"
                       />
                       <p className="text-[10px] text-[#71717A]">
-                        Payments go straight to your salon account. BillCare never touches customer funds.
+                        Payments go straight to your salon account. Ruvexi never touches customer funds.
                       </p>
                     </div>
 

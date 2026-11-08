@@ -1,7 +1,7 @@
-"use client";
+﻿"use client";
 
 import React, { useState } from "react";
-import { useBillCare } from "@/lib/billcare-context";
+import { useRuvexi } from "@/lib/ruvexi-context";
 import { formatCurrency } from "@/lib/utils";
 import { CustomerProfile } from "@/lib/types";
 import { ClientFormulaModal } from "./client-formula-modal";
@@ -36,7 +36,7 @@ interface CustomersViewProps {
 }
 
 export function CustomersView({ onGoToPos, onGoToBooking }: CustomersViewProps) {
-  const { customers, invoices, addCustomer, updateCustomer, topUpCustomerWallet } = useBillCare();
+  const { customers, invoices, addCustomer, updateCustomer, topUpCustomerWallet } = useRuvexi();
 
   const [searchQuery, setSearchQuery] = useState("");
   const [tierFilter, setTierFilter] = useState<string>("All");
@@ -95,7 +95,7 @@ export function CustomersView({ onGoToPos, onGoToBooking }: CustomersViewProps) 
     const encodedUri = encodeURI(csvContent);
     const link = document.createElement("a");
     link.setAttribute("href", encodedUri);
-    link.setAttribute("download", `billcare_clients_${new Date().toISOString().split("T")[0]}.csv`);
+    link.setAttribute("download", `Ruvexi_clients_${new Date().toISOString().split("T")[0]}.csv`);
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
@@ -129,7 +129,7 @@ export function CustomersView({ onGoToPos, onGoToBooking }: CustomersViewProps) 
 
   const handleWhatsAppClick = (c: any) => {
     const text = encodeURIComponent(
-      `Hi ${c.name}! ✨ From BillCare: We hope you are loving your look! Your stylist ${c.preferredStaff || "specialist"} wanted to check in. Would you like to reserve a chair for your next visit?`
+      `Hi ${c.name}! ✨ From Ruvexi: We hope you are loving your look! Your stylist ${c.preferredStaff || "specialist"} wanted to check in. Would you like to reserve a chair for your next visit?`
     );
     const cleanPhone = c.phone.replace(/[^0-9]/g, "");
     window.open(`https://wa.me/${cleanPhone}?text=${text}`, "_blank");
@@ -137,7 +137,7 @@ export function CustomersView({ onGoToPos, onGoToBooking }: CustomersViewProps) 
 
   const handleRecallWhatsAppClick = (c: any) => {
     const text = encodeURIComponent(
-      `Hi ${c.name}! ✨ We miss seeing you at BillCare! It's been a little while since your last visit. We've reserved an exclusive 15% VIP welcome-back privilege for you this month. Would you like us to save a chair for your next styling session?`
+      `Hi ${c.name}! ✨ We miss seeing you at Ruvexi! It's been a little while since your last visit. We've reserved an exclusive 15% VIP welcome-back privilege for you this month. Would you like us to save a chair for your next styling session?`
     );
     const cleanPhone = c.phone.replace(/[^0-9]/g, "");
     window.open(`https://wa.me/${cleanPhone}?text=${text}`, "_blank");

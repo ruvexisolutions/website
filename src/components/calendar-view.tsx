@@ -1,7 +1,7 @@
-"use client";
+﻿"use client";
 
 import React, { useState } from "react";
-import { useBillCare } from "@/lib/billcare-context";
+import { useRuvexi } from "@/lib/ruvexi-context";
 import { formatCurrency } from "@/lib/utils";
 import { Appointment, CustomerProfile } from "@/lib/types";
 import { ClientFormulaModal } from "./client-formula-modal";
@@ -46,7 +46,7 @@ export function CalendarView({ onGoToPosBilling }: CalendarViewProps) {
     updateAppointmentStatus,
     bookAppointment,
     sendWhatsAppReminder,
-  } = useBillCare();
+  } = useRuvexi();
 
   // View state: "day" (timeline matrix), "week" (7-day column view), or "cards"
   const [viewMode, setViewMode] = useState<"day" | "week" | "cards">("day");

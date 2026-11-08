@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import React, { useState } from "react";
 import {
@@ -24,7 +24,7 @@ import {
   Flame,
   Award,
 } from "lucide-react";
-import { useBillCare } from "@/lib/billcare-context";
+import { useRuvexi } from "@/lib/ruvexi-context";
 import { formatCurrency } from "@/lib/utils";
 
 interface ZenotiEnterpriseModalProps {
@@ -40,7 +40,7 @@ export function ZenotiEnterpriseModal({
   activeCenter,
   onSelectCenter,
 }: ZenotiEnterpriseModalProps) {
-  const { salon, showToast, staff } = useBillCare();
+  const { salon, showToast, staff } = useRuvexi();
 
   const [activeTab, setActiveTab] = useState<"centers" | "migration" | "clinical" | "packages">("centers");
 

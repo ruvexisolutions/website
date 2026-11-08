@@ -1,7 +1,7 @@
-"use client";
+﻿"use client";
 
 import React, { useState } from "react";
-import { useBillCare } from "@/lib/billcare-context";
+import { useRuvexi } from "@/lib/ruvexi-context";
 import { formatCurrency } from "@/lib/utils";
 import {
   BarChart3,
@@ -22,7 +22,7 @@ import {
 } from "lucide-react";
 
 export function ReportsView() {
-  const { salon, invoices, staff } = useBillCare();
+  const { salon, invoices, staff } = useRuvexi();
 
   const [dateFilter, setDateFilter] = useState<"Today" | "Week" | "Month">("Today");
 
@@ -79,7 +79,7 @@ export function ReportsView() {
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = `billcare_sales_report_${new Date().toISOString().split("T")[0]}.csv`;
+    a.download = `Ruvexi_sales_report_${new Date().toISOString().split("T")[0]}.csv`;
     a.click();
   };
 

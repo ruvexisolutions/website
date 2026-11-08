@@ -1,4 +1,4 @@
-export interface SalonProfile {
+﻿export interface SalonProfile {
   id: string;
   name: string;
   tagline: string;
@@ -202,7 +202,7 @@ export const DEMO_PERSONAS: UserPersona[] = [
   {
     id: "usr_manager",
     name: "Kavita Rao",
-    email: "manager@billcare.io",
+    email: "manager@Ruvexi.io",
     role: "SALON_MANAGER",
     avatar: "KR",
     roleTitle: "Salon Manager",
@@ -211,7 +211,7 @@ export const DEMO_PERSONAS: UserPersona[] = [
   {
     id: "usr_receptionist",
     name: "Ananya Sen",
-    email: "reception@billcare.io",
+    email: "reception@Ruvexi.io",
     role: "SALON_RECEPTIONIST",
     avatar: "AS",
     roleTitle: "Salon Receptionist",

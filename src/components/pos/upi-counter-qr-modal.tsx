@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import React, { useState, useEffect } from "react";
 import { formatCurrency } from "@/lib/utils";
@@ -99,7 +99,7 @@ export function UpiCounterQrModal({
         setMerchantVpa(data.merchant_vpa || upiId);
       } else {
         // Deterministic fallback if backend offline
-        const targetVpa = upiId || "billcare.pos@icici";
+        const targetVpa = upiId || "Ruvexi.pos@icici";
         const amtStr = amount.toFixed(2);
         const encodedName = encodeURIComponent(salonName);
         const note = encodeURIComponent(`Invoice ${invoiceNumber}`);
@@ -110,7 +110,7 @@ export function UpiCounterQrModal({
       }
     } catch (err) {
       console.warn("Using offline UPI intent generator:", err);
-      const targetVpa = upiId || "billcare.pos@icici";
+      const targetVpa = upiId || "Ruvexi.pos@icici";
       const amtStr = amount.toFixed(2);
       const encodedName = encodeURIComponent(salonName);
       const note = encodeURIComponent(`Invoice ${invoiceNumber}`);

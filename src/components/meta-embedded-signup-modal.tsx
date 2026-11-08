@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import React, { useState } from "react";
 import {
@@ -54,7 +54,7 @@ export function MetaEmbeddedSignupModal({
   const handleVerifyOtp = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsVerifying(true);
-    const token = typeof window !== "undefined" ? localStorage.getItem("billcare_token") : null;
+    const token = typeof window !== "undefined" ? localStorage.getItem("Ruvexi_token") : null;
     const metaAppId = process.env.NEXT_PUBLIC_META_APP_ID;
 
     if (!metaAppId) {
@@ -94,7 +94,7 @@ export function MetaEmbeddedSignupModal({
   const handleSendTestMessage = async () => {
     setIsSendingTest(true);
     setTestStatus(null);
-    const token = typeof window !== "undefined" ? localStorage.getItem("billcare_token") : null;
+    const token = typeof window !== "undefined" ? localStorage.getItem("Ruvexi_token") : null;
     try {
       const res = await fetch("/api/v1/whatsapp/send-bill", {
         method: "POST",

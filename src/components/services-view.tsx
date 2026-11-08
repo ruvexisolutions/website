@@ -1,7 +1,7 @@
-"use client";
+﻿"use client";
 
 import React, { useState } from "react";
-import { useBillCare } from "@/lib/billcare-context";
+import { useRuvexi } from "@/lib/ruvexi-context";
 import { formatCurrency } from "@/lib/utils";
 import { ServiceItem } from "@/lib/types";
 import {
@@ -21,7 +21,7 @@ import {
 } from "lucide-react";
 
 export function ServicesView() {
-  const { services, inventory, addService, updateService } = useBillCare();
+  const { services, inventory, addService, updateService } = useRuvexi();
 
   const [activeCategory, setActiveCategory] = useState<string>("All");
   const [searchQuery, setSearchQuery] = useState<string>("");
@@ -468,7 +468,7 @@ export function ServicesView() {
                 )}
 
                 <p className="text-[10px] text-[#71717A] leading-relaxed">
-                  BillCare monitors this quantity to forecast backbar product depletion whenever this service is completed.
+                  Ruvexi monitors this quantity to forecast backbar product depletion whenever this service is completed.
                 </p>
               </div>
 

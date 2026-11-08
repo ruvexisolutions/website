@@ -1,9 +1,9 @@
-/**
- * BillCare Solution Platform API Client
+﻿/**
+ * Ruvexi Solutions Platform API Client
  * Seamlessly connects Next.js frontend to FastAPI backend API
  */
 
-const LIVE_BACKEND_URL = "https://billcare-production.up.railway.app/api/v1";
+const LIVE_BACKEND_URL = "https://Ruvexi-production.up.railway.app/api/v1";
 
 const API_BASE_URL =
   process.env.NEXT_PUBLIC_API_URL ||
@@ -20,7 +20,7 @@ async function request<T>(endpoint: string, options: RequestInit = {}): Promise<
 
   if (typeof window !== "undefined") {
     try {
-      const token = localStorage.getItem("billcare_token");
+      const token = localStorage.getItem("Ruvexi_token");
       if (token && !headers["Authorization"]) {
         headers["Authorization"] = `Bearer ${token}`;
       }
@@ -47,12 +47,12 @@ async function request<T>(endpoint: string, options: RequestInit = {}): Promise<
     return (await res.json()) as T;
   } catch (err: any) {
     // Return friendly error or propagate
-    console.warn(`[BillCare API] ${options.method || "GET"} ${url} error:`, err.message);
+    console.warn(`[Ruvexi API] ${options.method || "GET"} ${url} error:`, err.message);
     throw err;
   }
 }
 
-export const billcareApi = {
+export const RuvexiApi = {
   // Bootstrap entire workspace state
   getBootstrap: () => request<any>("/bootstrap"),
 

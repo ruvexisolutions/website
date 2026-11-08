@@ -1,9 +1,9 @@
-"use client";
+﻿"use client";
 
 import React, { useState, useEffect } from "react";
-import { useBillCare } from "@/lib/billcare-context";
+import { useRuvexi } from "@/lib/ruvexi-context";
 import { getRoleConfig } from "@/lib/role-permissions";
-import { billcareApi } from "@/lib/api-client";
+import { RuvexiApi } from "@/lib/api-client";
 import {
   MessageSquare,
   ShieldCheck,
@@ -53,7 +53,7 @@ interface WhatsAppStatusData {
 }
 
 export function WhatsAppSettingsView() {
-  const { salon, user } = useBillCare();
+  const { salon, user } = useRuvexi();
   const roleConfig = getRoleConfig(user?.role);
   const isManager = roleConfig.capabilities.canEditSalonSettings;
 
@@ -81,7 +81,7 @@ export function WhatsAppSettingsView() {
   const loadStatus = async () => {
     try {
       setLoading(true);
-      const res = await billcareApi.getWhatsAppStatus();
+      const res = await RuvexiApi.getWhatsAppStatus();
       setStatusData(res);
       // Pre-fill display info if available
       if (res.phoneNumberId) setManualPhoneId(res.phoneNumberId);
@@ -103,7 +103,7 @@ export function WhatsAppSettingsView() {
         qualityRating: sWa.qualityRating || "GREEN",
         webhookVerified: Boolean(sWa.isWebhookVerified),
         webhookUrl: typeof window !== "undefined" ? `${window.location.origin}/api/v1/whatsapp/webhook` : "/api/v1/whatsapp/webhook",
-        webhookVerifyToken: "billcare_meta_webhook_2026",
+        webhookVerifyToken: "Ruvexi_meta_webhook_2026",
         templatesStatus: sWa.templatesStatus || "APPROVED (4 Active)",
         lastTestedAt: sWa.lastTestedAt,
         errorMessage: sWa.errorMessage,
@@ -118,7 +118,7 @@ export function WhatsAppSettingsView() {
   // Load recent message history
   const loadMessages = async () => {
     try {
-      const res = await billcareApi.getWhatsAppMessages();
+      const res = await RuvexiApi.getWhatsAppMessages();
       setMessages(res.messages || []);
     } catch {
       // Non-blocking
@@ -142,7 +142,7 @@ export function WhatsAppSettingsView() {
     setIsTesting(true);
     setTestResult(null);
     try {
-      const res = await billcareApi.testWhatsAppConnection();
+      const res = await RuvexiApi.testWhatsAppConnection();
       setTestResult(res);
       await loadStatus();
     } catch (err: any) {
@@ -161,7 +161,7 @@ export function WhatsAppSettingsView() {
     }
     setIsDisconnecting(true);
     try {
-      await billcareApi.disconnectWhatsApp();
+      await RuvexiApi.disconnectWhatsApp();
       await loadStatus();
       setTestResult({
         success: true,
@@ -181,7 +181,7 @@ export function WhatsAppSettingsView() {
     setFormSuccess(null);
 
     try {
-      const res = await billcareApi.configureWhatsApp({
+      const res = await RuvexiApi.configureWhatsApp({
         phoneNumberId: manualPhoneId,
         wabaId: manualWabaId,
         accessToken: manualToken,
@@ -548,7 +548,7 @@ export function WhatsAppSettingsView() {
                   <label className="font-mono text-[11px] text-[#A1A1AA] block mb-1">Verified Brand Name</label>
                   <input
                     type="text"
-                    placeholder="e.g. BillCare Luxury Atelier"
+                    placeholder="e.g. Ruvexi Luxury Atelier"
                     value={manualVerifiedName}
                     onChange={(e) => setManualVerifiedName(e.target.value)}
                     className="w-full px-3.5 py-2.5 bg-[#151515] border border-[#27272A] rounded-xl text-[#F8FAFC] focus:outline-none focus:border-[#FACC15]"
@@ -595,7 +595,7 @@ export function WhatsAppSettingsView() {
             </div>
 
             <p className="text-xs text-[#A1A1AA] leading-relaxed">
-              Meta dispatches real-time delivery receipts (<span className="text-[#F8FAFC] font-mono">sent</span>, <span className="text-emerald-400 font-mono">delivered</span>, <span className="text-[#60A5FA] font-mono">read</span>) to BillCare&apos;s authenticated webhook endpoint.
+              Meta dispatches real-time delivery receipts (<span className="text-[#F8FAFC] font-mono">sent</span>, <span className="text-emerald-400 font-mono">delivered</span>, <span className="text-[#60A5FA] font-mono">read</span>) to Ruvexi&apos;s authenticated webhook endpoint.
             </p>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs font-mono">
@@ -619,11 +619,11 @@ export function WhatsAppSettingsView() {
                 <span className="text-[#71717A] text-[11px] block">Webhook Verification Token</span>
                 <div className="flex items-center justify-between gap-2">
                   <span className="text-[#FACC15] truncate">
-                    {statusData?.webhookVerifyToken || "billcare_meta_webhook_2026"}
+                    {statusData?.webhookVerifyToken || "Ruvexi_meta_webhook_2026"}
                   </span>
                   <button
                     type="button"
-                    onClick={() => copyToClipboard(statusData?.webhookVerifyToken || "billcare_meta_webhook_2026", "verifyToken")}
+                    onClick={() => copyToClipboard(statusData?.webhookVerifyToken || "Ruvexi_meta_webhook_2026", "verifyToken")}
                     className="text-[#71717A] hover:text-[#F8FAFC] cursor-pointer shrink-0"
                   >
                     {copiedField === "verifyToken" ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
@@ -728,25 +728,25 @@ export function WhatsAppSettingsView() {
             <div className="space-y-3">
               {[
                 {
-                  name: "billcare_service_receipt",
+                  name: "Ruvexi_service_receipt",
                   cat: "UTILITY",
                   title: "Instant GST Salon Invoice",
                   desc: "Itemized service billing, GST calculation, and payment receipt link.",
                 },
                 {
-                  name: "billcare_appointment_confirmation",
+                  name: "Ruvexi_appointment_confirmation",
                   cat: "UTILITY",
                   title: "Booking Confirmation",
                   desc: "Confirmed appointment with stylist and chair allocation.",
                 },
                 {
-                  name: "billcare_appointment_reminder",
+                  name: "Ruvexi_appointment_reminder",
                   cat: "UTILITY",
                   title: "Appointment Reminder (24h/2h)",
                   desc: "Automated pre-service reminder reducing no-show rates by 42%.",
                 },
                 {
-                  name: "billcare_rebooking_touchup",
+                  name: "Ruvexi_rebooking_touchup",
                   cat: "MARKETING",
                   title: "28-Day Touch-Up Recall",
                   desc: "Intelligent client retention campaign based on formula service cycle.",
@@ -795,7 +795,7 @@ export function WhatsAppSettingsView() {
               <div className="p-3 bg-[#151515] rounded-xl border border-[#27272A] space-y-1">
                 <span className="font-bold text-[#F8FAFC] block">POS Offline Resiliency</span>
                 <p className="text-[11px] text-[#71717A] leading-relaxed">
-                  If Meta Cloud API is experiencing downtime, BillCare POS automatically falls back to local thermal print and digital receipt links without interrupting checkout.
+                  If Meta Cloud API is experiencing downtime, Ruvexi POS automatically falls back to local thermal print and digital receipt links without interrupting checkout.
                 </p>
               </div>
             </div>

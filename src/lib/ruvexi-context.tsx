@@ -1,7 +1,7 @@
-"use client";
+﻿"use client";
 
 import React, { createContext, useContext, useState, useEffect } from "react";
-import { billcareApi } from "./api-client";
+import { RuvexiApi } from "./api-client";
 import { DEMO_PERSONAS } from "./demo-data";
 import { getRoleConfig } from "./role-permissions";
 import { createClient, isSupabaseConfigured } from "./supabase/client";
@@ -9,7 +9,7 @@ import {
   signUpWithSupabase,
   signInWithSupabasePassword,
   signOutWithSupabase,
-  mapSupabaseUserToBillCare,
+  mapSupabaseUserToRuvexi,
 } from "./supabase/auth";
 
 // ============================================================================
@@ -276,7 +276,7 @@ export type TabType =
 // Context Interface
 // ============================================================================
 
-interface BillCareContextType {
+interface RuvexiContextType {
   // Auth & Session
   user: User | null;
   salon: Salon;
@@ -389,23 +389,23 @@ interface BillCareContextType {
   loginAs: (role: string, name: string) => void;
 }
 
-const BillCareContext = createContext<BillCareContextType | null>(null);
+const RuvexiContext = createContext<RuvexiContextType | null>(null);
 
 // ============================================================================
 // Default Starter Blueprint Data
 // ============================================================================
 
 const DEFAULT_SALON: Salon = {
-  id: "sln_billcare_flagship",
-  name: "BillCare Premier Atelier & Spa",
-  slug: "billcare-atelier",
+  id: "sln_Ruvexi_flagship",
+  name: "Ruvexi Solutions Atelier & Spa",
+  slug: "Ruvexi-atelier",
   branch: "Flagship Studio",
   city: "Mumbai & Bengaluru",
   currency: "₹",
   chairs: 8,
   category: "Luxury Hair Studio & Aesthetic Spa",
-  logoUrl: "/images/billcare-logo.png",
-  logo: "/images/billcare-logo.png",
+  logoUrl: "/images/ruvexi-logo.png",
+  logo: "/images/ruvexi-logo.png",
   bannerPreset: "discord-blurple",
   bannerUrl: "",
   bannerGradient: "linear-gradient(135deg, #1e1f38 0%, #5865F2 45%, #7289da 70%, #eb459e 100%)",
@@ -415,25 +415,25 @@ const DEFAULT_SALON: Salon = {
   gstin: "27AABCB1234F1Z8",
   autoGst: true,
   phone: "+91 98450 11223",
-  email: "hello@billcare.io",
+  email: "hello@Ruvexi.io",
   address: "Suite 401, Crescent Galleria, Indiranagar, Bengaluru",
   timing: "10:00 AM - 09:30 PM (All Days)",
   rating: 4.95,
   reviewCount: 428,
-  upiId: "billcare.pos@icici",
-  bankAccountName: "BillCare Premier Atelier & Spa",
+  upiId: "Ruvexi.pos@icici",
+  bankAccountName: "Ruvexi Solutions Atelier & Spa",
   bankAccountNumber: "50200088991122",
   bankIfsc: "HDFC0001043",
   bankName: "HDFC Bank (Indiranagar Branch)",
 };
 
 const DEFAULT_USER: User = {
-  id: "usr_billcare_owner",
+  id: "usr_Ruvexi_owner",
   name: "Sunil Kumar",
-  email: "owner@billcare.io",
+  email: "owner@Ruvexi.io",
   phone: "+91 98450 11223",
   role: "owner",
-  salonId: "sln_billcare_flagship",
+  salonId: "sln_Ruvexi_flagship",
 };
 
 const INITIAL_SERVICES: Service[] = [];
@@ -453,10 +453,10 @@ const INITIAL_FOLLOWUPS: FollowUp[] = [];
 const INITIAL_FEEDBACKS: any[] = [];
 
 // ============================================================================
-// BillCare Provider Component
+// Ruvexi Provider Component
 // ============================================================================
 
-export function BillCareProvider({ children }: { children: React.ReactNode }) {
+export function RuvexiProvider({ children }: { children: React.ReactNode }) {
   // Persistence state
   const [user, setUser] = useState<User | null>(null);
   const [salon, setSalon] = useState<Salon>(DEFAULT_SALON);
@@ -485,32 +485,32 @@ export function BillCareProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     try {
       // Clean slate migration: purge previous demo cache and remove old bypass auth tokens
-      if (typeof window !== "undefined" && !localStorage.getItem("billcare_auth_strict_2026_v2")) {
-        localStorage.removeItem("billcare_user");
-        localStorage.removeItem("billcare_token");
-        localStorage.removeItem("billcare_customers");
-        localStorage.removeItem("billcare_services");
-        localStorage.removeItem("billcare_staff");
-        localStorage.removeItem("billcare_inventory");
-        localStorage.removeItem("billcare_appointments");
-        localStorage.removeItem("billcare_invoices");
-        localStorage.removeItem("billcare_followups");
-        localStorage.removeItem("billcare_feedbacks");
-        localStorage.setItem("billcare_auth_strict_2026_v2", "true");
+      if (typeof window !== "undefined" && !localStorage.getItem("Ruvexi_auth_strict_2026_v2")) {
+        localStorage.removeItem("Ruvexi_user");
+        localStorage.removeItem("Ruvexi_token");
+        localStorage.removeItem("Ruvexi_customers");
+        localStorage.removeItem("Ruvexi_services");
+        localStorage.removeItem("Ruvexi_staff");
+        localStorage.removeItem("Ruvexi_inventory");
+        localStorage.removeItem("Ruvexi_appointments");
+        localStorage.removeItem("Ruvexi_invoices");
+        localStorage.removeItem("Ruvexi_followups");
+        localStorage.removeItem("Ruvexi_feedbacks");
+        localStorage.setItem("Ruvexi_auth_strict_2026_v2", "true");
       }
 
-      const storedUser = localStorage.getItem("billcare_user");
-      const storedToken = localStorage.getItem("billcare_token");
-      const storedSalon = localStorage.getItem("billcare_salon");
-      const storedCustomers = localStorage.getItem("billcare_customers");
-      const storedServices = localStorage.getItem("billcare_services");
-      const storedStaff = localStorage.getItem("billcare_staff");
-      const storedInventory = localStorage.getItem("billcare_inventory");
-      const storedAppointments = localStorage.getItem("billcare_appointments");
-      const storedInvoices = localStorage.getItem("billcare_invoices");
-      const storedFollowups = localStorage.getItem("billcare_followups");
-      const storedFeedbacks = localStorage.getItem("billcare_feedbacks");
-      const storedShift = localStorage.getItem("billcare_current_shift");
+      const storedUser = localStorage.getItem("Ruvexi_user");
+      const storedToken = localStorage.getItem("Ruvexi_token");
+      const storedSalon = localStorage.getItem("Ruvexi_salon");
+      const storedCustomers = localStorage.getItem("Ruvexi_customers");
+      const storedServices = localStorage.getItem("Ruvexi_services");
+      const storedStaff = localStorage.getItem("Ruvexi_staff");
+      const storedInventory = localStorage.getItem("Ruvexi_inventory");
+      const storedAppointments = localStorage.getItem("Ruvexi_appointments");
+      const storedInvoices = localStorage.getItem("Ruvexi_invoices");
+      const storedFollowups = localStorage.getItem("Ruvexi_followups");
+      const storedFeedbacks = localStorage.getItem("Ruvexi_feedbacks");
+      const storedShift = localStorage.getItem("Ruvexi_current_shift");
       if (storedShift) {
         try {
           setCurrentShift(JSON.parse(storedShift));
@@ -522,8 +522,8 @@ export function BillCareProvider({ children }: { children: React.ReactNode }) {
         try {
           setUser(JSON.parse(storedUser));
         } catch {
-          localStorage.removeItem("billcare_user");
-          localStorage.removeItem("billcare_token");
+          localStorage.removeItem("Ruvexi_user");
+          localStorage.removeItem("Ruvexi_token");
           setUser(null);
         }
       } else {
@@ -539,7 +539,7 @@ export function BillCareProvider({ children }: { children: React.ReactNode }) {
       if (storedFollowups) setFollowUps(JSON.parse(storedFollowups));
       if (storedFeedbacks) setFeedbacks(JSON.parse(storedFeedbacks));
     } catch (e) {
-      console.warn("BillCare: Storage hydration warning", e);
+      console.warn("Ruvexi: Storage hydration warning", e);
     }
 
     // Hydrate from active Supabase Session if available
@@ -547,31 +547,31 @@ export function BillCareProvider({ children }: { children: React.ReactNode }) {
       const supabase = createClient();
       supabase.auth.getSession().then(({ data: { session } }) => {
         if (session?.user) {
-          const mapped = mapSupabaseUserToBillCare(session.user, session);
+          const mapped = mapSupabaseUserToRuvexi(session.user, session);
           setUser(mapped.user);
-          persist("billcare_user", mapped.user);
-          if (mapped.token) persist("billcare_token", mapped.token);
+          persist("Ruvexi_user", mapped.user);
+          if (mapped.token) persist("Ruvexi_token", mapped.token);
         }
       }).catch((e) => console.warn("Supabase session check:", e));
 
       const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
         if (session?.user) {
-          const mapped = mapSupabaseUserToBillCare(session.user, session);
+          const mapped = mapSupabaseUserToRuvexi(session.user, session);
           setUser(mapped.user);
-          persist("billcare_user", mapped.user);
-          if (mapped.token) persist("billcare_token", mapped.token);
+          persist("Ruvexi_user", mapped.user);
+          if (mapped.token) persist("Ruvexi_token", mapped.token);
         } else if (event === "SIGNED_OUT") {
           setUser(null);
           try {
-            localStorage.removeItem("billcare_user");
-            localStorage.removeItem("billcare_token");
+            localStorage.removeItem("Ruvexi_user");
+            localStorage.removeItem("Ruvexi_token");
           } catch { }
         }
       });
     }
 
     // Connect and synchronize from live backend database
-    billcareApi
+    RuvexiApi
       .getBootstrap()
       .then((data) => {
         if (!data) return;
@@ -579,51 +579,51 @@ export function BillCareProvider({ children }: { children: React.ReactNode }) {
 
         if (data.salon) {
           setSalon(data.salon);
-          persist("billcare_salon", data.salon);
+          persist("Ruvexi_salon", data.salon);
         }
         if (Array.isArray(data.customers)) {
           setCustomers(data.customers);
-          persist("billcare_customers", data.customers);
+          persist("Ruvexi_customers", data.customers);
         }
         if (Array.isArray(data.services)) {
           setServices(data.services);
-          persist("billcare_services", data.services);
+          persist("Ruvexi_services", data.services);
         }
         if (Array.isArray(data.staff)) {
           setStaff(data.staff);
-          persist("billcare_staff", data.staff);
+          persist("Ruvexi_staff", data.staff);
         }
         if (Array.isArray(data.inventory)) {
           setInventory(data.inventory);
-          persist("billcare_inventory", data.inventory);
+          persist("Ruvexi_inventory", data.inventory);
         }
         if (Array.isArray(data.appointments)) {
           setAppointments(data.appointments);
-          persist("billcare_appointments", data.appointments);
+          persist("Ruvexi_appointments", data.appointments);
         }
         if (Array.isArray(data.invoices)) {
           setInvoices(data.invoices);
-          persist("billcare_invoices", data.invoices);
+          persist("Ruvexi_invoices", data.invoices);
         }
         if (Array.isArray(data.followUps)) {
           setFollowUps(data.followUps);
-          persist("billcare_followups", data.followUps);
+          persist("Ruvexi_followups", data.followUps);
         }
         if (Array.isArray(data.feedbacks)) {
           setFeedbacks(data.feedbacks);
-          persist("billcare_feedbacks", data.feedbacks);
+          persist("Ruvexi_feedbacks", data.feedbacks);
         }
       })
       .catch((err) => {
-        console.info("BillCare: Connected via offline cached data:", err.message);
+        console.info("Ruvexi: Connected via offline cached data:", err.message);
       });
 
-    billcareApi
+    RuvexiApi
       .getCurrentShift()
       .then((data) => {
         if (data && data.hasOpenShift && data.shift) {
           setCurrentShift(data.shift);
-          persist("billcare_current_shift", data.shift);
+          persist("Ruvexi_current_shift", data.shift);
         }
       })
       .catch(() => {});
@@ -660,15 +660,15 @@ export function BillCareProvider({ children }: { children: React.ReactNode }) {
         const supaRes = await signInWithSupabasePassword(normalizedEmail, password);
         if (supaRes.success && supaRes.user) {
           setUser(supaRes.user);
-          persist("billcare_user", supaRes.user);
+          persist("Ruvexi_user", supaRes.user);
           if (supaRes.token) {
-            persist("billcare_token", supaRes.token);
+            persist("Ruvexi_token", supaRes.token);
           }
           if (supaRes.salon) {
             setSalon((prev) => ({ ...prev, ...supaRes.salon }));
-            persist("billcare_salon", { ...salon, ...supaRes.salon });
+            persist("Ruvexi_salon", { ...salon, ...supaRes.salon });
           }
-          showToast(`Welcome back to BillCare, ${supaRes.user.name}!`);
+          showToast(`Welcome back to Ruvexi, ${supaRes.user.name}!`);
           return { success: true };
         }
         if (supaRes.error) {
@@ -677,18 +677,18 @@ export function BillCareProvider({ children }: { children: React.ReactNode }) {
       }
 
       // 2. Standalone API fallback
-      const res = await billcareApi.login({ email: normalizedEmail, password });
+      const res = await RuvexiApi.login({ email: normalizedEmail, password });
       if (res && res.user) {
         setUser(res.user);
-        persist("billcare_user", res.user);
+        persist("Ruvexi_user", res.user);
         if (res.token) {
-          persist("billcare_token", res.token);
+          persist("Ruvexi_token", res.token);
         }
         if (res.salon) {
           setSalon(res.salon);
-          persist("billcare_salon", res.salon);
+          persist("Ruvexi_salon", res.salon);
         }
-        showToast(`Welcome back to BillCare, ${res.user.name}!`);
+        showToast(`Welcome back to Ruvexi, ${res.user.name}!`);
         return { success: true };
       }
       return { success: false, error: "Authentication failed. Please verify credentials." };
@@ -729,15 +729,15 @@ export function BillCareProvider({ children }: { children: React.ReactNode }) {
 
         if (supaRes.success && supaRes.user) {
           setUser(supaRes.user);
-          persist("billcare_user", supaRes.user);
+          persist("Ruvexi_user", supaRes.user);
           if (supaRes.salon) {
             setSalon((prev) => ({ ...prev, ...supaRes.salon }));
-            persist("billcare_salon", { ...salon, ...supaRes.salon });
+            persist("Ruvexi_salon", { ...salon, ...supaRes.salon });
           }
           if (supaRes.token) {
-            persist("billcare_token", supaRes.token);
+            persist("Ruvexi_token", supaRes.token);
           }
-          showToast(`Welcome to BillCare! Your workspace for "${salonData.name}" is ready.`);
+          showToast(`Welcome to Ruvexi! Your workspace for "${salonData.name}" is ready.`);
           return { success: true };
         }
 
@@ -747,19 +747,19 @@ export function BillCareProvider({ children }: { children: React.ReactNode }) {
       }
 
       // 2. Standalone API fallback
-      const res = await billcareApi.signup({
+      const res = await RuvexiApi.signup({
         user: userData,
         salon: salonData,
       });
       if (res && res.user && res.salon) {
         setUser(res.user);
         setSalon(res.salon);
-        persist("billcare_user", res.user);
-        persist("billcare_salon", res.salon);
+        persist("Ruvexi_user", res.user);
+        persist("Ruvexi_salon", res.salon);
         if (res.token) {
-          persist("billcare_token", res.token);
+          persist("Ruvexi_token", res.token);
         }
-        showToast(`Welcome to BillCare! Your workspace for "${res.salon.name}" is ready.`);
+        showToast(`Welcome to Ruvexi! Your workspace for "${res.salon.name}" is ready.`);
         return { success: true };
       }
       return { success: false, error: "Failed to create salon account." };
@@ -773,19 +773,19 @@ export function BillCareProvider({ children }: { children: React.ReactNode }) {
     setUser(null);
     signOutWithSupabase().catch(() => { });
     try {
-      localStorage.removeItem("billcare_user");
-      localStorage.removeItem("billcare_token");
+      localStorage.removeItem("Ruvexi_user");
+      localStorage.removeItem("Ruvexi_token");
     } catch (e) { }
-    showToast("Signed out successfully from BillCare.", "info");
+    showToast("Signed out successfully from Ruvexi.", "info");
   };
 
   const updateSalon = (data: Partial<Salon>) => {
     setSalon((prev) => {
       const updated = { ...prev, ...data };
-      persist("billcare_salon", updated);
+      persist("Ruvexi_salon", updated);
       return updated;
     });
-    billcareApi.updateSalon(data).catch((err) => console.warn("Backend sync notice:", err.message));
+    RuvexiApi.updateSalon(data).catch((err) => console.warn("Backend sync notice:", err.message));
     showToast("Salon settings updated successfully.");
   };
 
@@ -794,7 +794,7 @@ export function BillCareProvider({ children }: { children: React.ReactNode }) {
     setUser((prev) => {
       if (!prev) return null;
       const updated = { ...prev, ...data };
-      persist("billcare_user", updated);
+      persist("Ruvexi_user", updated);
       return updated;
     });
     showToast("Profile credentials updated.");
@@ -803,10 +803,10 @@ export function BillCareProvider({ children }: { children: React.ReactNode }) {
   const setSession = (newUser: User, newSalon: Salon, token?: string) => {
     setUser(newUser);
     setSalon(newSalon);
-    persist("billcare_user", newUser);
-    persist("billcare_salon", newSalon);
+    persist("Ruvexi_user", newUser);
+    persist("Ruvexi_salon", newSalon);
     if (token && typeof window !== "undefined") {
-      localStorage.setItem("billcare_token", token);
+      localStorage.setItem("Ruvexi_token", token);
     }
   };
 
@@ -843,11 +843,11 @@ export function BillCareProvider({ children }: { children: React.ReactNode }) {
 
     setCustomers((prev) => {
       const updated = [newCustomer, ...prev];
-      persist("billcare_customers", updated);
+      persist("Ruvexi_customers", updated);
       return updated;
     });
 
-    billcareApi.createCustomer(newCustomer).catch((err) => console.warn("Sync notice createCustomer:", err.message));
+    RuvexiApi.createCustomer(newCustomer).catch((err) => console.warn("Sync notice createCustomer:", err.message));
     showToast(`Added customer ${newCustomer.name} to CRM`);
     return newCustomer;
   };
@@ -855,20 +855,20 @@ export function BillCareProvider({ children }: { children: React.ReactNode }) {
   const updateCustomer = (id: string, data: Partial<Customer>) => {
     setCustomers((prev) => {
       const updated = prev.map((c) => (c.id === id ? { ...c, ...data } : c));
-      persist("billcare_customers", updated);
+      persist("Ruvexi_customers", updated);
       return updated;
     });
-    billcareApi.updateCustomer(id, data).catch((err) => console.warn("Sync notice updateCustomer:", err.message));
+    RuvexiApi.updateCustomer(id, data).catch((err) => console.warn("Sync notice updateCustomer:", err.message));
     showToast("Customer record updated.");
   };
 
   const deleteCustomer = (id: string) => {
     setCustomers((prev) => {
       const updated = prev.filter((c) => c.id !== id);
-      persist("billcare_customers", updated);
+      persist("Ruvexi_customers", updated);
       return updated;
     });
-    billcareApi.deleteCustomer(id).catch((err) => console.warn("Sync notice deleteCustomer:", err.message));
+    RuvexiApi.deleteCustomer(id).catch((err) => console.warn("Sync notice deleteCustomer:", err.message));
     showToast("Customer profile deleted from database.", "info");
   };
 
@@ -891,10 +891,10 @@ export function BillCareProvider({ children }: { children: React.ReactNode }) {
     };
     setServices((prev) => {
       const updated = [...prev, newService];
-      persist("billcare_services", updated);
+      persist("Ruvexi_services", updated);
       return updated;
     });
-    billcareApi.createService(newService).catch((err) => console.warn("Sync notice createService:", err.message));
+    RuvexiApi.createService(newService).catch((err) => console.warn("Sync notice createService:", err.message));
     showToast(`Service "${newService.name}" published to menu.`);
     return newService;
   };
@@ -902,20 +902,20 @@ export function BillCareProvider({ children }: { children: React.ReactNode }) {
   const updateService = (id: string, data: Partial<Service>) => {
     setServices((prev) => {
       const updated = prev.map((s) => (s.id === id ? { ...s, ...data } : s));
-      persist("billcare_services", updated);
+      persist("Ruvexi_services", updated);
       return updated;
     });
-    billcareApi.updateService(id, data).catch((err) => console.warn("Sync notice updateService:", err.message));
+    RuvexiApi.updateService(id, data).catch((err) => console.warn("Sync notice updateService:", err.message));
     showToast("Service details saved.");
   };
 
   const deleteService = (id: string) => {
     setServices((prev) => {
       const updated = prev.filter((s) => s.id !== id);
-      persist("billcare_services", updated);
+      persist("Ruvexi_services", updated);
       return updated;
     });
-    billcareApi.deleteService(id).catch((err) => console.warn("Sync notice deleteService:", err.message));
+    RuvexiApi.deleteService(id).catch((err) => console.warn("Sync notice deleteService:", err.message));
     showToast("Service archived from menu.", "info");
   };
 
@@ -946,10 +946,10 @@ export function BillCareProvider({ children }: { children: React.ReactNode }) {
     };
     setStaff((prev) => {
       const updated = [...prev, newStaff];
-      persist("billcare_staff", updated);
+      persist("Ruvexi_staff", updated);
       return updated;
     });
-    billcareApi.createStaff(newStaff).catch((err) => console.warn("Sync notice createStaff:", err.message));
+    RuvexiApi.createStaff(newStaff).catch((err) => console.warn("Sync notice createStaff:", err.message));
     showToast(`Added team member ${newStaff.name}`);
     return newStaff;
   };
@@ -957,20 +957,20 @@ export function BillCareProvider({ children }: { children: React.ReactNode }) {
   const updateStaff = (id: string, data: Partial<Staff>) => {
     setStaff((prev) => {
       const updated = prev.map((s) => (s.id === id ? { ...s, ...data } : s));
-      persist("billcare_staff", updated);
+      persist("Ruvexi_staff", updated);
       return updated;
     });
-    billcareApi.updateStaff(id, data).catch((err) => console.warn("Sync notice updateStaff:", err.message));
+    RuvexiApi.updateStaff(id, data).catch((err) => console.warn("Sync notice updateStaff:", err.message));
     showToast("Staff profile updated.");
   };
 
   const deleteStaff = (id: string) => {
     setStaff((prev) => {
       const updated = prev.filter((s) => s.id !== id);
-      persist("billcare_staff", updated);
+      persist("Ruvexi_staff", updated);
       return updated;
     });
-    billcareApi.deleteStaff(id).catch((err) => console.warn("Sync notice deleteStaff:", err.message));
+    RuvexiApi.deleteStaff(id).catch((err) => console.warn("Sync notice deleteStaff:", err.message));
     showToast("Staff member removed from roster.", "info");
   };
 
@@ -993,10 +993,10 @@ export function BillCareProvider({ children }: { children: React.ReactNode }) {
         }
         return s;
       });
-      persist("billcare_staff", updated);
+      persist("Ruvexi_staff", updated);
       return updated;
     });
-    billcareApi.toggleClock(staffId).catch((err) => console.warn("Sync notice toggleClock:", err.message));
+    RuvexiApi.toggleClock(staffId).catch((err) => console.warn("Sync notice toggleClock:", err.message));
   };
 
   // --------------------------------------------------------------------------
@@ -1020,10 +1020,10 @@ export function BillCareProvider({ children }: { children: React.ReactNode }) {
     };
     setInventory((prev) => {
       const updated = [newItem, ...prev];
-      persist("billcare_inventory", updated);
+      persist("Ruvexi_inventory", updated);
       return updated;
     });
-    billcareApi.createInventory(newItem).catch((err) => console.warn("Sync notice createInventory:", err.message));
+    RuvexiApi.createInventory(newItem).catch((err) => console.warn("Sync notice createInventory:", err.message));
     showToast(`Added product "${newItem.name}" to inventory.`);
     return newItem;
   };
@@ -1031,10 +1031,10 @@ export function BillCareProvider({ children }: { children: React.ReactNode }) {
   const updateInventoryItem = (id: string, data: Partial<InventoryItem>) => {
     setInventory((prev) => {
       const updated = prev.map((item) => (item.id === id ? { ...item, ...data } : item));
-      persist("billcare_inventory", updated);
+      persist("Ruvexi_inventory", updated);
       return updated;
     });
-    billcareApi.updateInventory(id, data).catch((err) => console.warn("Sync notice updateInventory:", err.message));
+    RuvexiApi.updateInventory(id, data).catch((err) => console.warn("Sync notice updateInventory:", err.message));
     showToast("Inventory item updated.");
   };
 
@@ -1048,19 +1048,19 @@ export function BillCareProvider({ children }: { children: React.ReactNode }) {
         }
         return item;
       });
-      persist("billcare_inventory", updated);
+      persist("Ruvexi_inventory", updated);
       return updated;
     });
-    billcareApi.adjustStock(id, change, reason).catch((err) => console.warn("Sync notice adjustStock:", err.message));
+    RuvexiApi.adjustStock(id, change, reason).catch((err) => console.warn("Sync notice adjustStock:", err.message));
   };
 
   const deleteInventoryItem = (id: string) => {
     setInventory((prev) => {
       const updated = prev.filter((i) => i.id !== id);
-      persist("billcare_inventory", updated);
+      persist("Ruvexi_inventory", updated);
       return updated;
     });
-    billcareApi.deleteInventory(id).catch((err) => console.warn("Sync notice deleteInventory:", err.message));
+    RuvexiApi.deleteInventory(id).catch((err) => console.warn("Sync notice deleteInventory:", err.message));
     showToast("Product deleted from inventory.", "info");
   };
 
@@ -1090,10 +1090,10 @@ export function BillCareProvider({ children }: { children: React.ReactNode }) {
     };
     setAppointments((prev) => {
       const updated = [newApt, ...prev];
-      persist("billcare_appointments", updated);
+      persist("Ruvexi_appointments", updated);
       return updated;
     });
-    billcareApi.createAppointment(newApt).catch((err) => console.warn("Sync notice createAppointment:", err.message));
+    RuvexiApi.createAppointment(newApt).catch((err) => console.warn("Sync notice createAppointment:", err.message));
     showToast(`Booked appointment for ${newApt.customerName} at ${newApt.startTime}`);
     return newApt;
   };
@@ -1101,20 +1101,20 @@ export function BillCareProvider({ children }: { children: React.ReactNode }) {
   const updateAppointmentStatus = (id: string, status: Appointment["status"]) => {
     setAppointments((prev) => {
       const updated = prev.map((a) => (a.id === id ? { ...a, status } : a));
-      persist("billcare_appointments", updated);
+      persist("Ruvexi_appointments", updated);
       return updated;
     });
-    billcareApi.updateAppointmentStatus(id, status).catch((err) => console.warn("Sync notice updateAppointmentStatus:", err.message));
+    RuvexiApi.updateAppointmentStatus(id, status).catch((err) => console.warn("Sync notice updateAppointmentStatus:", err.message));
     showToast(`Appointment status changed to "${status.toUpperCase()}"`);
   };
 
   const deleteAppointment = (id: string) => {
     setAppointments((prev) => {
       const updated = prev.filter((a) => a.id !== id);
-      persist("billcare_appointments", updated);
+      persist("Ruvexi_appointments", updated);
       return updated;
     });
-    billcareApi.deleteAppointment(id).catch((err) => console.warn("Sync notice deleteAppointment:", err.message));
+    RuvexiApi.deleteAppointment(id).catch((err) => console.warn("Sync notice deleteAppointment:", err.message));
     showToast("Appointment removed.", "info");
   };
 
@@ -1174,12 +1174,12 @@ export function BillCareProvider({ children }: { children: React.ReactNode }) {
     // 1. Add to invoices
     setInvoices((prev) => {
       const updated = [newInvoice, ...prev];
-      persist("billcare_invoices", updated);
+      persist("Ruvexi_invoices", updated);
       return updated;
     });
 
     // 2. Transmit to backend database (FastAPI will update customer visits/spend & deduct product stock)
-    billcareApi.createInvoice(newInvoice).catch((err) => console.warn("Sync notice createInvoice:", err.message));
+    RuvexiApi.createInvoice(newInvoice).catch((err) => console.warn("Sync notice createInvoice:", err.message));
 
     // 3. Optimistically update local customer metrics & prepaid wallet
     if (data.customerId) {
@@ -1202,7 +1202,7 @@ export function BillCareProvider({ children }: { children: React.ReactNode }) {
           }
           return c;
         });
-        persist("billcare_customers", updated);
+        persist("Ruvexi_customers", updated);
         return updated;
       });
     }
@@ -1217,7 +1217,7 @@ export function BillCareProvider({ children }: { children: React.ReactNode }) {
               ? { ...inv, currentStock: Math.max(0, inv.currentStock - item.quantity) }
               : inv
           );
-          persist("billcare_inventory", updated);
+          persist("Ruvexi_inventory", updated);
           return updated;
         });
       }
@@ -1232,7 +1232,7 @@ export function BillCareProvider({ children }: { children: React.ReactNode }) {
                 ? { ...inv, currentStock: Math.max(0, inv.currentStock - qty) }
                 : inv
             );
-            persist("billcare_inventory", updated);
+            persist("Ruvexi_inventory", updated);
             return updated;
           });
         }
@@ -1253,7 +1253,7 @@ export function BillCareProvider({ children }: { children: React.ReactNode }) {
           }
           return st;
         });
-        persist("billcare_staff", updated);
+        persist("Ruvexi_staff", updated);
         return updated;
       });
     }
@@ -1271,7 +1271,7 @@ export function BillCareProvider({ children }: { children: React.ReactNode }) {
           ...prev,
           expectedCash: prev.expectedCash + cashPortion,
         };
-        persist("billcare_current_shift", updated);
+        persist("Ruvexi_current_shift", updated);
         return updated;
       });
     }
@@ -1287,11 +1287,11 @@ export function BillCareProvider({ children }: { children: React.ReactNode }) {
           ? { ...c, walletBalance: (c.walletBalance || 0) + amount }
           : c
       );
-      persist("billcare_customers", updated);
+      persist("Ruvexi_customers", updated);
       return updated;
     });
     showToast(`Added ₹${amount.toLocaleString()} wallet credit!`, "success");
-    billcareApi.request(`/customers/${customerId}/wallet`, {
+    RuvexiApi.request(`/customers/${customerId}/wallet`, {
       method: "POST",
       body: JSON.stringify({ amount }),
     }).catch((e: any) => console.warn("Wallet topup sync notice:", e.message));
@@ -1302,19 +1302,19 @@ export function BillCareProvider({ children }: { children: React.ReactNode }) {
     const rawPhone = (inv.customerPhone || "").replace(/[^0-9]/g, "");
     const cleanPhone = rawPhone.length === 10 ? `91${rawPhone}` : rawPhone;
     const text = encodeURIComponent(
-      `*BillCare Receipt - ${salon.name}*\n` +
+      `*Ruvexi Receipt - ${salon.name}*\n` +
       `Invoice: ${inv.invoiceNumber}\n` +
       `Customer: ${inv.customerName}\n` +
       `Total: ₹${(inv.grandTotal || inv.total || 0).toLocaleString()}\n` +
       `Payment: ${inv.paymentMethod}\n\n` +
-      `Thank you for visiting ${salon.name}! Rate your experience: https://g.page/r/billcare/review`
+      `Thank you for visiting ${salon.name}! Rate your experience: https://g.page/r/Ruvexi/review`
     );
     const waUrl = `https://wa.me/${cleanPhone}?text=${text}`;
     if (typeof window !== "undefined") {
       window.open(waUrl, "_blank");
     }
     showToast(`WhatsApp receipt link opened for ${inv.customerName}!`, "success");
-    billcareApi.request("/whatsapp/send-bill", {
+    RuvexiApi.request("/whatsapp/send-bill", {
       method: "POST",
       body: JSON.stringify({
         to_phone: cleanPhone,
@@ -1341,7 +1341,7 @@ export function BillCareProvider({ children }: { children: React.ReactNode }) {
       window.open(waUrl, "_blank");
     }
     showToast(`WhatsApp reminder dispatched to ${apt.customerName}!`, "info");
-    billcareApi.request("/whatsapp/send-reminder", {
+    RuvexiApi.request("/whatsapp/send-reminder", {
       method: "POST",
       body: JSON.stringify({
         to_phone: cleanPhone,
@@ -1366,9 +1366,9 @@ export function BillCareProvider({ children }: { children: React.ReactNode }) {
       notes: notes || "Shift opened at Front Desk",
     };
     setCurrentShift(newShift);
-    persist("billcare_current_shift", newShift);
+    persist("Ruvexi_current_shift", newShift);
     showToast(`Cash register opened with ₹${openingFloat.toLocaleString()} float!`, "success");
-    billcareApi.openRegisterShift({ openingFloat, notes }).catch(() => {});
+    RuvexiApi.openRegisterShift({ openingFloat, notes }).catch(() => {});
     return { success: true, shift: newShift };
   };
 
@@ -1385,9 +1385,9 @@ export function BillCareProvider({ children }: { children: React.ReactNode }) {
       notes: notes || `Shift closed with variance of ₹${variance}`,
     };
     setCurrentShift(null);
-    localStorage.removeItem("billcare_current_shift");
+    localStorage.removeItem("Ruvexi_current_shift");
     showToast(`Register shift closed! Variance: ₹${variance}`, variance === 0 ? "success" : "warning");
-    billcareApi.closeRegisterShift({ countedCash, notes }).catch(() => {});
+    RuvexiApi.closeRegisterShift({ countedCash, notes }).catch(() => {});
     return { success: true, shift: closedShift };
   };
 
@@ -1415,7 +1415,7 @@ export function BillCareProvider({ children }: { children: React.ReactNode }) {
         }
         return apt;
       });
-      persist("billcare_appointments", updated);
+      persist("Ruvexi_appointments", updated);
       return updated;
     });
     showToast(`Added "${item.name}" to in-chair visit!`, "success");
@@ -1435,11 +1435,11 @@ export function BillCareProvider({ children }: { children: React.ReactNode }) {
       const updated = prev.map((a) =>
         a.id === apt.id ? { ...a, buzzedAt: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) } : a
       );
-      persist("billcare_appointments", updated);
+      persist("Ruvexi_appointments", updated);
       return updated;
     });
     showToast(`Chair Ready buzz sent to ${apt.customerName}!`, "success");
-    billcareApi
+    RuvexiApi
       .sendWhatsAppCampaign({
         campaignName: "Chair Ready Buzz",
         targetPhone: cleanPhone,
@@ -1469,20 +1469,20 @@ export function BillCareProvider({ children }: { children: React.ReactNode }) {
     };
     setFollowUps((prev) => {
       const updated = [newFlw, ...prev];
-      persist("billcare_followups", updated);
+      persist("Ruvexi_followups", updated);
       return updated;
     });
-    billcareApi.createFollowUp(newFlw).catch((err) => console.warn("Sync notice createFollowUp:", err.message));
+    RuvexiApi.createFollowUp(newFlw).catch((err) => console.warn("Sync notice createFollowUp:", err.message));
     return newFlw;
   };
 
   const markFollowUpSent = (id: string) => {
     setFollowUps((prev) => {
       const updated = prev.map((f) => (f.id === id ? { ...f, status: "sent" as const } : f));
-      persist("billcare_followups", updated);
+      persist("Ruvexi_followups", updated);
       return updated;
     });
-    billcareApi.markFollowUpSent(id).catch((err) => console.warn("Sync notice markFollowUpSent:", err.message));
+    RuvexiApi.markFollowUpSent(id).catch((err) => console.warn("Sync notice markFollowUpSent:", err.message));
     showToast("Follow-up marked as sent.");
   };
 
@@ -1501,15 +1501,15 @@ export function BillCareProvider({ children }: { children: React.ReactNode }) {
     };
     setFeedbacks((prev) => {
       const updated = [newFb, ...prev];
-      persist("billcare_feedbacks", updated);
+      persist("Ruvexi_feedbacks", updated);
       return updated;
     });
-    billcareApi.createFeedback(newFb).catch((err) => console.warn("Sync notice createFeedback:", err.message));
+    RuvexiApi.createFeedback(newFb).catch((err) => console.warn("Sync notice createFeedback:", err.message));
     showToast("Feedback recorded. Thank you!");
   };
 
   return (
-    <BillCareContext.Provider
+    <RuvexiContext.Provider
       value={{
         user,
         salon,
@@ -1606,14 +1606,14 @@ export function BillCareProvider({ children }: { children: React.ReactNode }) {
           setInvoices([]);
           setFollowUps([]);
           setFeedbacks([]);
-          localStorage.removeItem("billcare_customers");
-          localStorage.removeItem("billcare_services");
-          localStorage.removeItem("billcare_staff");
-          localStorage.removeItem("billcare_inventory");
-          localStorage.removeItem("billcare_appointments");
-          localStorage.removeItem("billcare_invoices");
-          localStorage.removeItem("billcare_followups");
-          localStorage.removeItem("billcare_feedbacks");
+          localStorage.removeItem("Ruvexi_customers");
+          localStorage.removeItem("Ruvexi_services");
+          localStorage.removeItem("Ruvexi_staff");
+          localStorage.removeItem("Ruvexi_inventory");
+          localStorage.removeItem("Ruvexi_appointments");
+          localStorage.removeItem("Ruvexi_invoices");
+          localStorage.removeItem("Ruvexi_followups");
+          localStorage.removeItem("Ruvexi_feedbacks");
           showToast("Workspace wiped completely clean. Ready for your fresh data!");
         },
         resetDemoData: () => {
@@ -1625,14 +1625,14 @@ export function BillCareProvider({ children }: { children: React.ReactNode }) {
           setInvoices([]);
           setFollowUps([]);
           setFeedbacks([]);
-          localStorage.removeItem("billcare_customers");
-          localStorage.removeItem("billcare_services");
-          localStorage.removeItem("billcare_staff");
-          localStorage.removeItem("billcare_inventory");
-          localStorage.removeItem("billcare_appointments");
-          localStorage.removeItem("billcare_invoices");
-          localStorage.removeItem("billcare_followups");
-          localStorage.removeItem("billcare_feedbacks");
+          localStorage.removeItem("Ruvexi_customers");
+          localStorage.removeItem("Ruvexi_services");
+          localStorage.removeItem("Ruvexi_staff");
+          localStorage.removeItem("Ruvexi_inventory");
+          localStorage.removeItem("Ruvexi_appointments");
+          localStorage.removeItem("Ruvexi_invoices");
+          localStorage.removeItem("Ruvexi_followups");
+          localStorage.removeItem("Ruvexi_feedbacks");
           showToast("Workspace wiped completely clean. Ready for your fresh data!");
         },
         currentPersona: {
@@ -1677,19 +1677,19 @@ export function BillCareProvider({ children }: { children: React.ReactNode }) {
           </div>
         ))}
       </div>
-    </BillCareContext.Provider>
+    </RuvexiContext.Provider>
   );
 }
 
-// Hook to access BillCare Context
-export function useBillCare() {
-  const context = useContext(BillCareContext);
+// Hook to access Ruvexi Context
+export function useRuvexi() {
+  const context = useContext(RuvexiContext);
   if (!context) {
-    throw new Error("useBillCare must be used within a BillCareProvider");
+    throw new Error("useRuvexi must be used within a RuvexiProvider");
   }
   return context;
 }
 
 // Backward compatibility alias for any existing code using useDemo
-export const useDemo = useBillCare;
-export const DemoProvider = BillCareProvider;
+export const useDemo = useRuvexi;
+export const DemoProvider = RuvexiProvider;

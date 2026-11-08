@@ -1,7 +1,7 @@
-"use client";
+﻿"use client";
 
 import React, { useState, useEffect, useMemo } from "react";
-import { useBillCare } from "@/lib/billcare-context";
+import { useRuvexi } from "@/lib/ruvexi-context";
 import { formatCurrency } from "@/lib/utils";
 import {
   Sparkles,
@@ -42,7 +42,7 @@ export function BookingPreviewView({
   salonSlug,
   isStandalone = false,
 }: BookingPreviewViewProps) {
-  const { salon, services = [], staff = [], addAppointment } = useBillCare();
+  const { salon, services = [], staff = [], addAppointment } = useRuvexi();
 
   // Local state for interactive booking workflow
   const [selectedServices, setSelectedServices] = useState<string[]>([]);
@@ -88,7 +88,7 @@ export function BookingPreviewView({
   // Public Booking Link
   const publicBookingUrl = typeof window !== "undefined"
     ? `${window.location.origin}/book?salon=${salon?.slug || "luxury-studio"}`
-    : `https://billcare.co/book?salon=${salon?.slug || "luxury-studio"}`;
+    : `https://Ruvexi.co/book?salon=${salon?.slug || "luxury-studio"}`;
 
   const copyBookingLink = () => {
     if (typeof navigator !== "undefined" && navigator.clipboard) {

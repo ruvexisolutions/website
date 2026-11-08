@@ -1,7 +1,7 @@
-import type { Metadata, Viewport } from "next";
+﻿import type { Metadata, Viewport } from "next";
 import { Cormorant_Garamond, Plus_Jakarta_Sans } from "next/font/google";
 import "@/styles/globals.css";
-import { BillCareProvider } from "@/lib/billcare-context";
+import { RuvexiProvider } from "@/lib/ruvexi-context";
 
 const cormorant = Cormorant_Garamond({
   subsets: ["latin"],
@@ -25,7 +25,7 @@ export const viewport: Viewport = {
 };
 
 export const metadata: Metadata = {
-  title: "BillCare Solution - The Modern Salon & Spa Management Platform",
+  title: "Ruvexi Solutions - The Modern Salon & Spa Management Platform",
   description:
     "End-to-end salon management SaaS platform: Point of Sale (POS) billing, appointment calendar, staff commission tracking, salon stock inventory, automated customer follow-ups & branded booking.",
   icons: {
@@ -41,9 +41,9 @@ export default function RootLayout({
   return (
     <html lang="en" className={`${cormorant.variable} ${jakarta.variable}`}>
       <body className="min-h-screen bg-[#09090b] text-slate-100 font-sans selection:bg-amber-200 selection:text-slate-950 antialiased">
-        <BillCareProvider>
+        <RuvexiProvider>
           {children}
-        </BillCareProvider>
+        </RuvexiProvider>
       </body>
     </html>
   );

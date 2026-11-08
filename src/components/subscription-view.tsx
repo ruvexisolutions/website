@@ -1,8 +1,8 @@
-"use client";
+﻿"use client";
 
 import React, { useState } from "react";
-import { useBillCare } from "@/lib/billcare-context";
-import { billcareApi } from "@/lib/api-client";
+import { useRuvexi } from "@/lib/ruvexi-context";
+import { RuvexiApi } from "@/lib/api-client";
 import {
   Sparkles,
   Check,
@@ -20,7 +20,7 @@ import {
 } from "lucide-react";
 
 export function SubscriptionView() {
-  const { salon, updateSalon, showToast } = useBillCare();
+  const { salon, updateSalon, showToast } = useRuvexi();
   const [isUpgrading, setIsUpgrading] = useState(false);
   const [selectedPlan, setSelectedPlan] = useState<"pro" | "enterprise">("pro");
 
@@ -46,7 +46,7 @@ export function SubscriptionView() {
     setIsUpgrading(true);
     try {
       // 1. Create dedicated SaaS platform subscription order
-      const orderData = await billcareApi.createSubscriptionOrder(plan);
+      const orderData = await RuvexiApi.createSubscriptionOrder(plan);
       const isLive = orderData.is_live;
       const scriptLoaded = await loadRazorpayScript();
 
@@ -56,8 +56,8 @@ export function SubscriptionView() {
           key: orderData.key_id,
           amount: Math.round(orderData.amount * 100),
           currency: "INR",
-          name: "BillCare Platform",
-          description: `BillCare ${plan.toUpperCase()} Salon Software Subscription`,
+          name: "Ruvexi Platform",
+          description: `Ruvexi ${plan.toUpperCase()} Salon Software Subscription`,
           order_id: orderData.order_id,
           prefill: {
             name: orderData.manager_name || salon.name,
@@ -69,7 +69,7 @@ export function SubscriptionView() {
           },
           handler: async function (response: any) {
             try {
-              const verifyRes = await billcareApi.verifySubscriptionPayment({
+              const verifyRes = await RuvexiApi.verifySubscriptionPayment({
                 razorpay_order_id: response.razorpay_order_id,
                 razorpay_payment_id: response.razorpay_payment_id,
                 razorpay_signature: response.razorpay_signature,
@@ -81,7 +81,7 @@ export function SubscriptionView() {
                 subscriptionPlan: plan,
                 isTrialActive: true,
               });
-              showToast(`Payment successful! BillCare ${plan.toUpperCase()} subscription is now active.`, "success");
+              showToast(`Payment successful! Ruvexi ${plan.toUpperCase()} subscription is now active.`, "success");
             } catch (err: any) {
               showToast(err.message || "Payment verification failed. Please contact support.", "error");
             }
@@ -97,7 +97,7 @@ export function SubscriptionView() {
         rzp.open();
       } else {
         // Fallback / Sandbox activation if live Razorpay keys are pending in backend .env
-        const verifyRes = await billcareApi.verifySubscriptionPayment({
+        const verifyRes = await RuvexiApi.verifySubscriptionPayment({
           razorpay_order_id: orderData.order_id,
           razorpay_payment_id: `pay_mock_${Date.now()}`,
           razorpay_signature: "mock_signature_sandbox",
@@ -112,7 +112,7 @@ export function SubscriptionView() {
         showToast(
           orderData.notice
             ? `${orderData.notice} — Activated ${plan.toUpperCase()} successfully!`
-            : `Successfully activated BillCare ${plan.toUpperCase()}! Full salon features unlocked.`,
+            : `Successfully activated Ruvexi ${plan.toUpperCase()}! Full salon features unlocked.`,
           "success"
         );
       }
@@ -144,7 +144,7 @@ export function SubscriptionView() {
 
             <h1 className="text-2xl sm:text-3xl font-serif font-bold text-white tracking-tight">
               {isPaidActive
-                ? `BillCare ${((salon.subscriptionPlan as string) || "PRO").toUpperCase()} Membership`
+                ? `Ruvexi ${((salon.subscriptionPlan as string) || "PRO").toUpperCase()} Membership`
                 : `${trialDaysLeft} Days Remaining in Free Receptionist Trial`}
             </h1>
 

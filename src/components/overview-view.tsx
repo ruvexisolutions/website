@@ -1,7 +1,7 @@
-"use client";
+﻿"use client";
 
 import React, { useState } from "react";
-import { useBillCare } from "@/lib/billcare-context";
+import { useRuvexi } from "@/lib/ruvexi-context";
 import { formatCurrency } from "@/lib/utils";
 import {
   Users,
@@ -32,7 +32,7 @@ interface OverviewViewProps {
 
 export function OverviewView({ onNavigateTab }: OverviewViewProps) {
   const { salon, staff, inventory, followUps, invoices, appointments, updateAppointmentStatus } =
-    useBillCare();
+    useRuvexi();
 
   const [productivityRange, setProductivityRange] = useState<"today" | "week" | "month">("today");
 

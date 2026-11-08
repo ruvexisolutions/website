@@ -1,7 +1,7 @@
-"use client";
+﻿"use client";
 
 import React from "react";
-import { useBillCare } from "@/lib/billcare-context";
+import { useRuvexi } from "@/lib/ruvexi-context";
 import { getRoleConfig } from "@/lib/role-permissions";
 import { Crown, Headphones } from "lucide-react";
 
@@ -15,7 +15,7 @@ interface RoleSwitcherProps {
  * Role-switching buttons have been eliminated in accordance with production RBAC architecture.
  */
 export function RoleSwitcher({ variant = "pill" }: RoleSwitcherProps) {
-  const { user } = useBillCare();
+  const { user } = useRuvexi();
   const config = getRoleConfig(user?.role);
   const isManager = config.role === "SALON_MANAGER";
 

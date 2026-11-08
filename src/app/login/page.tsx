@@ -1,9 +1,9 @@
-"use client";
+﻿"use client";
 
 import React, { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useBillCare } from "@/lib/billcare-context";
+import { useRuvexi } from "@/lib/ruvexi-context";
 import { AuthSplitLayout } from "@/components/auth/auth-split-layout";
 import { AuthInput } from "@/components/auth/auth-input";
 import { AuthButton } from "@/components/auth/auth-button";
@@ -28,19 +28,19 @@ import {
 
 export default function LoginPage() {
   const router = useRouter();
-  const { salon, login, setSession, showToast } = useBillCare();
+  const { salon, login, setSession, showToast } = useRuvexi();
 
   const [authMode, setAuthMode] = useState<"manager_otp" | "receptionist_password">("manager_otp");
 
   // Manager Mail OTP States
-  const [managerEmail, setManagerEmail] = useState("manager@billcare.io");
+  const [managerEmail, setManagerEmail] = useState("manager@Ruvexi.io");
   const [otp, setOtp] = useState("");
   const [otpSent, setOtpSent] = useState(false);
   const [devOtpHint, setDevOtpHint] = useState<string | null>(null);
   const [otpCooldown, setOtpCooldown] = useState(0);
 
   // Receptionist Email & Password States
-  const [receptionistEmail, setReceptionistEmail] = useState("reception@billcare.io");
+  const [receptionistEmail, setReceptionistEmail] = useState("reception@Ruvexi.io");
   const [password, setPassword] = useState("");
   const [rememberMe, setRememberMe] = useState(true);
 
@@ -138,7 +138,7 @@ export default function LoginPage() {
           email: normalized || manager.email,
           phone: "+919845033445",
           role: "SALON_MANAGER",
-          salonId: salon.id || "sln_billcare_flagship",
+          salonId: salon.id || "sln_Ruvexi_flagship",
           avatar: manager.avatar,
         },
         salon,
@@ -173,7 +173,7 @@ export default function LoginPage() {
       const res = await login(normalized, password);
       if (res.success) {
         if (rememberMe) {
-          localStorage.setItem("billcare_remember_email", normalized);
+          localStorage.setItem("Ruvexi_remember_email", normalized);
         }
         showToast("Signed in to Front Desk!", "success");
         router.push("/front-desk");
@@ -187,7 +187,7 @@ export default function LoginPage() {
     }
 
     // Fallback for demo receptionist credentials in preview mode
-    if (normalized === "reception@billcare.io" && (!password || password === "123456" || password.length >= 4)) {
+    if (normalized === "reception@Ruvexi.io" && (!password || password === "123456" || password.length >= 4)) {
       const p = DEMO_PERSONAS[1];
       setSession(
         {
@@ -196,7 +196,7 @@ export default function LoginPage() {
           email: p.email,
           phone: "+919845055667",
           role: "SALON_RECEPTIONIST",
-          salonId: salon.id || "sln_billcare_flagship",
+          salonId: salon.id || "sln_Ruvexi_flagship",
           avatar: p.avatar,
         },
         salon,
@@ -239,7 +239,7 @@ export default function LoginPage() {
           email: p.email,
           phone: "+919845033445",
           role: "SALON_MANAGER",
-          salonId: salon.id || "sln_billcare_flagship",
+          salonId: salon.id || "sln_Ruvexi_flagship",
           avatar: p.avatar,
         },
         salon,
@@ -256,7 +256,7 @@ export default function LoginPage() {
           email: p.email,
           phone: "+919845055667",
           role: "SALON_RECEPTIONIST",
-          salonId: salon.id || "sln_billcare_flagship",
+          salonId: salon.id || "sln_Ruvexi_flagship",
           avatar: p.avatar,
         },
         salon,
@@ -270,7 +270,7 @@ export default function LoginPage() {
   return (
     <AuthSplitLayout
       headline="Salon Operating System."
-      supportingText="Sign in to your BillCare workspace."
+      supportingText="Sign in to your Ruvexi workspace."
       imageSrc="/images/spa-wellness.jpg"
       imageAlt="Luxury salon front desk"
     >
@@ -279,7 +279,7 @@ export default function LoginPage() {
         <div className="mb-6">
           <div className="flex items-center justify-between">
             <h2 className="text-2xl font-serif font-bold tracking-tight text-[#F8FAFC]">
-              Sign in to BillCare
+              Sign in to Ruvexi
             </h2>
             <span className="text-[10px] font-mono uppercase px-2.5 py-1 rounded-full bg-[#FACC15]/10 text-[#FACC15] border border-[#FACC15]/20 font-semibold">
               v1.0 Ready
@@ -343,7 +343,7 @@ export default function LoginPage() {
                   label="Manager Work Email"
                   id="manager-email"
                   type="email"
-                  placeholder="manager@billcare.io"
+                  placeholder="manager@Ruvexi.io"
                   value={managerEmail}
                   onChange={(e) => {
                     setManagerEmail(e.target.value);
@@ -447,7 +447,7 @@ export default function LoginPage() {
               label="Receptionist Work Email"
               id="receptionist-email"
               type="email"
-              placeholder="reception@billcare.io"
+              placeholder="reception@Ruvexi.io"
               value={receptionistEmail}
               onChange={(e) => {
                 setReceptionistEmail(e.target.value);

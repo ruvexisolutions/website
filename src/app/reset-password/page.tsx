@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import React, { useState, Suspense } from "react";
 import Link from "next/link";
@@ -6,7 +6,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { AuthSplitLayout } from "@/components/auth/auth-split-layout";
 import { AuthInput } from "@/components/auth/auth-input";
 import { AuthButton } from "@/components/auth/auth-button";
-import { billcareApi } from "@/lib/api-client";
+import { RuvexiApi } from "@/lib/api-client";
 import { updateSupabasePassword } from "@/lib/supabase/auth";
 import { isSupabaseConfigured } from "@/lib/supabase/client";
 import { Lock, CheckCircle2, AlertCircle, ArrowLeft } from "lucide-react";
@@ -84,7 +84,7 @@ function ResetPasswordForm() {
           setErrors({ general: supaRes.error || "Failed to update password." });
         }
       } else {
-        await billcareApi.resetPassword({
+        await RuvexiApi.resetPassword({
           token,
           new_password: newPassword,
         });
@@ -123,7 +123,7 @@ function ResetPasswordForm() {
               href="/login"
               className="w-full h-11 bg-[#FACC15] hover:bg-[#EAB308] text-[#080808] font-semibold text-sm rounded-lg transition-colors flex items-center justify-center gap-2"
             >
-              Sign In to Bill Care
+              Sign In to RUVEXI
             </Link>
           </div>
         </div>

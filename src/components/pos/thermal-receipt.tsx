@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import React, { useRef } from "react";
 import { formatCurrency } from "@/lib/utils";
@@ -88,7 +88,7 @@ export function ThermalReceipt({ invoice, salon, onClose }: ThermalReceiptProps)
       `Payment:       ${invoice.paymentMethod}`,
       `==============================`,
       ` Thank You for Indulging with Us! `,
-      `    Powered by BillCare Solution  `,
+      `    Powered by Ruvexi Solutions  `,
     ].filter(Boolean);
 
     navigator.clipboard.writeText(lines.join("\n"));
@@ -366,7 +366,7 @@ export function ThermalReceipt({ invoice, salon, onClose }: ThermalReceiptProps)
         {/* Loyalty Points Section */}
         {(invoice.loyaltyPointsEarned || invoice.loyaltyPointsBalance) && (
           <div className="py-1.5 text-[10px] text-center border-b border-dashed border-slate-400 bg-amber-500/10 my-1 rounded px-1">
-            <span className="font-bold text-amber-900">★ BILLCARE PRIVILEGE REWARDS ★</span>
+            <span className="font-bold text-amber-900">★ Ruvexi PRIVILEGE REWARDS ★</span>
             <div className="flex justify-around text-[10px] text-amber-950 font-bold mt-0.5">
               {invoice.loyaltyPointsEarned && (
                 <span>Earned Today: +{invoice.loyaltyPointsEarned} pts</span>
@@ -428,7 +428,7 @@ export function ThermalReceipt({ invoice, salon, onClose }: ThermalReceiptProps)
             Scan to Verify E-Receipt
           </div>
           <div className="text-[10px] font-mono font-bold text-slate-700">
-            UPI: {salon.upiId || "billcare.pos@icici"}
+            UPI: {salon.upiId || "Ruvexi.pos@icici"}
           </div>
         </div>
 
@@ -452,10 +452,10 @@ export function ThermalReceipt({ invoice, salon, onClose }: ThermalReceiptProps)
         <div className="pt-3 pb-1 text-center text-[10px] text-slate-600 border-t border-dotted border-slate-400 mt-2 space-y-0.5">
           <div className="font-bold text-black">*** THANK YOU FOR VISITING ***</div>
           <div className="text-[9px] text-slate-500">
-            Appointments & 24/7 Booking: billcare.app
+            Appointments & 24/7 Booking: Ruvexi.app
           </div>
           <div className="text-[8px] text-slate-400 pt-1">
-            Software by BillCare Solution Salon OS
+            Software by Ruvexi Solutions Salon OS
           </div>
         </div>
 

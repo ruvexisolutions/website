@@ -1,5 +1,5 @@
-// ============================================================================
-// BillCare - Discord-Style Salon Banners & Respected Salon Presets
+﻿// ============================================================================
+// Ruvexi - Discord-Style Salon Banners & Respected Salon Presets
 // ============================================================================
 
 export interface BannerPreset {
@@ -185,25 +185,25 @@ export interface RespectedSalonProfile {
 
 export const RESPECTED_SALONS: RespectedSalonProfile[] = [
   {
-    id: "sln_billcare_flagship",
-    slug: "billcare-atelier",
-    name: "BillCare Premier Atelier & Spa",
+    id: "sln_Ruvexi_flagship",
+    slug: "Ruvexi-atelier",
+    name: "Ruvexi Solutions Atelier & Spa",
     tagline: "Bespoke Hair Sculpting, Organic Keratin Therapy & Aesthetic Skin Wellness",
     branch: "Flagship Indiranagar",
     city: "Bengaluru",
     address: "Suite 401, Crescent Galleria, 100 Ft Rd, Indiranagar, Bengaluru - 560038",
     phone: "+91 98450 11223",
-    email: "atelier@billcare.io",
+    email: "atelier@Ruvexi.io",
     currency: "₹",
     rating: 4.95,
     reviewCount: 428,
-    logo: "/images/billcare-logo.png",
+    logo: "/images/ruvexi-logo.png",
     bannerPreset: "discord-blurple",
     accentColor: "#FACC15",
     category: "Luxury Hair Studio & Aesthetic Spa",
     badges: ["👑 Official Flagship", "✨ Verified Atelier", "💎 Boost Level 3", "⚡ Instant WhatsApp Pass"],
     timing: "10:00 AM - 09:30 PM (Open All 7 Days)",
-    instagram: "@billcare.atelier",
+    instagram: "@Ruvexi.atelier",
     features: ["Zero Marketplace Fee", "Master Colorists", "Private VIP Suites", "Complimentary Prosecco"],
     services: [
       {

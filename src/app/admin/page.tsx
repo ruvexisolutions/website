@@ -1,9 +1,9 @@
-"use client";
+﻿"use client";
 
 import React, { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useBillCare } from "@/lib/billcare-context";
+import { useRuvexi } from "@/lib/ruvexi-context";
 import { formatCurrency } from "@/lib/utils";
 import {
   ShieldCheck,
@@ -43,7 +43,7 @@ interface SalonPartnerData {
   dueDate?: string;
   monthlyGmv: number;
   appointmentsCount: number;
-  // Improvement metrics with BillCare Solution
+  // Improvement metrics with Ruvexi Solutions
   revenueGrowthPct: number;
   noShowReduction: string;
   retentionIncreasePct: number;
@@ -53,12 +53,12 @@ interface SalonPartnerData {
 
 export default function AdminPage() {
   const router = useRouter();
-  const { updateSalonProfile, showToast } = useBillCare();
+  const { updateSalonProfile, showToast } = useRuvexi();
 
   const [searchQuery, setSearchQuery] = useState("");
   const [filterPayment, setFilterPayment] = useState<"All" | "Paid" | "Pending">("All");
 
-  // Sample real salon partners that opted for BillCare
+  // Sample real salon partners that opted for Ruvexi
   const [salonPartners, setSalonPartners] = useState<SalonPartnerData[]>([
     {
       id: "sln_01",
@@ -219,9 +219,9 @@ export default function AdminPage() {
   // Action: Send WhatsApp Payment Reminder to Salon Owner
   const handleSendPaymentReminder = (salon: SalonPartnerData) => {
     const cleanPhone = salon.ownerPhone.replace(/[^0-9]/g, "");
-    const message = `Hello ${salon.ownerName}, this is a reminder from BillCare regarding ${salon.name}'s monthly subscription fee of ${formatCurrency(
+    const message = `Hello ${salon.ownerName}, this is a reminder from Ruvexi regarding ${salon.name}'s monthly subscription fee of ${formatCurrency(
       salon.monthlySubscriptionFee
-    )} for October 2026. Please complete the settlement via this link: https://billcare.io/pay/${salon.id}. Thank you for partnering with BillCare.`;
+    )} for October 2026. Please complete the settlement via this link: https://Ruvexi.io/pay/${salon.id}. Thank you for partnering with Ruvexi.`;
     window.open(
       `https://wa.me/${cleanPhone}?text=${encodeURIComponent(message)}`,
       "_blank"
@@ -241,7 +241,7 @@ export default function AdminPage() {
             <div>
               <div className="flex items-center gap-2">
                 <span className="font-extrabold text-base tracking-tight text-slate-950">
-                  BILLCARE PLATFORM OWNER
+                  RUVEXI PLATFORM OWNER
                 </span>
                 <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 uppercase">
                   Super Admin
@@ -286,7 +286,7 @@ export default function AdminPage() {
                 Partner Salons & Subscription Tracker
               </h1>
               <p className="text-xs sm:text-sm text-slate-300 font-medium max-w-xl">
-                See all salons that opted for BillCare, whether they paid this month's subscription, their numbers, and how much they improved with our software.
+                See all salons that opted for Ruvexi, whether they paid this month's subscription, their numbers, and how much they improved with our software.
               </p>
             </div>
 
@@ -373,7 +373,7 @@ export default function AdminPage() {
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-3 border-b border-slate-100">
             <div>
               <h2 className="text-lg font-black text-slate-950">
-                All Salons Opted into BillCare
+                All Salons Opted into Ruvexi
               </h2>
               <p className="text-xs text-slate-500">
                 Check subscription payment status and how each salon improved with our software.
@@ -431,7 +431,7 @@ export default function AdminPage() {
                   <th className="py-3.5 px-4">Monthly Subscription</th>
                   <th className="py-3.5 px-4">Did They Pay This Month?</th>
                   <th className="py-3.5 px-4">Stats in Numbers</th>
-                  <th className="py-3.5 px-4">Did They Improve With BillCare?</th>
+                  <th className="py-3.5 px-4">Did They Improve With Ruvexi?</th>
                   <th className="py-3.5 px-4 text-right">Actions</th>
                 </tr>
               </thead>

@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import React, { useState, useRef, useEffect } from "react";
 import {
@@ -63,7 +63,7 @@ export function DiscordBannerCustomizerModal({
   const [bannerUrl, setBannerUrl] = useState<string>(salon.bannerUrl || "");
   const [bannerGradient, setBannerGradient] = useState<string>(salon.bannerGradient || "");
   const [accentColor, setAccentColor] = useState<string>(salon.accentColor || "#FACC15");
-  const [brandName, setBrandName] = useState<string>(salon.name || "BillCare Premier Atelier");
+  const [brandName, setBrandName] = useState<string>(salon.name || "Ruvexi Premier Atelier");
   const [tagline, setTagline] = useState<string>(
     salon.tagline || "Bespoke Styling, Organic Hair Therapy & Modern Skin Wellness"
   );
@@ -85,7 +85,7 @@ export function DiscordBannerCustomizerModal({
       setBannerUrl(salon.bannerUrl || "");
       setBannerGradient(salon.bannerGradient || "");
       setAccentColor(salon.accentColor || "#FACC15");
-      setBrandName(salon.name || "BillCare Premier Atelier");
+      setBrandName(salon.name || "Ruvexi Premier Atelier");
       setTagline(salon.tagline || "Bespoke Styling, Organic Hair Therapy & Modern Skin Wellness");
     }
   }, [isOpen, salon]);
@@ -156,7 +156,7 @@ export function DiscordBannerCustomizerModal({
     setBannerUrl("");
     setBannerGradient("");
     setAccentColor("#5865F2");
-    setBrandName(salon.name || "BillCare Premier Atelier");
+    setBrandName(salon.name || "Ruvexi Premier Atelier");
   };
 
   return (
@@ -244,7 +244,7 @@ export function DiscordBannerCustomizerModal({
                       style={{ boxShadow: `0 0 25px ${accentColor}30` }}
                     >
                       <img
-                        src={salon.logo || salon.logoUrl || "/images/billcare-logo.png"}
+                        src={salon.logo || salon.logoUrl || "/images/ruvexi-logo.png"}
                         alt={brandName}
                         className="w-full h-full object-cover"
                         onError={(e) => {
@@ -663,7 +663,7 @@ export function DiscordBannerCustomizerModal({
                     value={brandName}
                     onChange={(e) => setBrandName(e.target.value)}
                     className="w-full px-4 py-2.5 bg-[#1e1f22] border border-[#27272A] rounded-xl text-xs text-white font-bold focus:border-[#5865F2] focus:outline-none"
-                    placeholder="e.g. BillCare Premier Atelier"
+                    placeholder="e.g. Ruvexi Premier Atelier"
                   />
                 </div>
 

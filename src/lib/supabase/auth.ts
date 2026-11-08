@@ -1,7 +1,7 @@
-import { createClient, isSupabaseConfigured } from "./client";
+﻿import { createClient, isSupabaseConfigured } from "./client";
 import type { User as SupabaseAuthUser, Session } from "@supabase/supabase-js";
 
-export interface BillCareAuthResult {
+export interface RuvexiAuthResult {
   success: boolean;
   user?: {
     id: string;
@@ -28,9 +28,9 @@ export interface BillCareAuthResult {
 }
 
 /**
- * Transforms Supabase user and metadata into BillCare User and Salon models
+ * Transforms Supabase user and metadata into Ruvexi User and Salon models
  */
-export function mapSupabaseUserToBillCare(supabaseUser: SupabaseAuthUser, session?: Session | null) {
+export function mapSupabaseUserToRuvexi(supabaseUser: SupabaseAuthUser, session?: Session | null) {
   const metadata = supabaseUser.user_metadata || {};
   const email = supabaseUser.email || metadata.email || "";
   const name = metadata.name || metadata.full_name || email.split("@")[0] || "Salon Team Member";
@@ -61,7 +61,7 @@ export function mapSupabaseUserToBillCare(supabaseUser: SupabaseAuthUser, sessio
     gstin: metadata.gstin || "27AABCB1234F1Z8",
     autoGst: true,
     phone: phone || "+91 98450 11223",
-    email: email || "contact@billcare.io",
+    email: email || "contact@Ruvexi.io",
     address: metadata.address || "100ft Road, Indiranagar",
     timing: "10:00 AM - 09:00 PM (All Days)",
     rating: 4.9,
@@ -87,7 +87,7 @@ export async function signUpWithSupabase(params: {
   city?: string;
   category?: string;
   chairs?: number;
-}): Promise<BillCareAuthResult> {
+}): Promise<RuvexiAuthResult> {
   const supabase = createClient();
   const configured = isSupabaseConfigured();
 
@@ -157,7 +157,7 @@ export async function signUpWithSupabase(params: {
         };
       }
 
-      const mapped = mapSupabaseUserToBillCare(data.user, data.session);
+      const mapped = mapSupabaseUserToRuvexi(data.user, data.session);
       return {
         success: true,
         user: mapped.user,
@@ -178,7 +178,7 @@ export async function signUpWithSupabase(params: {
 export async function signInWithSupabasePassword(
   email: string,
   password: string
-): Promise<BillCareAuthResult> {
+): Promise<RuvexiAuthResult> {
   const supabase = createClient();
   const configured = isSupabaseConfigured();
 
@@ -192,12 +192,12 @@ export async function signInWithSupabasePassword(
         email,
         phone: "+91 98450 33445",
         role: "SALON_MANAGER",
-        salonId: "sln_billcare_flagship",
+        salonId: "sln_Ruvexi_flagship",
         avatar: "M",
       },
       salon: {
-        id: "sln_billcare_flagship",
-        name: "BillCare Luxury Flagship",
+        id: "sln_Ruvexi_flagship",
+        name: "Ruvexi Solutions Flagship",
         city: "Bengaluru",
       },
       token: "dev-supabase-eval-token",
@@ -215,7 +215,7 @@ export async function signInWithSupabasePassword(
     }
 
     if (data.user && data.session) {
-      const mapped = mapSupabaseUserToBillCare(data.user, data.session);
+      const mapped = mapSupabaseUserToRuvexi(data.user, data.session);
       return {
         success: true,
         user: mapped.user,
@@ -300,7 +300,7 @@ export async function requestSupabaseEmailOtp(email: string): Promise<{ success:
 /**
  * 4. Verify OTP (Phone / SMS) using Supabase Auth
  */
-export async function verifySupabasePhoneOtp(phone: string, token: string): Promise<BillCareAuthResult> {
+export async function verifySupabasePhoneOtp(phone: string, token: string): Promise<RuvexiAuthResult> {
   const supabase = createClient();
   const configured = isSupabaseConfigured();
 
@@ -311,15 +311,15 @@ export async function verifySupabasePhoneOtp(phone: string, token: string): Prom
         user: {
           id: "usr_eval_phone_manager",
           name: "Salon Manager",
-          email: "manager@billcare.io",
+          email: "manager@Ruvexi.io",
           phone,
           role: "SALON_MANAGER",
-          salonId: "sln_billcare_flagship",
+          salonId: "sln_Ruvexi_flagship",
           avatar: "M",
         },
         salon: {
-          id: "sln_billcare_flagship",
-          name: "BillCare Flagship Atelier",
+          id: "sln_Ruvexi_flagship",
+          name: "Ruvexi Solutions Flagship Atelier",
           city: "Bengaluru",
         },
         token: "dev-supabase-otp-token",
@@ -340,7 +340,7 @@ export async function verifySupabasePhoneOtp(phone: string, token: string): Prom
     }
 
     if (data.user && data.session) {
-      const mapped = mapSupabaseUserToBillCare(data.user, data.session);
+      const mapped = mapSupabaseUserToRuvexi(data.user, data.session);
       return {
         success: true,
         user: mapped.user,
@@ -358,7 +358,7 @@ export async function verifySupabasePhoneOtp(phone: string, token: string): Prom
 /**
  * 4b. Verify Email OTP (Manager Login) using Supabase Auth
  */
-export async function verifySupabaseEmailOtp(email: string, token: string): Promise<BillCareAuthResult> {
+export async function verifySupabaseEmailOtp(email: string, token: string): Promise<RuvexiAuthResult> {
   const supabase = createClient();
   const configured = isSupabaseConfigured();
 
@@ -372,12 +372,12 @@ export async function verifySupabaseEmailOtp(email: string, token: string): Prom
           email: email.trim().toLowerCase(),
           phone: "+91 98450 33445",
           role: "SALON_MANAGER",
-          salonId: "sln_billcare_flagship",
+          salonId: "sln_Ruvexi_flagship",
           avatar: "M",
         },
         salon: {
-          id: "sln_billcare_flagship",
-          name: "BillCare Luxury Flagship",
+          id: "sln_Ruvexi_flagship",
+          name: "Ruvexi Solutions Flagship",
           city: "Bengaluru",
         },
         token: "dev-supabase-email-otp-token",
@@ -398,7 +398,7 @@ export async function verifySupabaseEmailOtp(email: string, token: string): Prom
     }
 
     if (data.user && data.session) {
-      const mapped = mapSupabaseUserToBillCare(data.user, data.session);
+      const mapped = mapSupabaseUserToRuvexi(data.user, data.session);
       return {
         success: true,
         user: mapped.user,
@@ -530,7 +530,7 @@ export async function updateSupabasePassword(newPassword: string): Promise<{ suc
 /**
  * 8. Get current active session from Supabase
  */
-export async function getActiveSupabaseSession(): Promise<BillCareAuthResult | null> {
+export async function getActiveSupabaseSession(): Promise<RuvexiAuthResult | null> {
   const supabase = createClient();
   if (!isSupabaseConfigured()) return null;
 
@@ -538,7 +538,7 @@ export async function getActiveSupabaseSession(): Promise<BillCareAuthResult | n
     const { data: { session }, error } = await supabase.auth.getSession();
     if (error || !session || !session.user) return null;
 
-    const mapped = mapSupabaseUserToBillCare(session.user, session);
+    const mapped = mapSupabaseUserToRuvexi(session.user, session);
     return {
       success: true,
       user: mapped.user,

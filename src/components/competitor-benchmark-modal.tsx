@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import React from "react";
 import {
@@ -17,7 +17,7 @@ export function CompetitorBenchmarkModal({ onClose }: CompetitorBenchmarkModalPr
   const comparisonData = [
     {
       feature: "Marketplace Commission on New Clients",
-      billcare: "0% Commission (Keep 100%)",
+      Ruvexi: "0% Commission (Keep 100%)",
       fresha: "20% cut on every new client",
       zenoti: "Custom Enterprise SLA",
       salonist: "Flat monthly rate",
@@ -25,7 +25,7 @@ export function CompetitorBenchmarkModal({ onClose }: CompetitorBenchmarkModalPr
     },
     {
       feature: "WhatsApp Business Cloud Automation",
-      billcare: "Built-in (Automated Reminders & Invoices)",
+      Ruvexi: "Built-in (Automated Reminders & Invoices)",
       fresha: "SMS only (charged per SMS)",
       zenoti: "SMS & Twilio add-on",
       salonist: "WhatsApp add-on package",
@@ -33,7 +33,7 @@ export function CompetitorBenchmarkModal({ onClose }: CompetitorBenchmarkModalPr
     },
     {
       feature: "Multi-Stylist Timeline Chair Matrix",
-      billcare: "Included (Drag, Drop & Live Sync)",
+      Ruvexi: "Included (Drag, Drop & Live Sync)",
       fresha: "Included",
       zenoti: "Included (Complex grid)",
       salonist: "Included",
@@ -41,7 +41,7 @@ export function CompetitorBenchmarkModal({ onClose }: CompetitorBenchmarkModalPr
     },
     {
       feature: "Technical Formula & Skin Treatment Cards",
-      billcare: "Included (Hair Dyes, Developers, Peels)",
+      Ruvexi: "Included (Hair Dyes, Developers, Peels)",
       fresha: "Basic notes only",
       zenoti: "Included",
       salonist: "Included in CRM",
@@ -49,7 +49,7 @@ export function CompetitorBenchmarkModal({ onClose }: CompetitorBenchmarkModalPr
     },
     {
       feature: "Indian GST & UPI / QR Split Tender POS",
-      billcare: "Native (CGST + SGST + Split UPI/Cash)",
+      Ruvexi: "Native (CGST + SGST + Split UPI/Cash)",
       fresha: "Basic Card/Cash only (no Indian GST)",
       zenoti: "Indian Enterprise tier only",
       salonist: "Standard POS",
@@ -57,7 +57,7 @@ export function CompetitorBenchmarkModal({ onClose }: CompetitorBenchmarkModalPr
     },
     {
       feature: "Custom Branded Booking Domain",
-      billcare: "Yes (salon.billcare.io / custom domain)",
+      Ruvexi: "Yes (salon.Ruvexi.io / custom domain)",
       fresha: "No (fresha.com/your-salon)",
       zenoti: "Yes ($$$ high tier)",
       salonist: "Yes",
@@ -65,7 +65,7 @@ export function CompetitorBenchmarkModal({ onClose }: CompetitorBenchmarkModalPr
     },
     {
       feature: "Staff Commission & Performance Leaderboard",
-      billcare: "Built-in (Service % + Retail %)",
+      Ruvexi: "Built-in (Service % + Retail %)",
       fresha: "Included",
       zenoti: "Included",
       salonist: "Included",
@@ -73,7 +73,7 @@ export function CompetitorBenchmarkModal({ onClose }: CompetitorBenchmarkModalPr
     },
     {
       feature: "Full Data Privacy & Dedicated Multi-Tenant Storage",
-      billcare: "Isolated tenant partitions & full exports",
+      Ruvexi: "Isolated tenant partitions & full exports",
       fresha: "Locked inside marketplace network",
       zenoti: "Proprietary cloud lock-in",
       salonist: "Cloud database",
@@ -98,7 +98,7 @@ export function CompetitorBenchmarkModal({ onClose }: CompetitorBenchmarkModalPr
             Global Salon Management Benchmark
           </div>
           <h2 className="text-2xl font-black tracking-tight">
-            BillCare Solution vs Market Platforms
+            Ruvexi Solutions vs Market Platforms
           </h2>
           <p className="text-xs text-slate-300 mt-1 max-w-xl">
             Built with the ergonomics of <b>Salonist</b> and <b>Fresha</b>, with zero marketplace fees, native WhatsApp automation, and lightning-fast GST & UPI billing.
@@ -114,7 +114,7 @@ export function CompetitorBenchmarkModal({ onClose }: CompetitorBenchmarkModalPr
                 <th className="p-3.5 font-black text-emerald-700 bg-emerald-50/80 border-x border-emerald-200">
                   <div className="flex items-center gap-1.5">
                     <Sparkles className="w-4 h-4 text-emerald-600" />
-                    <span>BillCare Solution</span>
+                    <span>Ruvexi Solutions</span>
                   </div>
                 </th>
                 <th className="p-3.5 font-extrabold text-slate-700">Salonist.io</th>
@@ -141,7 +141,7 @@ export function CompetitorBenchmarkModal({ onClose }: CompetitorBenchmarkModalPr
                   <td className="p-3.5 font-black text-emerald-900 bg-emerald-50/50 border-x border-emerald-100 font-mono">
                     <span className="inline-flex items-center gap-1.5 text-emerald-700 bg-emerald-100/80 px-2 py-0.5 rounded-lg text-[11px]">
                       <Check className="w-3.5 h-3.5 text-emerald-600" />
-                      {row.billcare}
+                      {row.Ruvexi}
                     </span>
                   </td>
                   <td className="p-3.5 text-slate-600 font-medium">{row.salonist}</td>

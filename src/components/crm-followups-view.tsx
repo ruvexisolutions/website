@@ -1,7 +1,7 @@
-"use client";
+﻿"use client";
 
 import React, { useState } from "react";
-import { useBillCare } from "@/lib/billcare-context";
+import { useRuvexi } from "@/lib/ruvexi-context";
 import { formatCurrency } from "@/lib/utils";
 import { FollowUpCampaign, CustomerProfile } from "@/lib/types";
 import {
@@ -30,7 +30,7 @@ import {
 } from "lucide-react";
 
 export function CrmFollowupsView() {
-  const { customers, followUps, sendFollowUp, createFollowUp, salon } = useBillCare();
+  const { customers, followUps, sendFollowUp, createFollowUp, salon } = useRuvexi();
 
   const [activeTab, setActiveTab] = useState<"campaigns" | "clients">("campaigns");
   const [selectedFollowUp, setSelectedFollowUp] = useState<any>(followUps[0]);

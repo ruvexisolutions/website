@@ -1,7 +1,7 @@
-"use client";
+﻿"use client";
 
 import React, { useState, useRef, useEffect } from "react";
-import { useBillCare } from "@/lib/billcare-context";
+import { useRuvexi } from "@/lib/ruvexi-context";
 import { formatCurrency } from "@/lib/utils";
 import {
   TrendingUp,
@@ -52,7 +52,7 @@ interface ChatMessage {
 
 export function SalonOwnerView() {
   const { staff, services, inventory, invoices, appointments, customers, salon, showToast, feedbacks } =
-    useBillCare();
+    useRuvexi();
 
   // Time toggle: This Week vs This Month
   const [timeRange, setTimeRange] = useState<"week" | "month">("month");
@@ -168,7 +168,7 @@ export function SalonOwnerView() {
     {
       id: "msg_1",
       sender: "ai",
-      text: `Hello ${salon.name.split(" ")[0]} Director! 👋 I am your BillCare AI Business Advisor. Ask me anything about your revenue, stylists, best-selling services, or inventory stock levels and I will provide instant data-backed answers!`,
+      text: `Hello ${salon.name.split(" ")[0]} Director! 👋 I am your Ruvexi AI Business Advisor. Ask me anything about your revenue, stylists, best-selling services, or inventory stock levels and I will provide instant data-backed answers!`,
       time: "Just now",
     },
   ]);

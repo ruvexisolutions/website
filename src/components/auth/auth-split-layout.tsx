@@ -1,9 +1,9 @@
-"use client";
+﻿"use client";
 
 import React from "react";
 import Link from "next/link";
 import Image from "next/image";
-import { BillCareLogo } from "@/components/brand/billcare-logo";
+import { RuvexiLogo } from "@/components/brand/ruvexi-logo";
 
 interface AuthSplitLayoutProps {
   headline: string;
@@ -36,9 +36,9 @@ export function AuthSplitLayout({
             <Link
               href="/"
               className="inline-flex items-center gap-2 group transition-opacity hover:opacity-90"
-              aria-label="Bill Care homepage"
+              aria-label="RUVEXI homepage"
             >
-              <BillCareLogo size="md" variant="light" showSubtitle={true} />
+              <RuvexiLogo size="md" variant="light" showSubtitle={true} />
             </Link>
           </div>
 
@@ -74,7 +74,7 @@ export function AuthSplitLayout({
 
           {/* Left Footer: Minimal brand indicator */}
           <div className="relative z-10 pt-6 text-xs text-[#71717A] flex items-center justify-between">
-            <span>© {new Date().getFullYear()} Bill Care Technologies Inc.</span>
+            <span>© {new Date().getFullYear()} RUVEXI Technologies Inc.</span>
             <span className="font-mono text-[11px] tracking-wider text-[#71717A]">B2B SALON OS</span>
           </div>
         </aside>
@@ -83,8 +83,8 @@ export function AuthSplitLayout({
         <main className="flex-1 flex flex-col justify-between p-6 sm:p-10 lg:p-12 xl:p-16 relative">
           {/* Mobile Top Brand Header */}
           <div className="lg:hidden flex items-center justify-between pb-6 border-b border-[#27272A]/80 mb-6">
-            <Link href="/" className="inline-flex items-center" aria-label="Bill Care homepage">
-              <BillCareLogo size="sm" variant="light" showSubtitle={true} />
+            <Link href="/" className="inline-flex items-center" aria-label="RUVEXI homepage">
+              <RuvexiLogo size="sm" variant="light" showSubtitle={true} />
             </Link>
             <span className="text-[11px] font-mono tracking-wider text-[#A1A1AA] uppercase">
               Salon OS

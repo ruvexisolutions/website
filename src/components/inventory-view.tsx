@@ -1,7 +1,7 @@
-"use client";
+﻿"use client";
 
 import React, { useState } from "react";
-import { useBillCare } from "@/lib/billcare-context";
+import { useRuvexi } from "@/lib/ruvexi-context";
 import { formatCurrency } from "@/lib/utils";
 import { InventoryItem } from "@/lib/types";
 import {
@@ -24,7 +24,7 @@ import {
 } from "lucide-react";
 
 export function InventoryView() {
-  const { inventory, updateStock, restockItem, addInventoryItem } = useBillCare();
+  const { inventory, updateStock, restockItem, addInventoryItem } = useRuvexi();
 
   const [searchTerm, setSearchTerm] = useState("");
   const [categoryFilter, setCategoryFilter] = useState("All");

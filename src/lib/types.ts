@@ -1,4 +1,4 @@
-// Production Type Definitions for BillCare Salon & Spa Operating System
+﻿// Production Type Definitions for Ruvexi Solutions Salon & Spa Operating System
 export type {
   SalonProfile,
   StaffMember,

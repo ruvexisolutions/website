@@ -1,11 +1,11 @@
-"use client";
+﻿"use client";
 
 import React, { useState, useEffect, useRef } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useBillCare } from "@/lib/billcare-context";
+import { useRuvexi } from "@/lib/ruvexi-context";
 import { formatCurrency } from "@/lib/utils";
-import { BillCareLogo } from "./brand/billcare-logo";
+import { RuvexiLogo } from "./brand/ruvexi-logo";
 import { FrontDeskView } from "./front-desk-view";
 import { SalonOwnerView } from "./salon-owner-view";
 import { OverviewView } from "./overview-view";
@@ -108,7 +108,7 @@ export function DemoShell({ initialTab = "frontdesk", initialSubTab }: DemoShell
     appointments,
     logout,
     isBackendConnected,
-  } = useBillCare();
+  } = useRuvexi();
 
   const userRole = ((user?.role as UserRole) || "owner");
   const roleConfig = getRoleConfig(userRole);
@@ -418,7 +418,7 @@ export function DemoShell({ initialTab = "frontdesk", initialSubTab }: DemoShell
         </div>
         <h2 className="font-serif text-xl font-bold text-[#F8FAFC] mb-2">Access Restricted</h2>
         <p className="text-xs text-[#71717A] max-w-sm mb-6 leading-relaxed">
-          Authentication is required to access the BillCare management operating system. Please sign in with your credentials.
+          Authentication is required to access the Ruvexi management operating system. Please sign in with your credentials.
         </p>
         <Link
           href="/login"
@@ -442,7 +442,7 @@ export function DemoShell({ initialTab = "frontdesk", initialSubTab }: DemoShell
         >
           {/* Top Brand & Branch Header */}
           <div className="p-4 border-b border-[#27272A] space-y-3.5">
-            {/* Salon Brand Title with BillCare Logo & Collapse Toggle */}
+            {/* Salon Brand Title with Ruvexi Logo & Collapse Toggle */}
             <div className="flex items-center justify-between">
               <Link href="/" className="hover:opacity-90 transition-opacity">
                 {isSidebarCollapsed ? (
@@ -458,7 +458,7 @@ export function DemoShell({ initialTab = "frontdesk", initialSubTab }: DemoShell
                     </div>
                   )
                 ) : (
-                  <BillCareLogo size="sm" variant="light" showSubtitle={true} />
+                  <RuvexiLogo size="sm" variant="light" showSubtitle={true} />
                 )}
               </Link>
               <button
@@ -627,7 +627,7 @@ export function DemoShell({ initialTab = "frontdesk", initialSubTab }: DemoShell
                 <button
                   onClick={handleLogout}
                   className="p-1.5 rounded-lg text-[#71717A] hover:text-[#F87171] hover:bg-[#F87171]/10 transition-colors cursor-pointer"
-                  title="Sign out of BillCare"
+                  title="Sign out of Ruvexi"
                 >
                   <LogOut className="w-3.5 h-3.5" />
                 </button>
@@ -649,7 +649,7 @@ export function DemoShell({ initialTab = "frontdesk", initialSubTab }: DemoShell
                   <Link
                     href="/admin"
                     className="text-[#FACC15] hover:text-[#EAB308] font-bold flex items-center gap-1 transition-colors"
-                    title="BillCare Platform Super Admin Hub"
+                    title="Ruvexi Platform Super Admin Hub"
                   >
                     <ShieldCheck className="w-3 h-3 text-[#FACC15]" />
                     <span>Super Admin</span>
@@ -668,7 +668,7 @@ export function DemoShell({ initialTab = "frontdesk", initialSubTab }: DemoShell
             <div className="bg-[#101010] border-r border-[#27272A] text-[#F8FAFC] w-72 max-w-[85vw] h-full flex flex-col justify-between p-4 shadow-2xl animate-in slide-in-from-left duration-200">
               <div className="space-y-4">
                 <div className="flex items-center justify-between pb-3 border-b border-[#27272A]">
-                  <BillCareLogo size="sm" variant="light" showSubtitle={true} />
+                  <RuvexiLogo size="sm" variant="light" showSubtitle={true} />
                   <button
                     onClick={() => setMobileMenuOpen(false)}
                     className="p-1.5 rounded-lg text-[#71717A] hover:text-[#F8FAFC] hover:bg-[#151515] cursor-pointer"
@@ -975,7 +975,7 @@ export function DemoShell({ initialTab = "frontdesk", initialSubTab }: DemoShell
 
             <div className="p-2.5 bg-[#101010] border-t border-[#27272A] flex items-center justify-between text-[11px] text-[#71717A] px-4 font-mono">
               <span>Press ESC to close</span>
-              <span>BillCare Command Engine</span>
+              <span>Ruvexi Command Engine</span>
             </div>
           </div>
         </div>

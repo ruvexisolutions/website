@@ -1,8 +1,8 @@
-"use client";
+﻿"use client";
 
 import React, { useState } from "react";
 import Link from "next/link";
-import { useBillCare } from "@/lib/billcare-context";
+import { useRuvexi } from "@/lib/ruvexi-context";
 import { formatCurrency } from "@/lib/utils";
 import {
   Calendar,
@@ -31,7 +31,7 @@ import {
   Sparkles,
   CheckCircle2,
 } from "lucide-react";
-import { BillCareLogo } from "@/components/brand/billcare-logo";
+import { RuvexiLogo } from "@/components/brand/ruvexi-logo";
 
 type StudioType = "hair" | "spa" | "barber" | "nail";
 
@@ -120,7 +120,7 @@ const STUDIO_PROFILES: Record<StudioType, StudioProfile> = {
 };
 
 export function LandingPage() {
-  const { salon, showToast } = useBillCare();
+  const { salon, showToast } = useRuvexi();
 
   // Active Interactive Studio Selector
   const [activeStudio, setActiveStudio] = useState<StudioType>("hair");
@@ -168,20 +168,20 @@ export function LandingPage() {
 
   const faqs = [
     {
-      q: "How does BillCare differ from aggregators like Fresha or Zenoti?",
-      a: "Marketplace aggregators take up to 20% cut per client booking and display rival salons right next to your brand. BillCare is a sovereign operating system: 0% transaction fees, 100% private client database, and your own custom branded booking portal.",
+      q: "How does Ruvexi differ from aggregators like Fresha or Zenoti?",
+      a: "Marketplace aggregators take up to 20% cut per client booking and display rival salons right next to your brand. Ruvexi is a sovereign operating system: 0% transaction fees, 100% private client database, and your own custom branded booking portal.",
     },
     {
       q: "Can receptionists handle checkout without seeing owner profits or tax filings?",
       a: "Yes. Granular role-based security allows receptionists and stylists to manage daily calendars, seat walk-ins, and ring up sales while strictly restricting gross margins, staff payouts, and tax ledgers to salon owners.",
     },
     {
-      q: "Does BillCare connect with thermal receipt printers and barcode scanners?",
+      q: "Does Ruvexi connect with thermal receipt printers and barcode scanners?",
       a: "Yes. Works out of the box with standard 80mm & 58mm ESC/POS thermal printers (Epson, TVS, Star Micronics), USB/Bluetooth barcode scanners, and sends automated paperless WhatsApp tax receipts.",
     },
     {
       q: "How does automated WhatsApp retention recover lapsed clients?",
-      a: "Integrated directly with the official Meta Cloud API. BillCare monitors client service history and automatically dispatches personalized 28-day color refreshers, birthday VIP passes, and review requests with zero manual staff effort.",
+      a: "Integrated directly with the official Meta Cloud API. Ruvexi monitors client service history and automatically dispatches personalized 28-day color refreshers, birthday VIP passes, and review requests with zero manual staff effort.",
     },
     {
       q: "Can we migrate our existing client formulas, inventory, and phone directory?",
@@ -189,7 +189,7 @@ export function LandingPage() {
     },
     {
       q: "What happens if our salon loses WiFi connectivity during rush hours?",
-      a: "BillCare is built as an offline-resilient Progressive Web App (PWA). You can continue ringing up cash sales, viewing formulas, and booking chairs uninterrupted. Everything auto-synchronizes the second your connection returns.",
+      a: "Ruvexi is built as an offline-resilient Progressive Web App (PWA). You can continue ringing up cash sales, viewing formulas, and booking chairs uninterrupted. Everything auto-synchronizes the second your connection returns.",
     },
   ];
 
@@ -201,7 +201,7 @@ export function LandingPage() {
           <div className="flex items-center justify-between h-20">
             {/* Brand Logo */}
             <Link href="/" className="flex items-center gap-3">
-              <BillCareLogo size="md" variant="light" showSubtitle={true} />
+              <RuvexiLogo size="md" variant="light" showSubtitle={true} />
             </Link>
 
             {/* Desktop Navigation Links with Simple Words */}
@@ -286,7 +286,7 @@ export function LandingPage() {
                 onClick={() => setMobileMenuOpen(false)}
                 className="py-2 hover:text-[#FACC15] transition-colors border-b border-white/[0.04]"
               >
-                Why BillCare (Zero Commissions)
+                Why Ruvexi (Zero Commissions)
               </a>
               <a
                 href="#testimonials"
@@ -1205,7 +1205,7 @@ export function LandingPage() {
               <div className="space-y-4">
                 <div className="font-mono text-xs text-amber-300">₹1.85 Lakhs Saved in 6 Months</div>
                 <p className="text-xs text-slate-300 font-light leading-relaxed">
-                  "Transitioning from marketplace platforms to BillCare eliminated a 20% take on our repeat clientele. Our guests appreciate receiving branded WhatsApp invoices without needing a third-party app."
+                  "Transitioning from marketplace platforms to Ruvexi eliminated a 20% take on our repeat clientele. Our guests appreciate receiving branded WhatsApp invoices without needing a third-party app."
                 </p>
               </div>
               <div className="flex items-center gap-3.5 pt-4 border-t border-white/[0.08]">
@@ -1247,7 +1247,7 @@ export function LandingPage() {
               <div className="space-y-4">
                 <div className="font-mono text-xs text-amber-300">Complete Data Sovereignty</div>
                 <p className="text-xs text-slate-300 font-light leading-relaxed">
-                  "Our wellness clients require discretion. Aggregator pools share client data with competitor salons. BillCare guarantees isolation, and our patch-test ledger gives practitioners absolute certainty."
+                  "Our wellness clients require discretion. Aggregator pools share client data with competitor salons. Ruvexi guarantees isolation, and our patch-test ledger gives practitioners absolute certainty."
                 </p>
               </div>
               <div className="flex items-center gap-3.5 pt-4 border-t border-white/[0.08]">
@@ -1286,7 +1286,7 @@ export function LandingPage() {
               <thead>
                 <tr className="border-b border-white/[0.08] text-slate-400 font-mono text-[11px]">
                   <th className="py-4 px-5">CAPABILITY</th>
-                  <th className="py-4 px-5 text-white bg-white/[0.03]">BILLCARE</th>
+                  <th className="py-4 px-5 text-white bg-white/[0.03]">Ruvexi</th>
                   <th className="py-4 px-5">FRESHA</th>
                   <th className="py-4 px-5">ZENOTI</th>
                 </tr>
@@ -1340,7 +1340,7 @@ export function LandingPage() {
               Trusted by 450+ premium salons & spas
             </h2>
             <p className="text-sm text-slate-400 font-light leading-relaxed">
-              From flagship hair ateliers in Bandra to multi-station academies in Indiranagar, see how BillCare eliminates checkout bottlenecks and recovers lapsed clients.
+              From flagship hair ateliers in Bandra to multi-station academies in Indiranagar, see how Ruvexi eliminates checkout bottlenecks and recovers lapsed clients.
             </p>
           </div>
 
@@ -1380,7 +1380,7 @@ export function LandingPage() {
                   </span>
                 </div>
                 <p className="text-xs text-slate-300 font-light leading-relaxed italic">
-                  "We switched 8 stations from Zenoti to BillCare. On busy Saturdays, our reception counter used to be absolute chaos. With BillCare, walk-in check-in and billing takes 15 seconds, and our chair turnover increased by 30%. Zero booking fee saved us lakhs this year alone."
+                  "We switched 8 stations from Zenoti to Ruvexi. On busy Saturdays, our reception counter used to be absolute chaos. With Ruvexi, walk-in check-in and billing takes 15 seconds, and our chair turnover increased by 30%. Zero booking fee saved us lakhs this year alone."
                 </p>
               </div>
 
@@ -1758,7 +1758,7 @@ export function LandingPage() {
           <div className="grid grid-cols-2 md:grid-cols-5 gap-10">
             {/* Brand Column */}
             <div className="col-span-2 space-y-4">
-              <BillCareLogo size="md" variant="light" showSubtitle={true} />
+              <RuvexiLogo size="md" variant="light" showSubtitle={true} />
               <p className="text-slate-400 text-xs max-w-sm font-light leading-relaxed">
                 The sovereign management operating system for high-volume hair salons, master barber clubs, and luxury aesthetic wellness clinics.
               </p>
@@ -1821,7 +1821,7 @@ export function LandingPage() {
           {/* Bottom Copyright & Legal Links */}
           <div className="pt-8 border-t border-white/[0.08] flex flex-col sm:flex-row items-center justify-between gap-4 text-[11px] font-mono text-slate-400">
             <div>
-              © {new Date().getFullYear()} BillCare Technologies Inc. Built for independent salons across India.
+              © {new Date().getFullYear()} Ruvexi Technologies Inc. Built for independent salons across India.
             </div>
             <div className="flex items-center gap-6">
               <Link href="/login" className="hover:text-white transition-colors">Staff Login</Link>

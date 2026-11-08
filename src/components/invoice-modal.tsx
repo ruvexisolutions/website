@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import React, { useRef, useState, useEffect } from "react";
 import { formatCurrency } from "@/lib/utils";
@@ -24,8 +24,8 @@ import {
 } from "lucide-react";
 import QRCode from "qrcode";
 import { ThermalReceipt } from "./pos/thermal-receipt";
-import { billcareApi } from "@/lib/api-client";
-import { useBillCare } from "@/lib/billcare-context";
+import { RuvexiApi } from "@/lib/api-client";
+import { useRuvexi } from "@/lib/ruvexi-context";
 
 interface InvoiceModalProps {
   invoice: any;
@@ -35,7 +35,7 @@ interface InvoiceModalProps {
 }
 
 export function InvoiceModal({ invoice: initialInvoice, salon, onClose, onPaymentConfirmed }: InvoiceModalProps) {
-  const { bookAppointment, showToast, sendWhatsAppBill } = useBillCare();
+  const { bookAppointment, showToast, sendWhatsAppBill } = useRuvexi();
   const [invoice, setInvoice] = useState<any>(initialInvoice);
   const [copied, setCopied] = useState(false);
   const [copiedUpi, setCopiedUpi] = useState(false);
@@ -124,7 +124,7 @@ export function InvoiceModal({ invoice: initialInvoice, salon, onClose, onPaymen
     setIsConfirmingUpi(true);
     setConfirmationError(null);
     try {
-      const res = await billcareApi.confirmPayment(invoice.id, {
+      const res = await RuvexiApi.confirmPayment(invoice.id, {
         paymentMethod: "UPI",
         explicitVerification: true,
         notes: "Manual counter verification confirmed by receptionist via salon receiving app",
@@ -567,7 +567,7 @@ export function InvoiceModal({ invoice: initialInvoice, salon, onClose, onPaymen
 
             {/* Footer certification */}
             <div className="text-center border-t border-slate-100 pt-6 text-[11px] text-slate-400">
-              Thank you for indulging at {salon.name}. Designed & Powered by BillCare Salon SaaS.
+              Thank you for indulging at {salon.name}. Designed & Powered by Ruvexi Salon SaaS.
             </div>
           </div>
         )}

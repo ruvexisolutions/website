@@ -1,11 +1,11 @@
-"use client";
+﻿"use client";
 
 import React, { useState } from "react";
 import Link from "next/link";
 import { AuthSplitLayout } from "@/components/auth/auth-split-layout";
 import { AuthInput } from "@/components/auth/auth-input";
 import { AuthButton } from "@/components/auth/auth-button";
-import { billcareApi } from "@/lib/api-client";
+import { RuvexiApi } from "@/lib/api-client";
 import { requestSupabasePasswordReset } from "@/lib/supabase/auth";
 import { isSupabaseConfigured } from "@/lib/supabase/client";
 import { Mail, CheckCircle2, ArrowLeft, AlertCircle } from "lucide-react";
@@ -41,7 +41,7 @@ export default function ForgotPasswordPage() {
           setError(supaRes.error || "Unable to send reset email.");
         }
       } else {
-        await billcareApi.forgotPassword(normalizedEmail);
+        await RuvexiApi.forgotPassword(normalizedEmail);
         setIsSubmitted(true);
       }
     } catch (err: any) {

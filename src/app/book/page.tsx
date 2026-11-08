@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import React, { Suspense } from "react";
 import { useSearchParams } from "next/navigation";
@@ -20,7 +20,7 @@ export default function BookPage() {
       <div className="max-w-5xl mx-auto mb-6 flex items-center justify-between gap-3 px-1">
         <div className="flex items-center gap-2 text-xs font-mono text-slate-400">
           <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-          <span className="font-semibold text-slate-200">BillCare Concierge</span>
+          <span className="font-semibold text-slate-200">Ruvexi Concierge</span>
           <span className="hidden sm:inline-flex items-center gap-1 text-[11px] text-slate-500 border-l border-white/[0.1] pl-2">
             <Lock className="w-3 h-3 text-amber-400/80" />
             Verified Direct Booking
