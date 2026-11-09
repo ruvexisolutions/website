@@ -1592,8 +1592,9 @@ export function LandingPage() {
               <Link href="/login" className="hover:text-white transition-colors">Staff Login</Link>
               <Link href="/signup" className="hover:text-white transition-colors">Start Free Trial</Link>
               <span className="text-slate-600">·</span>
-              <span>Privacy Policy</span>
-              <span>Terms of Service</span>
+              <Link href="/privacy" className="hover:text-white transition-colors">Privacy Policy</Link>
+              <Link href="/terms" className="hover:text-white transition-colors">Terms of Service</Link>
+              <Link href="/support" className="hover:text-white transition-colors">Support</Link>
               <span className="text-slate-600">·</span>
               <span>v2.8 Enterprise</span>
             </div>
