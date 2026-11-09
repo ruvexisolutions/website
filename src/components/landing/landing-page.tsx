@@ -218,9 +218,6 @@ export function LandingPage() {
               <a href="#comparison" className="hover:text-white transition-colors">
                 Why Us
               </a>
-              <a href="#testimonials" className="hover:text-white transition-colors">
-                Reviews
-              </a>
               <a href="#pricing" className="hover:text-white transition-colors">
                 Pricing
               </a>
@@ -287,13 +284,6 @@ export function LandingPage() {
                 className="py-2 hover:text-[#FACC15] transition-colors border-b border-white/[0.04]"
               >
                 Why Ruvexi (Zero Commissions)
-              </a>
-              <a
-                href="#testimonials"
-                onClick={() => setMobileMenuOpen(false)}
-                className="py-2 hover:text-[#FACC15] transition-colors border-b border-white/[0.04]"
-              >
-                Salon Owner Reviews
               </a>
               <a
                 href="#pricing"
@@ -1178,106 +1168,12 @@ export function LandingPage() {
         </div>
       </section>
 
-      {/* Customer Perspectives */}
-      <section className="py-24 md:py-32 px-4 sm:px-6 lg:px-8 border-b border-white/[0.08] bg-[#09090b]">
-        <div className="max-w-6xl mx-auto space-y-16">
-          <div className="text-center max-w-2xl mx-auto space-y-3">
-            <div className="text-[11px] font-mono uppercase tracking-[0.25em] text-amber-400/90 font-medium">
-              04 / Case Studies
-            </div>
-            <h2 className="font-serif text-3xl sm:text-5xl font-normal text-white tracking-tight">
-              Perspectives from studio founders
-            </h2>
-            <p className="text-sm text-slate-400 font-light">
-              Independent salon and clinic directors on transitioning from aggregators.
-            </p>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-            {/* Story 1 */}
-            <div className="p-8 rounded-2xl border border-white/[0.08] bg-white/[0.02] space-y-6 flex flex-col justify-between">
-              <div className="space-y-4">
-                <div className="font-mono text-xs text-amber-300">₹1.85 Lakhs Saved in 6 Months</div>
-                <p className="text-xs text-slate-300 font-light leading-relaxed">
-                  "Transitioning from marketplace platforms to Ruvexi eliminated a 20% take on our repeat clientele. Our guests appreciate receiving branded WhatsApp invoices without needing a third-party app."
-                </p>
-              </div>
-              <div className="flex items-center gap-3.5 pt-4 border-t border-white/[0.08]">
-                <img
-                  src="/images/owner-priya.webp"
-                  alt="Priya Nair"
-                  className="w-10 h-10 rounded-full object-cover"
-                  loading="lazy"
-                  decoding="async"
-                  width={40}
-                  height={40}
-                />
-                <div>
-                  <div className="text-xs font-medium text-white">Priya Nair</div>
-                  <div className="text-[11px] text-slate-400">Maison Luxe Hair Atelier · Bengaluru</div>
-                </div>
-              </div>
-            </div>
-
-            {/* Story 2 */}
-            <div className="p-8 rounded-2xl border border-white/[0.08] bg-white/[0.02] space-y-6 flex flex-col justify-between">
-              <div className="space-y-4">
-                <div className="font-mono text-xs text-amber-300">42% Reduction in No-Shows</div>
-                <p className="text-xs text-slate-300 font-light leading-relaxed">
-                  "Front desk staff mastered the station schedule matrix within an afternoon. Stylist commission calculations went from hours of manual reconciliation to a single report."
-                </p>
-              </div>
-              <div className="flex items-center gap-3.5 pt-4 border-t border-white/[0.08]">
-                <img
-                  src="https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=80&auto=format&fit=crop&q=75"
-                  alt="Vikram Mehta"
-                  className="w-10 h-10 rounded-full object-cover"
-                  loading="lazy"
-                  decoding="async"
-                  width={40}
-                  height={40}
-                />
-                <div>
-                  <div className="text-xs font-medium text-white">Vikram Mehta</div>
-                  <div className="text-[11px] text-slate-400">Blade & Comb Club · Mumbai</div>
-                </div>
-              </div>
-            </div>
-
-            {/* Story 3 */}
-            <div className="p-8 rounded-2xl border border-white/[0.08] bg-white/[0.02] space-y-6 flex flex-col justify-between">
-              <div className="space-y-4">
-                <div className="font-mono text-xs text-amber-300">Complete Data Sovereignty</div>
-                <p className="text-xs text-slate-300 font-light leading-relaxed">
-                  "Our wellness clients require discretion. Aggregator pools share client data with competitor salons. Ruvexi guarantees isolation, and our patch-test ledger gives practitioners absolute certainty."
-                </p>
-              </div>
-              <div className="flex items-center gap-3.5 pt-4 border-t border-white/[0.08]">
-                <img
-                  src="https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?w=80&auto=format&fit=crop&q=75"
-                  alt="Dr. Shweta Nair"
-                  className="w-10 h-10 rounded-full object-cover"
-                  loading="lazy"
-                  decoding="async"
-                  width={40}
-                  height={40}
-                />
-                <div>
-                  <div className="text-xs font-medium text-white">Dr. Shweta Nair</div>
-                  <div className="text-[11px] text-slate-400">Nirvana Holistic Wellness · New Delhi</div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </section>
-
       {/* Comparison Matrix */}
       <section id="comparison" className="py-24 md:py-32 px-4 sm:px-6 lg:px-8 border-b border-white/[0.08] bg-[#09090b]">
         <div className="max-w-5xl mx-auto space-y-12">
           <div className="text-center max-w-2xl mx-auto space-y-3">
             <div className="text-[11px] font-mono uppercase tracking-[0.25em] text-amber-400/90 font-medium">
-              06 / Sovereignty
+              04 / Sovereignty
             </div>
             <h2 className="font-serif text-3xl sm:text-5xl font-normal text-white tracking-tight">
               Sovereign software vs aggregators
@@ -1334,128 +1230,12 @@ export function LandingPage() {
         </div>
       </section>
 
-      {/* Testimonials & Social Proof Section */}
-      <section id="testimonials" className="py-24 md:py-32 px-4 sm:px-6 lg:px-8 border-b border-white/[0.08] bg-[#0c0c0e]">
-        <div className="max-w-6xl mx-auto space-y-14">
-          <div className="text-center max-w-2xl mx-auto space-y-3">
-            <div className="text-[11px] font-mono uppercase tracking-[0.25em] text-amber-400/90 font-medium flex items-center justify-center gap-1.5">
-              <Sparkles className="w-3.5 h-3.5 text-[#FACC15]" />
-              <span>07 / Verified Studio Feedback</span>
-            </div>
-            <h2 className="font-serif text-3xl sm:text-5xl font-normal text-white tracking-tight">
-              Trusted by 450+ premium salons & spas
-            </h2>
-            <p className="text-sm text-slate-400 font-light leading-relaxed">
-              From flagship hair ateliers in Bandra to multi-station academies in Indiranagar, see how Ruvexi eliminates checkout bottlenecks and recovers lapsed clients.
-            </p>
-          </div>
-
-          {/* Social Proof Stats Banner */}
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 p-6 rounded-2xl bg-white/[0.02] border border-white/[0.08] text-center">
-            <div className="space-y-1">
-              <div className="font-serif text-2xl sm:text-3xl font-bold text-[#FACC15]">450+</div>
-              <div className="text-[11px] font-mono uppercase tracking-wider text-slate-400">Active Studios</div>
-            </div>
-            <div className="space-y-1">
-              <div className="font-serif text-2xl sm:text-3xl font-bold text-white">1.2M+</div>
-              <div className="text-[11px] font-mono uppercase tracking-wider text-slate-400">Visits Billed</div>
-            </div>
-            <div className="space-y-1">
-              <div className="font-serif text-2xl sm:text-3xl font-bold text-emerald-400">₹0</div>
-              <div className="text-[11px] font-mono uppercase tracking-wider text-slate-400">Commission Taken</div>
-            </div>
-            <div className="space-y-1">
-              <div className="font-serif text-2xl sm:text-3xl font-bold text-white">99.98%</div>
-              <div className="text-[11px] font-mono uppercase tracking-wider text-slate-400">PWA Uptime SLA</div>
-            </div>
-          </div>
-
-          {/* Testimonial Cards */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            {/* Card 1 */}
-            <div className="p-7 rounded-2xl border border-white/[0.08] bg-[#111114] space-y-6 flex flex-col justify-between hover:border-[#FACC15]/40 transition-all shadow-xl">
-              <div className="space-y-4">
-                <div className="flex items-center gap-1 text-[#FACC15]">
-                  {[...Array(5)].map((_, i) => (
-                    <Star key={i} className="w-3.5 h-3.5 fill-current" />
-                  ))}
-                </div>
-                <p className="text-xs text-slate-300 font-light leading-relaxed italic">
-                  "We switched 8 stations from Zenoti to Ruvexi. On busy Saturdays, our reception counter used to be absolute chaos. With Ruvexi, walk-in check-in and billing takes 15 seconds, and our chair turnover increased by 30%. Zero booking fee saved us lakhs this year alone."
-                </p>
-              </div>
-
-              <div className="flex items-center gap-3 pt-4 border-t border-white/[0.06]">
-                <div className="w-10 h-10 rounded-xl bg-[#FACC15]/10 border border-[#FACC15]/30 flex items-center justify-center text-[#FACC15] font-serif font-bold text-sm shrink-0">
-                  RM
-                </div>
-                <div className="min-w-0">
-                  <div className="text-xs font-semibold text-white truncate">Rohan Mehra</div>
-                  <div className="text-[11px] text-slate-400 truncate">Founder & Creative Director</div>
-                  <div className="text-[10px] font-mono text-[#FACC15] truncate">Atelier 11 Hair Artistry, Bandra Mumbai</div>
-                </div>
-              </div>
-            </div>
-
-            {/* Card 2 */}
-            <div className="p-7 rounded-2xl border border-[#FACC15]/30 bg-[#131317] space-y-6 flex flex-col justify-between hover:border-[#FACC15]/60 transition-all shadow-xl relative">
-              <div className="space-y-4">
-                <div className="flex items-center gap-1 text-[#FACC15]">
-                  {[...Array(5)].map((_, i) => (
-                    <Star key={i} className="w-3.5 h-3.5 fill-current" />
-                  ))}
-                </div>
-                <p className="text-xs text-slate-200 font-light leading-relaxed italic">
-                  "Automated Meta WhatsApp appointment reminders cut our no-shows from 18% down to under 2%. The client formula cards are indispensable for our therapists, and the 28-day automated recall campaign brought back 34% of inactive clients without touching our phones."
-                </p>
-              </div>
-
-              <div className="flex items-center gap-3 pt-4 border-t border-white/[0.06]">
-                <div className="w-10 h-10 rounded-xl bg-amber-400/20 border border-amber-400/40 flex items-center justify-center text-amber-200 font-serif font-bold text-sm shrink-0">
-                  PS
-                </div>
-                <div className="min-w-0">
-                  <div className="text-xs font-semibold text-white truncate">Dr. Pooja Singhania</div>
-                  <div className="text-[11px] text-slate-400 truncate">Operations & Spa Director</div>
-                  <div className="text-[10px] font-mono text-[#FACC15] truncate">Aura Wellness Sanctuary, Bengaluru</div>
-                </div>
-              </div>
-            </div>
-
-            {/* Card 3 */}
-            <div className="p-7 rounded-2xl border border-white/[0.08] bg-[#111114] space-y-6 flex flex-col justify-between hover:border-[#FACC15]/40 transition-all shadow-xl">
-              <div className="space-y-4">
-                <div className="flex items-center gap-1 text-[#FACC15]">
-                  {[...Array(5)].map((_, i) => (
-                    <Star key={i} className="w-3.5 h-3.5 fill-current" />
-                  ))}
-                </div>
-                <p className="text-xs text-slate-300 font-light leading-relaxed italic">
-                  "Barbers in our club can check their commission tiers and daily tips right from their phones without seeing our private ledger or overheads. Receptionists love the simple keyboard shortcuts. We expanded to our 2nd branch in Gurgaon seamlessly."
-                </p>
-              </div>
-
-              <div className="flex items-center gap-3 pt-4 border-t border-white/[0.06]">
-                <div className="w-10 h-10 rounded-xl bg-[#FACC15]/10 border border-[#FACC15]/30 flex items-center justify-center text-[#FACC15] font-serif font-bold text-sm shrink-0">
-                  VR
-                </div>
-                <div className="min-w-0">
-                  <div className="text-xs font-semibold text-white truncate">Vikramaditya Rao</div>
-                  <div className="text-[11px] text-slate-400 truncate">Franchise Partner & Master Barber</div>
-                  <div className="text-[10px] font-mono text-[#FACC15] truncate">The Royal Gentlemen Club, Delhi NCR</div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </section>
-
       {/* Plans & Pricing */}
       <section id="pricing" className="py-24 md:py-32 px-4 sm:px-6 lg:px-8 border-b border-white/[0.08] bg-[#0b0b0e]">
         <div className="max-w-5xl mx-auto space-y-12">
           <div className="text-center max-w-2xl mx-auto space-y-3">
             <div className="text-[11px] font-mono uppercase tracking-[0.25em] text-amber-400/90 font-medium">
-              08 / Pricing
+              05 / Pricing
             </div>
             <h2 className="font-serif text-3xl sm:text-5xl font-normal text-white tracking-tight">
               Transparent monthly plans
@@ -1675,7 +1455,7 @@ export function LandingPage() {
         <div className="max-w-3xl mx-auto space-y-10">
           <div className="text-center space-y-3">
             <div className="text-[11px] font-mono uppercase tracking-[0.25em] text-amber-400/90 font-medium">
-              08 / Inquiries
+              06 / Frequently Asked Questions
             </div>
             <h2 className="font-serif text-3xl sm:text-4xl font-normal text-white tracking-tight">
               Frequently asked questions

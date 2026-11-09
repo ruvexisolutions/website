@@ -64,8 +64,8 @@ export function mapSupabaseUserToRuvexi(supabaseUser: SupabaseAuthUser, session?
     email: email || "contact@Ruvexi.io",
     address: metadata.address || "100ft Road, Indiranagar",
     timing: "10:00 AM - 09:00 PM (All Days)",
-    rating: 4.9,
-    reviewCount: 418,
+    rating: 0,
+    reviewCount: 0,
     subscriptionStatus: "trial",
     subscriptionPlan: "free_trial",
     isTrialActive: true,
@@ -92,30 +92,9 @@ export async function signUpWithSupabase(params: {
   const configured = isSupabaseConfigured();
 
   if (!configured) {
-    // Graceful offline preview fallback when anon key is not yet set
-    const mockId = `usr_${Math.random().toString(36).substring(2, 10)}`;
-    const mockSalonId = `sln_${Math.random().toString(36).substring(2, 10)}`;
     return {
-      success: true,
-      user: {
-        id: mockId,
-        name: params.name,
-        email: params.email,
-        phone: params.phone || "",
-        role: "SALON_MANAGER",
-        salonId: mockSalonId,
-        avatar: params.name.charAt(0).toUpperCase(),
-      },
-      salon: {
-        id: mockSalonId,
-        name: params.salonName,
-        slug: params.salonName.toLowerCase().replace(/[^a-z0-9]+/g, "-"),
-        city: params.city || "Bengaluru",
-        category: params.category || "Hair Studio & Luxury Spa",
-        chairs: params.chairs || 6,
-        currency: "₹",
-      },
-      token: `dev-supabase-token-${mockId}`,
+      success: false,
+      error: "Supabase authentication service is not configured.",
     };
   }
 
@@ -183,24 +162,9 @@ export async function signInWithSupabasePassword(
   const configured = isSupabaseConfigured();
 
   if (!configured) {
-    // Offline preview mode fallback
     return {
-      success: true,
-      user: {
-        id: "usr_eval_manager",
-        name: email.split("@")[0] || "Salon Manager",
-        email,
-        phone: "+91 98450 33445",
-        role: "SALON_MANAGER",
-        salonId: "sln_Ruvexi_flagship",
-        avatar: "M",
-      },
-      salon: {
-        id: "sln_Ruvexi_flagship",
-        name: "Ruvexi Solutions Flagship",
-        city: "Bengaluru",
-      },
-      token: "dev-supabase-eval-token",
+      success: false,
+      error: "Supabase authentication service is not configured.",
     };
   }
 
@@ -239,8 +203,9 @@ export async function requestSupabasePhoneOtp(phone: string): Promise<{ success:
 
   if (!configured) {
     return {
-      success: true,
-      message: "Dev Evaluation OTP code: 123456 (Supabase credentials pending in .env.local)",
+      success: false,
+      message: "SMS service is not configured.",
+      error: "SMS service not configured",
     };
   }
 
@@ -271,8 +236,9 @@ export async function requestSupabaseEmailOtp(email: string): Promise<{ success:
 
   if (!configured) {
     return {
-      success: true,
-      message: "Dev Evaluation Email OTP code: 123456 (Supabase credentials pending in .env.local)",
+      success: false,
+      message: "Email OTP service is not configured.",
+      error: "Email OTP service not configured",
     };
   }
 
@@ -305,27 +271,10 @@ export async function verifySupabasePhoneOtp(phone: string, token: string): Prom
   const configured = isSupabaseConfigured();
 
   if (!configured) {
-    if (token === "123456" || token.length === 6) {
-      return {
-        success: true,
-        user: {
-          id: "usr_eval_phone_manager",
-          name: "Salon Manager",
-          email: "manager@Ruvexi.io",
-          phone,
-          role: "SALON_MANAGER",
-          salonId: "sln_Ruvexi_flagship",
-          avatar: "M",
-        },
-        salon: {
-          id: "sln_Ruvexi_flagship",
-          name: "Ruvexi Solutions Flagship Atelier",
-          city: "Bengaluru",
-        },
-        token: "dev-supabase-otp-token",
-      };
-    }
-    return { success: false, error: "Invalid OTP code in demo mode (use 123456)." };
+    return {
+      success: false,
+      error: "SMS OTP verification service is not configured.",
+    };
   }
 
   try {
@@ -363,27 +312,10 @@ export async function verifySupabaseEmailOtp(email: string, token: string): Prom
   const configured = isSupabaseConfigured();
 
   if (!configured) {
-    if (token === "123456" || token.length === 6) {
-      return {
-        success: true,
-        user: {
-          id: "usr_eval_email_manager",
-          name: email.split("@")[0] || "Salon Manager",
-          email: email.trim().toLowerCase(),
-          phone: "+91 98450 33445",
-          role: "SALON_MANAGER",
-          salonId: "sln_Ruvexi_flagship",
-          avatar: "M",
-        },
-        salon: {
-          id: "sln_Ruvexi_flagship",
-          name: "Ruvexi Solutions Flagship",
-          city: "Bengaluru",
-        },
-        token: "dev-supabase-email-otp-token",
-      };
-    }
-    return { success: false, error: "Invalid OTP code in demo mode (use 123456)." };
+    return {
+      success: false,
+      error: "Email OTP verification service is not configured.",
+    };
   }
 
   try {

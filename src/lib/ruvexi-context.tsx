@@ -1,8 +1,7 @@
-﻿"use client";
+"use client";
 
 import React, { createContext, useContext, useState, useEffect } from "react";
 import { RuvexiApi } from "./api-client";
-import { DEMO_PERSONAS } from "./demo-data";
 import { getRoleConfig } from "./role-permissions";
 import { createClient, isSupabaseConfigured } from "./supabase/client";
 import {
@@ -418,22 +417,13 @@ const DEFAULT_SALON: Salon = {
   email: "hello@Ruvexi.io",
   address: "Suite 401, Crescent Galleria, Indiranagar, Bengaluru",
   timing: "10:00 AM - 09:30 PM (All Days)",
-  rating: 4.95,
-  reviewCount: 428,
+  rating: 0,
+  reviewCount: 0,
   upiId: "Ruvexi.pos@icici",
   bankAccountName: "Ruvexi Solutions Atelier & Spa",
   bankAccountNumber: "50200088991122",
   bankIfsc: "HDFC0001043",
   bankName: "HDFC Bank (Indiranagar Branch)",
-};
-
-const DEFAULT_USER: User = {
-  id: "usr_Ruvexi_owner",
-  name: "Sunil Kumar",
-  email: "owner@Ruvexi.io",
-  phone: "+91 98450 11223",
-  role: "owner",
-  salonId: "sln_Ruvexi_flagship",
 };
 
 const INITIAL_SERVICES: Service[] = [];
@@ -669,7 +659,7 @@ export function RuvexiProvider({ children }: { children: React.ReactNode }) {
             persist("Ruvexi_salon", { ...salon, ...supaRes.salon });
           }
           showToast(`Welcome back to Ruvexi, ${supaRes.user.name}!`);
-          return { success: true };
+          return { success: true, user: supaRes.user };
         }
         if (supaRes.error) {
           console.warn("[Supabase Auth] Attempt failed, trying Railway unified API:", supaRes.error);
@@ -689,7 +679,7 @@ export function RuvexiProvider({ children }: { children: React.ReactNode }) {
           persist("Ruvexi_salon", res.salon);
         }
         showToast(`Welcome back to Ruvexi, ${res.user.name}!`);
-        return { success: true };
+        return { success: true, user: res.user };
       }
       return { success: false, error: "Authentication failed. Please verify credentials." };
     } catch (err: any) {
@@ -1642,7 +1632,7 @@ export function RuvexiProvider({ children }: { children: React.ReactNode }) {
           avatar: user?.avatar || user?.name?.charAt(0) || "S",
           roleTitle: getRoleConfig(user?.role).label,
         },
-        allPersonas: DEMO_PERSONAS,
+        allPersonas: [],
         switchPersona,
         loginAs,
         setSession,

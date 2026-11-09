@@ -7,7 +7,6 @@ import { useRuvexi } from "@/lib/ruvexi-context";
 import { AuthSplitLayout } from "@/components/auth/auth-split-layout";
 import { AuthInput } from "@/components/auth/auth-input";
 import { AuthButton } from "@/components/auth/auth-button";
-import { DEMO_PERSONAS } from "@/lib/demo-data";
 import { isSupabaseConfigured } from "@/lib/supabase/client";
 import {
   requestSupabaseEmailOtp,
@@ -19,7 +18,6 @@ import {
   Lock,
   KeyRound,
   AlertCircle,
-  Sparkles,
   CheckCircle2,
   Crown,
   Headphones,
@@ -30,31 +28,63 @@ export default function LoginPage() {
   const router = useRouter();
   const { salon, login, setSession, showToast } = useRuvexi();
 
-  const [authMode, setAuthMode] = useState<"manager_otp" | "receptionist_password">("manager_otp");
+  const [authMode, setAuthMode] = useState<"manager" | "receptionist">("manager");
+  const [managerLoginType, setManagerLoginType] = useState<"password" | "otp">("password");
 
-  // Manager Mail OTP States
-  const [managerEmail, setManagerEmail] = useState("manager@Ruvexi.io");
+  // Manager States
+  const [managerEmail, setManagerEmail] = useState("");
+  const [managerPassword, setManagerPassword] = useState("");
   const [otp, setOtp] = useState("");
   const [otpSent, setOtpSent] = useState(false);
-  const [devOtpHint, setDevOtpHint] = useState<string | null>(null);
   const [otpCooldown, setOtpCooldown] = useState(0);
 
-  // Receptionist Email & Password States
-  const [receptionistEmail, setReceptionistEmail] = useState("reception@Ruvexi.io");
-  const [password, setPassword] = useState("");
+  // Receptionist States
+  const [receptionistEmail, setReceptionistEmail] = useState("");
+  const [receptionistPassword, setReceptionistPassword] = useState("");
   const [rememberMe, setRememberMe] = useState(true);
 
   const [isLoading, setIsLoading] = useState(false);
   const [isGoogleLoading, setIsGoogleLoading] = useState(false);
   const [errors, setErrors] = useState<{
     managerEmail?: string;
+    managerPassword?: string;
     otp?: string;
     receptionistEmail?: string;
-    password?: string;
+    receptionistPassword?: string;
     general?: string;
   }>({});
 
-  // 1. Manager: Request Email OTP
+  // 1. Manager: Sign in with Password
+  const handleManagerPasswordLogin = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setErrors({});
+    const normalized = managerEmail.toLowerCase().trim();
+    if (!normalized || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalized)) {
+      setErrors({ managerEmail: "Please enter a valid work email address" });
+      return;
+    }
+    if (!managerPassword) {
+      setErrors({ managerPassword: "Password is required" });
+      return;
+    }
+
+    setIsLoading(true);
+    try {
+      const res = await login(normalized, managerPassword);
+      if (res.success) {
+        showToast("Signed in to Manager Console!", "success");
+        router.push("/overview");
+        return;
+      }
+      setErrors({ general: res.error || "Authentication failed. Please verify credentials." });
+    } catch (err: any) {
+      setErrors({ general: err.message || "Failed to sign in. Please verify credentials." });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // 2. Manager: Request Email OTP
   const handleRequestEmailOtp = async (e?: React.FormEvent) => {
     if (e) e.preventDefault();
     setErrors({});
@@ -72,21 +102,13 @@ export default function LoginPage() {
           setOtpSent(true);
           showToast(supaRes.message, "info");
         } else {
-          console.warn("[Supabase OTP] dispatch error:", supaRes.error);
-          setOtpSent(true);
-          setDevOtpHint("123456");
-          showToast("Instant Access Code: 123456", "info");
+          setErrors({ general: supaRes.error || "Failed to dispatch verification email. Please check credentials or sign in with password." });
         }
       } else {
-        // Dev / Evaluation mode when Supabase credentials are not yet set
-        setOtpSent(true);
-        setDevOtpHint("123456");
-        showToast("Dev Evaluation Code: 123456", "info");
+        setErrors({ general: "Email OTP service is not configured. Please sign in with your account password." });
       }
-    } catch {
-      setOtpSent(true);
-      setDevOtpHint("123456");
-      showToast("Dev Evaluation Code: 123456 (Preview Mode)", "info");
+    } catch (err: any) {
+      setErrors({ general: err.message || "Unable to send login code. Please sign in with password." });
     } finally {
       setIsLoading(false);
       setOtpCooldown(30);
@@ -102,7 +124,7 @@ export default function LoginPage() {
     }
   };
 
-  // 2. Manager: Verify Email OTP
+  // 3. Manager: Verify Email OTP
   const handleVerifyEmailOtp = async (e: React.FormEvent) => {
     e.preventDefault();
     setErrors({});
@@ -123,39 +145,18 @@ export default function LoginPage() {
           router.push("/overview");
           return;
         }
-        if (supaRes.error && otp !== "123456") {
-          console.warn("[Supabase OTP] verify error, attempting fallback:", supaRes.error);
-        }
+        setErrors({ general: supaRes.error || "Invalid or expired verification code." });
+      } else {
+        setErrors({ general: "Email verification service is not active. Please sign in with password." });
       }
-    } catch {}
-
-    // Fallback for test account verification
-    if (otp === "123456" || otp.length === 6) {
-      const manager = DEMO_PERSONAS[0];
-      setSession(
-        {
-          id: manager.id,
-          name: manager.name,
-          email: normalized || manager.email,
-          phone: "+919845033445",
-          role: "SALON_MANAGER",
-          salonId: salon.id || "sln_Ruvexi_flagship",
-          avatar: manager.avatar,
-        },
-        salon,
-        "dev-jwt-manager-token-2026"
-      );
-      showToast(`Welcome back, ${manager.name}! (Salon Manager)`, "success");
-      router.push("/overview");
+    } catch (err: any) {
+      setErrors({ general: err.message || "Verification failed. Please enter the correct code." });
+    } finally {
       setIsLoading(false);
-      return;
     }
-
-    setErrors({ general: "Invalid or expired OTP code. Please request a new one." });
-    setIsLoading(false);
   };
 
-  // 3. Receptionist: Email & Password Sign In
+  // 4. Receptionist: Email & Password Sign In
   const handleReceptionistLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setErrors({});
@@ -164,14 +165,14 @@ export default function LoginPage() {
       setErrors({ receptionistEmail: "Please enter a valid work email address" });
       return;
     }
-    if (!password) {
-      setErrors({ password: "Password is required" });
+    if (!receptionistPassword) {
+      setErrors({ receptionistPassword: "Password is required" });
       return;
     }
 
     setIsLoading(true);
     try {
-      const res = await login(normalized, password);
+      const res = await login(normalized, receptionistPassword);
       if (res.success) {
         if (rememberMe) {
           localStorage.setItem("Ruvexi_remember_email", normalized);
@@ -180,39 +181,15 @@ export default function LoginPage() {
         router.push("/front-desk");
         return;
       }
-      if (res.error) {
-        setErrors({ general: res.error });
-      }
+      setErrors({ general: res.error || "Invalid receptionist credentials." });
     } catch (err: any) {
       setErrors({ general: err.message || "Failed to sign in. Please verify credentials." });
-    }
-
-    // Fallback for demo receptionist credentials in preview mode
-    if (normalized === "reception@Ruvexi.io" && (!password || password === "123456" || password.length >= 4)) {
-      const p = DEMO_PERSONAS[1];
-      setSession(
-        {
-          id: p.id,
-          name: p.name,
-          email: p.email,
-          phone: "+919845055667",
-          role: "SALON_RECEPTIONIST",
-          salonId: salon.id || "sln_Ruvexi_flagship",
-          avatar: p.avatar,
-        },
-        salon,
-        "dev-jwt-reception-token-2026"
-      );
-      showToast(`Welcome back, ${p.name}! (Salon Receptionist)`, "success");
-      router.push("/front-desk");
+    } finally {
       setIsLoading(false);
-      return;
     }
-
-    setIsLoading(false);
   };
 
-  // 4. Sign in with Google (OAuth)
+  // 5. Sign in with Google (OAuth)
   const handleGoogleSignIn = async () => {
     setIsGoogleLoading(true);
     setErrors({});
@@ -226,45 +203,6 @@ export default function LoginPage() {
     } catch (err: any) {
       setErrors({ general: err.message || "Google sign-in could not be initiated." });
       setIsGoogleLoading(false);
-    }
-  };
-
-  // Instant 1-Click Evaluation Login
-  const handleOneClickLogin = (role: "SALON_MANAGER" | "SALON_RECEPTIONIST") => {
-    if (role === "SALON_MANAGER") {
-      const p = DEMO_PERSONAS[0];
-      setSession(
-        {
-          id: p.id,
-          name: p.name,
-          email: p.email,
-          phone: "+919845033445",
-          role: "SALON_MANAGER",
-          salonId: salon.id || "sln_Ruvexi_flagship",
-          avatar: p.avatar,
-        },
-        salon,
-        "dev-jwt-manager-token-2026"
-      );
-      showToast("Signed in as Salon Manager (Kavita Rao)", "success");
-      router.push("/overview");
-    } else {
-      const p = DEMO_PERSONAS[1];
-      setSession(
-        {
-          id: p.id,
-          name: p.name,
-          email: p.email,
-          phone: "+919845055667",
-          role: "SALON_RECEPTIONIST",
-          salonId: salon.id || "sln_Ruvexi_flagship",
-          avatar: p.avatar,
-        },
-        salon,
-        "dev-jwt-reception-token-2026"
-      );
-      showToast("Signed in as Receptionist (Ananya Sen)", "success");
-      router.push("/front-desk");
     }
   };
 
@@ -283,11 +221,11 @@ export default function LoginPage() {
               Sign in to Ruvexi
             </h2>
             <span className="text-[10px] font-mono uppercase px-2.5 py-1 rounded-full bg-[#FACC15]/10 text-[#FACC15] border border-[#FACC15]/20 font-semibold">
-              v1.0 Ready
+              Verified Workspace
             </span>
           </div>
           <p className="text-xs text-[#A1A1AA] mt-1.5">
-            Manager Mail OTP login & Receptionist password access.
+            Manager Console & Front Desk secure authentication.
           </p>
         </div>
 
@@ -296,31 +234,31 @@ export default function LoginPage() {
           <button
             type="button"
             onClick={() => {
-              setAuthMode("manager_otp");
+              setAuthMode("manager");
               setErrors({});
             }}
             className={`py-2 text-xs font-semibold rounded-lg transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
-              authMode === "manager_otp"
+              authMode === "manager"
                 ? "bg-[#FACC15] text-[#080808] shadow-sm font-bold"
                 : "text-[#A1A1AA] hover:text-[#F8FAFC]"
             }`}
           >
-            <Mail className="w-3.5 h-3.5" />
-            <span>Manager Mail OTP</span>
+            <Crown className="w-3.5 h-3.5" />
+            <span>Salon Manager</span>
           </button>
           <button
             type="button"
             onClick={() => {
-              setAuthMode("receptionist_password");
+              setAuthMode("receptionist");
               setErrors({});
             }}
             className={`py-2 text-xs font-semibold rounded-lg transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
-              authMode === "receptionist_password"
+              authMode === "receptionist"
                 ? "bg-[#FACC15] text-[#080808] shadow-sm font-bold"
                 : "text-[#A1A1AA] hover:text-[#F8FAFC]"
             }`}
           >
-            <Lock className="w-3.5 h-3.5" />
+            <Headphones className="w-3.5 h-3.5" />
             <span>Receptionist Login</span>
           </button>
         </div>
@@ -335,111 +273,182 @@ export default function LoginPage() {
           </div>
         )}
 
-        {/* MODE 1: MANAGER MAIL OTP */}
-        {authMode === "manager_otp" ? (
-          !otpSent ? (
-            <form onSubmit={handleRequestEmailOtp} className="space-y-4">
-              <div className="space-y-1.5">
+        {/* MODE 1: MANAGER AUTH */}
+        {authMode === "manager" ? (
+          managerLoginType === "password" ? (
+            /* Manager Password Login */
+            <form onSubmit={handleManagerPasswordLogin} className="space-y-4">
+              <AuthInput
+                label="Manager Work Email"
+                id="manager-email-pwd"
+                type="email"
+                placeholder="director@salon.com"
+                value={managerEmail}
+                onChange={(e) => {
+                  setManagerEmail(e.target.value);
+                  if (errors.managerEmail) setErrors((prev) => ({ ...prev, managerEmail: undefined }));
+                }}
+                error={errors.managerEmail}
+                icon={<Mail className="w-4 h-4" />}
+                required
+                autoFocus
+              />
+
+              <div>
                 <AuthInput
-                  label="Manager Work Email"
-                  id="manager-email"
-                  type="email"
-                  placeholder="manager@Ruvexi.io"
-                  value={managerEmail}
+                  label="Password"
+                  id="manager-password"
+                  isPassword
+                  placeholder="••••••••"
+                  value={managerPassword}
                   onChange={(e) => {
-                    setManagerEmail(e.target.value);
-                    if (errors.managerEmail) setErrors((prev) => ({ ...prev, managerEmail: undefined }));
+                    setManagerPassword(e.target.value);
+                    if (errors.managerPassword) setErrors((prev) => ({ ...prev, managerPassword: undefined }));
                   }}
-                  error={errors.managerEmail}
-                  icon={<Mail className="w-4 h-4" />}
+                  error={errors.managerPassword}
+                  icon={<Lock className="w-4 h-4" />}
                   required
-                  autoFocus
                 />
-                <span className="text-[11px] text-[#71717A] block">
-                  A 6-digit one-time passcode will be delivered to your registered email.
-                </span>
+
+                <div className="flex items-center justify-between mt-3 text-xs">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setManagerLoginType("otp");
+                      setErrors({});
+                    }}
+                    className="text-[#FACC15] hover:text-[#EAB308] font-medium cursor-pointer"
+                  >
+                    Sign in with Email OTP code instead
+                  </button>
+
+                  <Link
+                    href="/forgot-password"
+                    className="text-[#A1A1AA] hover:text-[#F8FAFC]"
+                  >
+                    Forgot password?
+                  </Link>
+                </div>
               </div>
 
               <div className="pt-2">
                 <AuthButton isLoading={isLoading}>
-                  Send Login Code to Email
+                  Sign In to Manager Console
                 </AuthButton>
               </div>
             </form>
           ) : (
-            <form onSubmit={handleVerifyEmailOtp} className="space-y-4 animate-in fade-in duration-150">
-              <div className="bg-[#18181B] border border-[#27272A] rounded-xl p-3 flex items-center justify-between text-xs">
-                <div className="flex items-center gap-2">
-                  <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
-                  <span className="text-[#A1A1AA]">
-                    Code sent to <span className="text-white font-medium">{managerEmail}</span>
+            /* Manager OTP Login */
+            !otpSent ? (
+              <form onSubmit={handleRequestEmailOtp} className="space-y-4">
+                <div className="space-y-1.5">
+                  <AuthInput
+                    label="Manager Work Email"
+                    id="manager-email-otp"
+                    type="email"
+                    placeholder="director@salon.com"
+                    value={managerEmail}
+                    onChange={(e) => {
+                      setManagerEmail(e.target.value);
+                      if (errors.managerEmail) setErrors((prev) => ({ ...prev, managerEmail: undefined }));
+                    }}
+                    error={errors.managerEmail}
+                    icon={<Mail className="w-4 h-4" />}
+                    required
+                    autoFocus
+                  />
+                  <span className="text-[11px] text-[#71717A] block">
+                    A 6-digit one-time passcode will be delivered to your registered email.
                   </span>
                 </div>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setOtpSent(false);
-                    setDevOtpHint(null);
-                  }}
-                  className="text-[11px] font-mono text-[#FACC15] hover:underline cursor-pointer"
-                >
-                  Change
-                </button>
-              </div>
 
-              {devOtpHint && (
-                <div className="p-3 bg-[#FACC15]/10 border border-[#FACC15]/30 rounded-xl text-xs text-[#FACC15] flex items-center justify-between">
-                  <div className="flex items-center gap-1.5">
-                    <Sparkles className="w-4 h-4 shrink-0" />
-                    <span>Dev Evaluation Code: <strong>{devOtpHint}</strong></span>
+                <div className="flex items-center justify-between text-xs">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setManagerLoginType("password");
+                      setErrors({});
+                    }}
+                    className="text-[#FACC15] hover:text-[#EAB308] font-medium cursor-pointer"
+                  >
+                    ← Sign in with password
+                  </button>
+                </div>
+
+                <div className="pt-2">
+                  <AuthButton isLoading={isLoading}>
+                    Send Login Code to Email
+                  </AuthButton>
+                </div>
+              </form>
+            ) : (
+              <form onSubmit={handleVerifyEmailOtp} className="space-y-4 animate-in fade-in duration-150">
+                <div className="bg-[#18181B] border border-[#27272A] rounded-xl p-3 flex items-center justify-between text-xs">
+                  <div className="flex items-center gap-2">
+                    <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
+                    <span className="text-[#A1A1AA]">
+                      Code sent to <span className="text-white font-medium">{managerEmail}</span>
+                    </span>
                   </div>
                   <button
                     type="button"
-                    onClick={() => setOtp(devOtpHint)}
-                    className="text-[10px] font-mono uppercase bg-[#FACC15] text-[#080808] px-2 py-0.5 rounded font-bold cursor-pointer"
+                    onClick={() => {
+                      setOtpSent(false);
+                    }}
+                    className="text-[11px] font-mono text-[#FACC15] hover:underline cursor-pointer"
                   >
-                    Auto-Fill
+                    Change
                   </button>
                 </div>
-              )}
 
-              <div className="space-y-1.5">
-                <AuthInput
-                  label="Enter 6-Digit Email Code"
-                  id="manager-otp"
-                  type="text"
-                  maxLength={6}
-                  placeholder="123456"
-                  value={otp}
-                  onChange={(e) => {
-                    setOtp(e.target.value.replace(/\D/g, ""));
-                    if (errors.otp) setErrors((prev) => ({ ...prev, otp: undefined }));
-                  }}
-                  error={errors.otp}
-                  icon={<KeyRound className="w-4 h-4" />}
-                  required
-                  autoFocus
-                />
-              </div>
+                <div className="space-y-1.5">
+                  <AuthInput
+                    label="Enter 6-Digit Email Code"
+                    id="manager-otp"
+                    type="text"
+                    maxLength={6}
+                    placeholder="Enter code"
+                    value={otp}
+                    onChange={(e) => {
+                      setOtp(e.target.value.replace(/\D/g, ""));
+                      if (errors.otp) setErrors((prev) => ({ ...prev, otp: undefined }));
+                    }}
+                    error={errors.otp}
+                    icon={<KeyRound className="w-4 h-4" />}
+                    required
+                    autoFocus
+                  />
+                </div>
 
-              <div className="flex items-center justify-between text-xs text-[#71717A]">
-                <span>Didn't receive email? Check spam folder or</span>
-                <button
-                  type="button"
-                  disabled={otpCooldown > 0 || isLoading}
-                  onClick={() => handleRequestEmailOtp()}
-                  className="text-[#FACC15] hover:underline font-medium disabled:opacity-50 cursor-pointer"
-                >
-                  {otpCooldown > 0 ? `Resend in ${otpCooldown}s` : "Resend OTP"}
-                </button>
-              </div>
+                <div className="flex items-center justify-between text-xs text-[#71717A]">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setManagerLoginType("password");
+                      setOtpSent(false);
+                      setErrors({});
+                    }}
+                    className="text-[#A1A1AA] hover:text-[#F8FAFC] cursor-pointer"
+                  >
+                    Use password instead
+                  </button>
+                  <button
+                    type="button"
+                    disabled={otpCooldown > 0 || isLoading}
+                    onClick={() => handleRequestEmailOtp()}
+                    className="text-[#FACC15] hover:underline font-medium disabled:opacity-50 cursor-pointer"
+                  >
+                    {otpCooldown > 0 ? `Resend in ${otpCooldown}s` : "Resend OTP"}
+                  </button>
+                </div>
 
-              <div className="pt-2">
-                <AuthButton isLoading={isLoading}>
-                  Verify & Sign In to Manager Console
-                </AuthButton>
-              </div>
-            </form>
+                <div className="pt-2">
+                  <AuthButton isLoading={isLoading}>
+                    Verify & Sign In to Manager Console
+                  </AuthButton>
+                </div>
+              </form>
+            )
           )
         ) : (
           /* MODE 2: RECEPTIONIST EMAIL + PASSWORD */
@@ -448,7 +457,7 @@ export default function LoginPage() {
               label="Receptionist Work Email"
               id="receptionist-email"
               type="email"
-              placeholder="reception@Ruvexi.io"
+              placeholder="frontdesk@salon.com"
               value={receptionistEmail}
               onChange={(e) => {
                 setReceptionistEmail(e.target.value);
@@ -463,15 +472,15 @@ export default function LoginPage() {
             <div>
               <AuthInput
                 label="Password"
-                id="password"
+                id="receptionist-password"
                 isPassword
                 placeholder="••••••••"
-                value={password}
+                value={receptionistPassword}
                 onChange={(e) => {
-                  setPassword(e.target.value);
-                  if (errors.password) setErrors((prev) => ({ ...prev, password: undefined }));
+                  setReceptionistPassword(e.target.value);
+                  if (errors.receptionistPassword) setErrors((prev) => ({ ...prev, receptionistPassword: undefined }));
                 }}
-                error={errors.password}
+                error={errors.receptionistPassword}
                 icon={<Lock className="w-4 h-4" />}
                 required
               />
