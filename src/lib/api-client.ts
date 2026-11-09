@@ -3,7 +3,7 @@
  * Seamlessly connects Next.js frontend to FastAPI backend API
  */
 
-const LIVE_BACKEND_URL = "https://Ruvexi-production.up.railway.app/api/v1";
+const LIVE_BACKEND_URL = "https://web-production-7d450.up.railway.app/api/v1";
 
 const API_BASE_URL =
   process.env.NEXT_PUBLIC_API_URL ||
