@@ -59,7 +59,7 @@ export default function ForgotPasswordPage() {
     <AuthSplitLayout
       headline="Recover access."
       supportingText="We'll help you get back to managing your salon."
-      imageSrc="/images/stylist-consultation.jpg"
+      imageSrc="/images/stylist-consultation.webp"
       imageAlt="Salon stylist consultation"
     >
       <div className="bg-[#101010] border border-[#27272A] rounded-2xl p-7 sm:p-9 shadow-sm">

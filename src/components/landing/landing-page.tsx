@@ -65,7 +65,7 @@ const STUDIO_PROFILES: Record<StudioType, StudioProfile> = {
     amount: 6500,
     retailItem: "Moroccanoil Treatment (100ml)",
     retailAmount: 3400,
-    image: "/images/hero-showcase.jpg",
+    image: "/images/hero-showcase.webp",
     chairs: 8,
     curation: "Precision foil placement & multi-stage glossing",
   },
@@ -81,7 +81,7 @@ const STUDIO_PROFILES: Record<StudioType, StudioProfile> = {
     amount: 4800,
     retailItem: "Forest Essentials Botanical Mist (200ml)",
     retailAmount: 2200,
-    image: "/images/spa-wellness.jpg",
+    image: "/images/spa-wellness.webp",
     chairs: 6,
     curation: "Synchronized private suites with aroma cadence",
   },
@@ -97,7 +97,7 @@ const STUDIO_PROFILES: Record<StudioType, StudioProfile> = {
     amount: 1800,
     retailItem: "Matte Clay Pomade & Beard Elixir",
     retailAmount: 1600,
-    image: "/images/checkout-pos.jpg",
+    image: "/images/checkout-pos.webp",
     chairs: 10,
     curation: "Traditional straight-edge craft & club memberships",
   },
@@ -113,7 +113,7 @@ const STUDIO_PROFILES: Record<StudioType, StudioProfile> = {
     amount: 2800,
     retailItem: "Botanical Cuticle Recovery Serum",
     retailAmount: 1200,
-    image: "/images/stylist-consultation.jpg",
+    image: "/images/stylist-consultation.webp",
     chairs: 6,
     curation: "Custom hand-painted chrome & Russian manicure",
   },
@@ -333,12 +333,14 @@ export function LandingPage() {
 
       {/* Hero Section */}
       <section className="relative pt-8 pb-16 md:pt-12 md:pb-24 px-4 sm:px-6 lg:px-8 overflow-hidden">
-        {/* Full Architectural Salon Background Image - Clearly Visible */}
+        {/* Full Architectural Salon Background Image - Clearly Visible & Ultra-Fast WebP */}
         <div className="absolute inset-0 z-0 overflow-hidden pointer-events-none">
           <img
-            src="/images/hero-bg.jpg"
+            src="/images/hero-bg.webp"
             alt="Luxury salon interior atmosphere"
             className="w-full h-full object-cover object-center scale-105"
+            fetchPriority="high"
+            decoding="async"
           />
           {/* Balanced dark scrim: salon mirrors and warm lights are clearly visible while text pops */}
           <div className="absolute inset-0 bg-black/50" />
@@ -442,6 +444,8 @@ export function LandingPage() {
                   src={studio.image}
                   alt={studio.salonName}
                   className="w-full h-full object-cover object-center"
+                  loading="lazy"
+                  decoding="async"
                 />
                 <div className="absolute inset-0 bg-gradient-to-t from-[#0c0c0e] via-transparent to-transparent pointer-events-none" />
 
@@ -716,9 +720,11 @@ export function LandingPage() {
                     {/* Front Desk Snapshot */}
                     <div className="mt-4 rounded-lg overflow-hidden border border-white/10 relative aspect-[16/9]">
                       <img
-                        src="/images/checkout-pos.jpg"
+                        src="/images/checkout-pos.webp"
                         alt="Front Desk Checkout & WhatsApp E-Receipt"
                         className="w-full h-full object-cover"
+                        loading="lazy"
+                        decoding="async"
                       />
                     </div>
                   </div>
@@ -949,9 +955,11 @@ export function LandingPage() {
 
                       <div className="rounded overflow-hidden border border-white/10 relative min-h-[140px] md:min-h-full">
                         <img
-                          src="/images/stylist-consultation.jpg"
+                          src="/images/stylist-consultation.webp"
                           alt="Stylist table-side consultation"
                           className="w-full h-full object-cover"
+                          loading="lazy"
+                          decoding="async"
                         />
                       </div>
                     </div>
@@ -983,9 +991,11 @@ export function LandingPage() {
             <div className="lg:col-span-6">
               <div className="rounded-2xl overflow-hidden border border-white/[0.12] shadow-2xl bg-slate-900">
                 <img
-                  src="/images/checkout-pos.jpg"
+                  src="/images/checkout-pos.webp"
                   alt="Modern salon front-desk checkout and WhatsApp receipt dispatch"
                   className="w-full h-[380px] object-cover"
+                  loading="lazy"
+                  decoding="async"
                 />
               </div>
             </div>
@@ -1048,9 +1058,11 @@ export function LandingPage() {
             <div className="lg:col-span-6 order-1 lg:order-2">
               <div className="rounded-2xl overflow-hidden border border-white/[0.12] shadow-2xl bg-slate-900">
                 <img
-                  src="/images/stylist-consultation.jpg"
+                  src="/images/stylist-consultation.webp"
                   alt="Stylist consulting with client in salon chair"
                   className="w-full h-[380px] object-cover"
+                  loading="lazy"
+                  decoding="async"
                 />
               </div>
             </div>
@@ -1061,9 +1073,11 @@ export function LandingPage() {
             <div className="lg:col-span-6">
               <div className="rounded-2xl overflow-hidden border border-white/[0.12] shadow-2xl bg-slate-900">
                 <img
-                  src="/images/spa-wellness.jpg"
+                  src="/images/spa-wellness.webp"
                   alt="Luxury day spa treatment suite"
                   className="w-full h-[380px] object-cover"
+                  loading="lazy"
+                  decoding="async"
                 />
               </div>
             </div>
@@ -1190,9 +1204,13 @@ export function LandingPage() {
               </div>
               <div className="flex items-center gap-3.5 pt-4 border-t border-white/[0.08]">
                 <img
-                  src="/images/owner-priya.jpg"
+                  src="/images/owner-priya.webp"
                   alt="Priya Nair"
                   className="w-10 h-10 rounded-full object-cover"
+                  loading="lazy"
+                  decoding="async"
+                  width={40}
+                  height={40}
                 />
                 <div>
                   <div className="text-xs font-medium text-white">Priya Nair</div>
@@ -1211,9 +1229,13 @@ export function LandingPage() {
               </div>
               <div className="flex items-center gap-3.5 pt-4 border-t border-white/[0.08]">
                 <img
-                  src="https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150&auto=format&fit=crop&q=80"
+                  src="https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=80&auto=format&fit=crop&q=75"
                   alt="Vikram Mehta"
                   className="w-10 h-10 rounded-full object-cover"
+                  loading="lazy"
+                  decoding="async"
+                  width={40}
+                  height={40}
                 />
                 <div>
                   <div className="text-xs font-medium text-white">Vikram Mehta</div>
@@ -1232,9 +1254,13 @@ export function LandingPage() {
               </div>
               <div className="flex items-center gap-3.5 pt-4 border-t border-white/[0.08]">
                 <img
-                  src="https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?w=150&auto=format&fit=crop&q=80"
+                  src="https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?w=80&auto=format&fit=crop&q=75"
                   alt="Dr. Shweta Nair"
                   className="w-10 h-10 rounded-full object-cover"
+                  loading="lazy"
+                  decoding="async"
+                  width={40}
+                  height={40}
                 />
                 <div>
                   <div className="text-xs font-medium text-white">Dr. Shweta Nair</div>

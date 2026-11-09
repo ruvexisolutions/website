@@ -250,7 +250,7 @@ export default function ResetPasswordPage() {
     <AuthSplitLayout
       headline="Security update."
       supportingText="Choose a secure password to protect your salon data."
-      imageSrc="/images/stylist-consultation.jpg"
+      imageSrc="/images/stylist-consultation.webp"
       imageAlt="Salon stylist"
     >
       <Suspense

@@ -16,7 +16,7 @@ interface AuthSplitLayoutProps {
 export function AuthSplitLayout({
   headline,
   supportingText,
-  imageSrc = "/images/spa-wellness.jpg",
+  imageSrc = "/images/spa-wellness.webp",
   imageAlt = "Luxury salon interior",
   children,
 }: AuthSplitLayoutProps) {

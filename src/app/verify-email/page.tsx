@@ -97,7 +97,7 @@ export default function VerifyEmailPage() {
     <AuthSplitLayout
       headline="Confirm your identity."
       supportingText="We ensure salon security and data compliance at every step."
-      imageSrc="/images/spa-wellness.jpg"
+      imageSrc="/images/spa-wellness.webp"
       imageAlt="Salon ambiance"
     >
       <Suspense

@@ -122,7 +122,7 @@ export default function SignupPage() {
     <AuthSplitLayout
       headline="Your salon. Simplified."
       supportingText="Everything your salon needs, in one place."
-      imageSrc="/images/hero-bg.jpg"
+      imageSrc="/images/hero-bg.webp"
       imageAlt="Salon interior workstation"
     >
       <div className="bg-[#101010] border border-[#27272A] rounded-2xl p-7 sm:p-9 shadow-sm">

@@ -271,7 +271,7 @@ export default function LoginPage() {
     <AuthSplitLayout
       headline="Salon Operating System."
       supportingText="Sign in to your Ruvexi workspace."
-      imageSrc="/images/spa-wellness.jpg"
+      imageSrc="/images/spa-wellness.webp"
       imageAlt="Luxury salon front desk"
     >
       <div className="bg-[#101010] border border-[#27272A] rounded-2xl p-7 sm:p-9 shadow-sm">

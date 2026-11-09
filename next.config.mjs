@@ -1,14 +1,26 @@
 /** @type {import('next').NextConfig} */
+const backendUrl = process.env.BACKEND_INTERNAL_URL || "https://web-production-7d450.up.railway.app";
+
 const nextConfig = {
   reactStrictMode: true,
   images: {
-    domains: ["images.unsplash.com"],
+    formats: ["image/avif", "image/webp"],
+    remotePatterns: [
+      {
+        protocol: "https",
+        hostname: "images.unsplash.com",
+      },
+      {
+        protocol: "https",
+        hostname: "mmnkllguzhakarikyniq.supabase.co",
+      },
+    ],
   },
   async rewrites() {
     return [
       {
         source: "/api/v1/:path*",
-        destination: "https://billcare-production.up.railway.app/api/v1/:path*",
+        destination: `${backendUrl}/api/v1/:path*`,
       },
     ];
   },
