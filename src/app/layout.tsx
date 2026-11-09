@@ -29,7 +29,12 @@ export const metadata: Metadata = {
   description:
     "End-to-end salon management SaaS platform: Point of Sale (POS) billing, appointment calendar, staff commission tracking, salon stock inventory, automated customer follow-ups & branded booking.",
   icons: {
-    icon: "/logo.png",
+    icon: [
+      { url: "/favicon.ico" },
+      { url: "/logo.png", type: "image/png" },
+    ],
+    apple: "/logo.png",
+    shortcut: "/favicon.ico",
   },
 };
 
