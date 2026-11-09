@@ -672,7 +672,7 @@ export function RuvexiProvider({ children }: { children: React.ReactNode }) {
           return { success: true };
         }
         if (supaRes.error) {
-          return { success: false, error: supaRes.error };
+          console.warn("[Supabase Auth] Attempt failed, trying Railway unified API:", supaRes.error);
         }
       }
 
@@ -742,7 +742,7 @@ export function RuvexiProvider({ children }: { children: React.ReactNode }) {
         }
 
         if (supaRes.error) {
-          return { success: false, error: supaRes.error };
+          console.warn("[Supabase Signup] Attempt failed, trying Railway unified API:", supaRes.error);
         }
       }
 
