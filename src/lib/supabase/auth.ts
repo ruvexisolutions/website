@@ -1,4 +1,4 @@
-﻿import { createClient, isSupabaseConfigured } from "./client";
+import { createClient, isSupabaseConfigured } from "./client";
 import type { User as SupabaseAuthUser, Session } from "@supabase/supabase-js";
 
 export interface RuvexiAuthResult {
@@ -361,7 +361,7 @@ export async function signInWithGoogle(): Promise<{ success: boolean; error?: st
 
   try {
     const redirectTo = typeof window !== "undefined"
-      ? `${window.location.origin}/overview`
+      ? `${window.location.origin}/auth/callback?next=/overview`
       : undefined;
 
     const { data, error } = await supabase.auth.signInWithOAuth({

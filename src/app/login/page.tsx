@@ -237,11 +237,10 @@ export default function LoginPage() {
               setAuthMode("manager");
               setErrors({});
             }}
-            className={`py-2 text-xs font-semibold rounded-lg transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
-              authMode === "manager"
+            className={`py-2 text-xs font-semibold rounded-lg transition-all flex items-center justify-center gap-1.5 cursor-pointer ${authMode === "manager"
                 ? "bg-[#FACC15] text-[#080808] shadow-sm font-bold"
                 : "text-[#A1A1AA] hover:text-[#F8FAFC]"
-            }`}
+              }`}
           >
             <Crown className="w-3.5 h-3.5" />
             <span>Salon Manager</span>
@@ -252,11 +251,10 @@ export default function LoginPage() {
               setAuthMode("receptionist");
               setErrors({});
             }}
-            className={`py-2 text-xs font-semibold rounded-lg transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
-              authMode === "receptionist"
+            className={`py-2 text-xs font-semibold rounded-lg transition-all flex items-center justify-center gap-1.5 cursor-pointer ${authMode === "receptionist"
                 ? "bg-[#FACC15] text-[#080808] shadow-sm font-bold"
                 : "text-[#A1A1AA] hover:text-[#F8FAFC]"
-            }`}
+              }`}
           >
             <Headphones className="w-3.5 h-3.5" />
             <span>Receptionist Login</span>
