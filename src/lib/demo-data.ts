@@ -51,6 +51,7 @@ export interface ServiceItem {
   price: number;
   description: string;
   popular?: boolean;
+  imageUrl?: string;
 }
 
 export interface InventoryItem {

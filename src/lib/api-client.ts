@@ -1,4 +1,4 @@
-﻿/**
+/**
  * Ruvexi Solutions Platform API Client
  * Seamlessly connects Next.js frontend to FastAPI backend API
  */

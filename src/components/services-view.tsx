@@ -18,6 +18,8 @@ import {
   DollarSign,
   TrendingUp,
   Package,
+  Image as ImageIcon,
+  UploadCloud,
 } from "lucide-react";
 
 export function ServicesView() {
@@ -42,6 +44,7 @@ export function ServicesView() {
   const [newMaterialQuantity, setNewMaterialQuantity] = useState<number>(0);
   const [newMaterialUnit, setNewMaterialUnit] = useState("ml");
   const [newPopular, setNewPopular] = useState(false);
+  const [newImageUrl, setNewImageUrl] = useState("");
 
   const categories = ["All", "Hair", "Skin & Spa", "Nails", "Beard & Grooming", "Makeup"];
 
@@ -72,11 +75,13 @@ export function ServicesView() {
       materialUnit: newMaterialUnit,
       averageMaterialUsed: newMaterialUsed,
       popular: newPopular,
+      imageUrl: newImageUrl || undefined,
     });
 
     setShowAddModal(false);
     setNewName("");
     setNewDescription("");
+    setNewImageUrl("");
     setNewMaterialUsed("");
     setNewMaterialItemId("");
     setNewMaterialQuantity(0);
@@ -213,11 +218,22 @@ export function ServicesView() {
         {filteredServices.map((service) => (
           <div
             key={service.id}
-            className="bg-[#151515] border border-[#27272A] rounded-xl p-5 flex flex-col justify-between hover:border-[#FACC15]/50 hover:bg-[#181818] transition-all shadow-lg"
+            className="bg-[#151515] border border-[#27272A] rounded-xl overflow-hidden flex flex-col justify-between hover:border-[#FACC15]/50 hover:bg-[#181818] transition-all shadow-lg"
           >
-            <div>
-              {/* Category Pill & Popular Badge */}
-              <div className="flex items-center justify-between gap-2">
+            {/* Service Cover Photo Thumbnail if uploaded */}
+            {service.imageUrl && (
+              <div className="w-full h-36 relative bg-[#121212] overflow-hidden border-b border-[#27272A]">
+                <img
+                  src={service.imageUrl}
+                  alt={service.name}
+                  className="w-full h-full object-cover transition-transform duration-300 hover:scale-105"
+                />
+              </div>
+            )}
+            <div className="p-5 flex-1 flex flex-col justify-between">
+              <div>
+                {/* Category Pill & Popular Badge */}
+                <div className="flex items-center justify-between gap-2">
                 <span className="text-[10px] font-mono font-bold uppercase px-2.5 py-0.5 rounded-full bg-[#181818] text-[#FACC15] border border-[#27272A] tracking-wider">
                   {service.category}
                 </span>
@@ -311,6 +327,7 @@ export function ServicesView() {
                 </button>
               </div>
             </div>
+            </div>
           </div>
         ))}
         </div>
@@ -389,6 +406,70 @@ export function ServicesView() {
                   onChange={(e) => setNewDescription(e.target.value)}
                   className="w-full px-3.5 py-2 bg-[#151515] border border-[#27272A] rounded-xl text-[#F8FAFC] focus:outline-none focus:border-[#FACC15]"
                 />
+              </div>
+
+              {/* Service Media & Photo Upload */}
+              <div className="p-3.5 bg-[#181818] border border-[#27272A] rounded-xl space-y-3">
+                <div className="flex items-center justify-between">
+                  <label className="font-mono text-[11px] text-[#FACC15] font-bold flex items-center gap-1.5">
+                    <ImageIcon className="w-3.5 h-3.5" />
+                    <span>Service Photo & Media</span>
+                  </label>
+                  <span className="text-[10px] text-[#71717A] font-mono">JPG, PNG, WebP</span>
+                </div>
+
+                {newImageUrl ? (
+                  <div className="relative rounded-xl overflow-hidden border border-[#27272A] aspect-video bg-[#121212]">
+                    <img
+                      src={newImageUrl}
+                      alt="Service preview"
+                      className="w-full h-full object-cover"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setNewImageUrl("")}
+                      className="absolute top-2 right-2 p-1.5 bg-black/70 hover:bg-black text-white rounded-lg transition-colors cursor-pointer"
+                    >
+                      <X className="w-4 h-4" />
+                    </button>
+                  </div>
+                ) : (
+                  <div className="space-y-2">
+                    <label className="border-2 border-dashed border-[#27272A] hover:border-[#FACC15]/40 rounded-xl p-4 flex flex-col items-center justify-center gap-1.5 cursor-pointer bg-[#121212]/50 hover:bg-[#121212] transition-all">
+                      <UploadCloud className="w-6 h-6 text-[#71717A]" />
+                      <span className="text-xs font-medium text-[#F8FAFC]">Upload image file from device</span>
+                      <span className="text-[10px] text-[#71717A]">Click to select from your media library</span>
+                      <input
+                        type="file"
+                        accept="image/*"
+                        className="hidden"
+                        onChange={(e) => {
+                          const file = e.target.files?.[0];
+                          if (file) {
+                            const reader = new FileReader();
+                            reader.onload = (event) => {
+                              if (event.target?.result) {
+                                setNewImageUrl(event.target.result as string);
+                              }
+                            };
+                            reader.readAsDataURL(file);
+                          }
+                        }}
+                      />
+                    </label>
+
+                    <div className="flex items-center gap-2">
+                      <span className="text-[10px] text-[#71717A] font-mono uppercase">Or URL:</span>
+                      <input
+                        type="url"
+                        placeholder="https://images.unsplash.com/photo-..."
+                        value={newImageUrl}
+                        onChange={(e) => setNewImageUrl(e.target.value)}
+                        className="flex-1 px-3 py-1.5 bg-[#121212] border border-[#27272A] rounded-lg text-xs text-[#F8FAFC] focus:outline-none focus:border-[#FACC15]"
+                      />
+                    </div>
+                  </div>
+                )}
               </div>
 
               {/* Consumable Material / Stock Monitoring */}
