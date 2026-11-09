@@ -481,15 +481,13 @@ export function DemoShell({ initialTab = "frontdesk", initialSubTab }: DemoShell
                   <span className="text-[10px] font-mono uppercase tracking-wider text-[#71717A]">
                     Active Studio
                   </span>
-                  {salon.branches && salon.branches.length > 1 && (
-                    <button
-                      onClick={() => setIsZenotiModalOpen(true)}
-                      className="text-[9px] font-mono uppercase text-[#FACC15] bg-[#FACC15]/10 hover:bg-[#FACC15]/20 px-1.5 py-0.5 rounded border border-[#FACC15]/20 cursor-pointer transition-colors"
-                      title="Switch Studio"
-                    >
-                      Switch
-                    </button>
-                  )}
+                  <button
+                    onClick={() => setIsZenotiModalOpen(true)}
+                    className="text-[9px] font-mono uppercase text-[#FACC15] bg-[#FACC15]/10 hover:bg-[#FACC15]/20 px-1.5 py-0.5 rounded border border-[#FACC15]/20 cursor-pointer transition-colors"
+                    title="Switch or Add Studio Locations"
+                  >
+                    Switch Location
+                  </button>
                 </div>
                 <div className="flex items-center gap-2.5">
                   {(salon.logoUrl || salon.logo) ? (

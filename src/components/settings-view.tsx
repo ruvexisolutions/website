@@ -28,6 +28,7 @@ import {
 import { RuvexiApi } from "@/lib/api-client";
 import QRCode from "qrcode";
 import { MetaEmbeddedSignupModal } from "./meta-embedded-signup-modal";
+import { QRStandeeGeneratorModal } from "@/components/settings/qr-standee-modal";
 import { WhatsAppSettingsView } from "./whatsapp-settings-view";
 import { DiscordBannerCustomizerModal } from "./booking/discord-banner-customizer-modal";
 import { resolveSalonBannerStyle, DISCORD_BANNER_PRESETS } from "@/lib/banner-presets";
@@ -66,6 +67,7 @@ export function SettingsView({ initialSubTab = "general" }: SettingsViewProps) {
   const [bankName, setBankName] = useState(salon.bankName || "HDFC Bank (Indiranagar Branch)");
   const [savedSuccess, setSavedSuccess] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  const [showStandeeModal, setShowStandeeModal] = useState(false);
 
   // Live UPI QR code generator for test verification
   React.useEffect(() => {
@@ -532,9 +534,19 @@ export function SettingsView({ initialSubTab = "general" }: SettingsViewProps) {
                       Configure front-desk Cash counter and Direct-to-Salon UPI QR settlements.
                     </p>
                   </div>
-                  <span className="text-[10px] font-mono font-bold px-2.5 py-1 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/30">
-                    Direct-to-Salon (Zero Gateway Fees)
-                  </span>
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setShowStandeeModal(true)}
+                      className="px-3 py-1.5 bg-[#FACC15]/10 hover:bg-[#FACC15]/20 text-[#FACC15] border border-[#FACC15]/30 text-xs font-bold rounded-xl flex items-center gap-1.5 transition-colors cursor-pointer"
+                    >
+                      <Printer className="w-3.5 h-3.5" />
+                      <span>Print Acrylic Standee</span>
+                    </button>
+                    <span className="text-[10px] font-mono font-bold px-2.5 py-1 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/30">
+                      Direct-to-Salon (Zero Gateway Fees)
+                    </span>
+                  </div>
                 </div>
 
                 {paymentError && (
@@ -825,7 +837,19 @@ export function SettingsView({ initialSubTab = "general" }: SettingsViewProps) {
         />
       )}
 
-      {/* Discord Banner Customizer Modal */}
+      {/* QR Standee Generator Modal */}
+      {showStandeeModal && (
+        <QRStandeeGeneratorModal
+          salon={{
+            name,
+            slug: salon.slug,
+            upiId,
+            upiPayeeName,
+            city: salon.city || "Bengaluru",
+          }}
+          onClose={() => setShowStandeeModal(false)}
+        />
+      )}
       <DiscordBannerCustomizerModal
         isOpen={isBannerModalOpen}
         onClose={() => setIsBannerModalOpen(false)}

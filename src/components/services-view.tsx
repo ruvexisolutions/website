@@ -1,9 +1,10 @@
-﻿"use client";
+"use client";
 
 import React, { useState } from "react";
 import { useRuvexi } from "@/lib/ruvexi-context";
 import { formatCurrency } from "@/lib/utils";
 import { ServiceItem } from "@/lib/types";
+import { uploadSalonMedia } from "@/lib/supabase/storage";
 import {
   Scissors,
   Plus,
@@ -443,9 +444,10 @@ export function ServicesView() {
                         type="file"
                         accept="image/*"
                         className="hidden"
-                        onChange={(e) => {
+                        onChange={async (e) => {
                           const file = e.target.files?.[0];
                           if (file) {
+                            // First set instant local preview
                             const reader = new FileReader();
                             reader.onload = (event) => {
                               if (event.target?.result) {
@@ -453,6 +455,12 @@ export function ServicesView() {
                               }
                             };
                             reader.readAsDataURL(file);
+
+                            // Then upload to Supabase storage asynchronously
+                            const res = await uploadSalonMedia(file, "services");
+                            if (res.url) {
+                              setNewImageUrl(res.url);
+                            }
                           }
                         }}
                       />
