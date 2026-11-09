@@ -490,26 +490,6 @@ export function LandingPage() {
         </div>
       </section>
 
-      {/* Integrations & Standards */}
-      <section className="py-12 border-b border-white/[0.08] bg-[#09090b]">
-        <div className="max-w-6xl mx-auto px-4 text-center space-y-4">
-          <p className="text-[10px] font-mono uppercase tracking-[0.25em] text-slate-400">
-            Engineered Standards & Bank-Grade Payment Rails
-          </p>
-          <div className="flex flex-wrap items-center justify-center gap-6 text-xs text-slate-400 font-mono">
-            <span className="text-slate-300">Meta WhatsApp Cloud API</span>
-            <span className="text-white/20">·</span>
-            <span className="text-slate-300">UPI Dynamic QR Auto-Sync</span>
-            <span className="text-white/20">·</span>
-            <span className="text-slate-300">Visa / Mastercard / RuPay</span>
-            <span className="text-white/20">·</span>
-            <span className="text-slate-300">ESC/POS Thermal Standard</span>
-            <span className="text-white/20">·</span>
-            <span className="text-slate-300">PostgreSQL Row-Level Security</span>
-          </div>
-        </div>
-      </section>
-
       {/* Interactive Operational Sandbox */}
       <section id="sandbox" className="py-24 md:py-32 px-4 sm:px-6 lg:px-8 border-b border-white/[0.08] bg-[#0b0b0e]">
         <div className="max-w-6xl mx-auto space-y-12">
@@ -1369,15 +1349,10 @@ export function LandingPage() {
             {/* Card 1 */}
             <div className="p-7 rounded-2xl border border-white/[0.08] bg-[#111114] space-y-6 flex flex-col justify-between hover:border-[#FACC15]/40 transition-all shadow-xl">
               <div className="space-y-4">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-1 text-[#FACC15]">
-                    {[...Array(5)].map((_, i) => (
-                      <Star key={i} className="w-3.5 h-3.5 fill-current" />
-                    ))}
-                  </div>
-                  <span className="text-[10px] font-mono text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded border border-emerald-500/20">
-                    +30% Chair Velocity
-                  </span>
+                <div className="flex items-center gap-1 text-[#FACC15]">
+                  {[...Array(5)].map((_, i) => (
+                    <Star key={i} className="w-3.5 h-3.5 fill-current" />
+                  ))}
                 </div>
                 <p className="text-xs text-slate-300 font-light leading-relaxed italic">
                   "We switched 8 stations from Zenoti to Ruvexi. On busy Saturdays, our reception counter used to be absolute chaos. With Ruvexi, walk-in check-in and billing takes 15 seconds, and our chair turnover increased by 30%. Zero booking fee saved us lakhs this year alone."
@@ -1399,15 +1374,10 @@ export function LandingPage() {
             {/* Card 2 */}
             <div className="p-7 rounded-2xl border border-[#FACC15]/30 bg-[#131317] space-y-6 flex flex-col justify-between hover:border-[#FACC15]/60 transition-all shadow-xl relative">
               <div className="space-y-4">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-1 text-[#FACC15]">
-                    {[...Array(5)].map((_, i) => (
-                      <Star key={i} className="w-3.5 h-3.5 fill-current" />
-                    ))}
-                  </div>
-                  <span className="text-[10px] font-mono text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded border border-emerald-500/20">
-                    &lt;2% No-Show Rate
-                  </span>
+                <div className="flex items-center gap-1 text-[#FACC15]">
+                  {[...Array(5)].map((_, i) => (
+                    <Star key={i} className="w-3.5 h-3.5 fill-current" />
+                  ))}
                 </div>
                 <p className="text-xs text-slate-200 font-light leading-relaxed italic">
                   "Automated Meta WhatsApp appointment reminders cut our no-shows from 18% down to under 2%. The client formula cards are indispensable for our therapists, and the 28-day automated recall campaign brought back 34% of inactive clients without touching our phones."
@@ -1429,15 +1399,10 @@ export function LandingPage() {
             {/* Card 3 */}
             <div className="p-7 rounded-2xl border border-white/[0.08] bg-[#111114] space-y-6 flex flex-col justify-between hover:border-[#FACC15]/40 transition-all shadow-xl">
               <div className="space-y-4">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-1 text-[#FACC15]">
-                    {[...Array(5)].map((_, i) => (
-                      <Star key={i} className="w-3.5 h-3.5 fill-current" />
-                    ))}
-                  </div>
-                  <span className="text-[10px] font-mono text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded border border-emerald-500/20">
-                    100% Staff Trust
-                  </span>
+                <div className="flex items-center gap-1 text-[#FACC15]">
+                  {[...Array(5)].map((_, i) => (
+                    <Star key={i} className="w-3.5 h-3.5 fill-current" />
+                  ))}
                 </div>
                 <p className="text-xs text-slate-300 font-light leading-relaxed italic">
                   "Barbers in our club can check their commission tiers and daily tips right from their phones without seeing our private ledger or overheads. Receptionists love the simple keyboard shortcuts. We expanded to our 2nd branch in Gurgaon seamlessly."
@@ -1762,12 +1727,6 @@ export function LandingPage() {
               <p className="text-slate-400 text-xs max-w-sm font-light leading-relaxed">
                 The sovereign management operating system for high-volume hair salons, master barber clubs, and luxury aesthetic wellness clinics.
               </p>
-              <div className="flex items-center gap-2 pt-2">
-                <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 font-mono text-[10px]">
-                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-                  Systems Operational · Mumbai & Bangalore Region
-                </span>
-              </div>
             </div>
 
             {/* Front Desk & Operations */}
@@ -1775,7 +1734,7 @@ export function LandingPage() {
               <div className="font-mono text-[11px] uppercase tracking-wider text-white">Operations</div>
               <ul className="space-y-2 text-slate-400 font-light">
                 <li><Link href="/front-desk" className="hover:text-white transition-colors">Front Desk Counter</Link></li>
-                <li><Link href="/pos" className="hover:text-white transition-colors">POS & Thermal Invoicing</Link></li>
+                <li><Link href="/pos" className="hover:text-white transition-colors">POS & Digital Invoicing</Link></li>
                 <li><Link href="/calendar" className="hover:text-white transition-colors">Chair Scheduler Matrix</Link></li>
                 <li><Link href="/staff" className="hover:text-white transition-colors">Staff Clock-In & Tips</Link></li>
                 <li><Link href="/inventory" className="hover:text-white transition-colors">Backbar & Stock Ledger</Link></li>
