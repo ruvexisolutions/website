@@ -19,7 +19,7 @@ export function AuthButton({
     <button
       type="submit"
       disabled={disabled || isLoading}
-      className={`w-full h-11 bg-[#FACC15] hover:bg-[#EAB308] text-[#080808] font-semibold text-sm rounded-lg transition-colors flex items-center justify-center gap-2 cursor-pointer shadow-sm disabled:opacity-50 disabled:cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-[#FACC15]/40 focus:ring-offset-2 focus:ring-offset-[#080808] active:translate-y-[0.5px] ${className}`}
+      className={`w-full h-11 bg-[#22C55E] hover:bg-[#16A34A] text-black font-semibold text-sm rounded-xl transition-all flex items-center justify-center gap-2 cursor-pointer shadow-sm disabled:opacity-50 disabled:cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-[#22C55E]/40 focus:ring-offset-2 focus:ring-offset-[#080808] active:translate-y-[0.5px] ${className}`}
       {...props}
     >
       {isLoading ? (

@@ -209,23 +209,23 @@ export default function LoginPage() {
   return (
     <AuthSplitLayout
       headline="Salon Operating System."
-      supportingText="Sign in to your Ruvexi workspace."
-      imageSrc="/images/spa-wellness.webp"
-      imageAlt="Luxury salon front desk"
+      supportingText="Sign in to manage your salon."
+      imageSrc="/images/splash.webp"
+      imageAlt="RUVEXI Salon Management"
     >
       <div className="bg-[#101010] border border-[#27272A] rounded-2xl p-7 sm:p-9 shadow-sm">
         {/* Header */}
         <div className="mb-6">
           <div className="flex items-center justify-between">
-            <h2 className="text-2xl font-serif font-bold tracking-tight text-[#F8FAFC]">
-              Sign in to Ruvexi
+            <h2 className="text-2xl font-bold tracking-tight text-[#F8FAFC]">
+              Welcome Back
             </h2>
-            <span className="text-[10px] font-mono uppercase px-2.5 py-1 rounded-full bg-[#FACC15]/10 text-[#FACC15] border border-[#FACC15]/20 font-semibold">
-              Verified Workspace
+            <span className="text-[10px] font-mono uppercase px-2.5 py-1 rounded-full bg-[#22C55E]/10 text-[#22C55E] border border-[#22C55E]/20 font-semibold">
+              Salon Management Platform
             </span>
           </div>
           <p className="text-xs text-[#A1A1AA] mt-1.5">
-            Manager Console & Front Desk secure authentication.
+            Sign in to manage your salon
           </p>
         </div>
 
@@ -238,7 +238,7 @@ export default function LoginPage() {
               setErrors({});
             }}
             className={`py-2 text-xs font-semibold rounded-lg transition-all flex items-center justify-center gap-1.5 cursor-pointer ${authMode === "manager"
-                ? "bg-[#FACC15] text-[#080808] shadow-sm font-bold"
+                ? "bg-[#22C55E] text-black shadow-sm font-bold"
                 : "text-[#A1A1AA] hover:text-[#F8FAFC]"
               }`}
           >
@@ -252,7 +252,7 @@ export default function LoginPage() {
               setErrors({});
             }}
             className={`py-2 text-xs font-semibold rounded-lg transition-all flex items-center justify-center gap-1.5 cursor-pointer ${authMode === "receptionist"
-                ? "bg-[#FACC15] text-[#080808] shadow-sm font-bold"
+                ? "bg-[#22C55E] text-black shadow-sm font-bold"
                 : "text-[#A1A1AA] hover:text-[#F8FAFC]"
               }`}
           >
@@ -277,10 +277,10 @@ export default function LoginPage() {
             /* Manager Password Login */
             <form onSubmit={handleManagerPasswordLogin} className="space-y-4">
               <AuthInput
-                label="Manager Work Email"
+                label="Email or Mobile Number"
                 id="manager-email-pwd"
-                type="email"
-                placeholder="director@salon.com"
+                type="text"
+                placeholder="Email or Mobile Number"
                 value={managerEmail}
                 onChange={(e) => {
                   setManagerEmail(e.target.value);
@@ -315,14 +315,14 @@ export default function LoginPage() {
                       setManagerLoginType("otp");
                       setErrors({});
                     }}
-                    className="text-[#FACC15] hover:text-[#EAB308] font-medium cursor-pointer"
+                    className="text-[#22C55E] hover:text-[#16A34A] font-medium cursor-pointer"
                   >
                     Sign in with Email OTP code instead
                   </button>
 
                   <Link
                     href="/forgot-password"
-                    className="text-[#A1A1AA] hover:text-[#F8FAFC]"
+                    className="text-[#22C55E] hover:text-[#16A34A] font-medium"
                   >
                     Forgot password?
                   </Link>
@@ -331,7 +331,7 @@ export default function LoginPage() {
 
               <div className="pt-2">
                 <AuthButton isLoading={isLoading}>
-                  Sign In to Manager Console
+                  Sign In →
                 </AuthButton>
               </div>
             </form>
@@ -367,7 +367,7 @@ export default function LoginPage() {
                       setManagerLoginType("password");
                       setErrors({});
                     }}
-                    className="text-[#FACC15] hover:text-[#EAB308] font-medium cursor-pointer"
+                    className="text-[#22C55E] hover:text-[#16A34A] font-medium cursor-pointer"
                   >
                     ← Sign in with password
                   </button>
@@ -393,7 +393,7 @@ export default function LoginPage() {
                     onClick={() => {
                       setOtpSent(false);
                     }}
-                    className="text-[11px] font-mono text-[#FACC15] hover:underline cursor-pointer"
+                    className="text-[11px] font-mono text-[#22C55E] hover:underline cursor-pointer"
                   >
                     Change
                   </button>
@@ -434,7 +434,7 @@ export default function LoginPage() {
                     type="button"
                     disabled={otpCooldown > 0 || isLoading}
                     onClick={() => handleRequestEmailOtp()}
-                    className="text-[#FACC15] hover:underline font-medium disabled:opacity-50 cursor-pointer"
+                    className="text-[#22C55E] hover:underline font-medium disabled:opacity-50 cursor-pointer"
                   >
                     {otpCooldown > 0 ? `Resend in ${otpCooldown}s` : "Resend OTP"}
                   </button>
@@ -452,10 +452,10 @@ export default function LoginPage() {
           /* MODE 2: RECEPTIONIST EMAIL + PASSWORD */
           <form onSubmit={handleReceptionistLogin} className="space-y-4 animate-in fade-in duration-150">
             <AuthInput
-              label="Receptionist Work Email"
+              label="Email or Mobile Number"
               id="receptionist-email"
-              type="email"
-              placeholder="frontdesk@salon.com"
+              type="text"
+              placeholder="Email or Mobile Number"
               value={receptionistEmail}
               onChange={(e) => {
                 setReceptionistEmail(e.target.value);
@@ -489,14 +489,14 @@ export default function LoginPage() {
                     type="checkbox"
                     checked={rememberMe}
                     onChange={(e) => setRememberMe(e.target.checked)}
-                    className="w-3.5 h-3.5 rounded bg-[#0B0B0B] border border-[#27272A] text-[#FACC15] focus:ring-[#FACC15] cursor-pointer accent-[#FACC15]"
+                    className="w-3.5 h-3.5 rounded bg-[#0B0B0B] border border-[#27272A] text-[#22C55E] focus:ring-[#22C55E] cursor-pointer accent-[#22C55E]"
                   />
                   <span>Remember me</span>
                 </label>
 
                 <Link
                   href="/forgot-password"
-                  className="text-[#FACC15] hover:text-[#EAB308] font-medium"
+                  className="text-[#22C55E] hover:text-[#16A34A] font-medium"
                 >
                   Forgot password?
                 </Link>
@@ -505,7 +505,7 @@ export default function LoginPage() {
 
             <div className="pt-2">
               <AuthButton isLoading={isLoading}>
-                Sign In to Front Desk
+                Sign In →
               </AuthButton>
             </div>
           </form>
@@ -518,7 +518,7 @@ export default function LoginPage() {
           </div>
           <div className="relative flex justify-center text-xs uppercase">
             <span className="bg-[#101010] px-3 text-[#71717A] font-mono tracking-wider">
-              Or continue with
+              or
             </span>
           </div>
         </div>
@@ -548,17 +548,17 @@ export default function LoginPage() {
               d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z"
             />
           </svg>
-          <span>{isGoogleLoading ? "Connecting to Google..." : "Sign in with Google"}</span>
+          <span>{isGoogleLoading ? "Connecting to Google..." : "Continue with Google"}</span>
         </button>
 
         {/* Footer Links */}
         <div className="mt-6 pt-4 border-t border-[#27272A] text-center text-xs text-[#A1A1AA]">
-          Don't have a salon workspace yet?{" "}
+          Don't have an account?{" "}
           <Link
             href="/signup"
-            className="text-[#FACC15] hover:text-[#EAB308] font-semibold inline-flex items-center gap-1 ml-1"
+            className="text-[#22C55E] hover:text-[#16A34A] font-semibold inline-flex items-center gap-1 ml-1"
           >
-            Start free trial <ArrowRight className="w-3 h-3" />
+            Create Account <ArrowRight className="w-3 h-3" />
           </Link>
         </div>
       </div>
