@@ -4,6 +4,11 @@ import React, { useState, useRef, useEffect } from "react";
 import { useRuvexi } from "@/lib/ruvexi-context";
 import { formatCurrency } from "@/lib/utils";
 import {
+  askSalonCopilot,
+  generateSalonCopilotInsights,
+  generateReviewReply,
+} from "@/lib/gemini-ai";
+import {
   TrendingUp,
   Users,
   DollarSign,
@@ -168,13 +173,45 @@ export function SalonOwnerView() {
     {
       id: "msg_1",
       sender: "ai",
-      text: `Hello ${salon.name.split(" ")[0]} Director! 👋 I am your Ruvexi AI Business Advisor. Ask me anything about your revenue, stylists, best-selling services, or inventory stock levels and I will provide instant data-backed answers!`,
+      text: `Hello ${salon.name.split(" ")[0]} Director! 👋 I am your Ruvexi AI Business Advisor (powered by Google Gemini). Ask me anything about your revenue, stylists, best-selling services, or inventory stock levels and I will provide instant data-backed answers!`,
       time: "Just now",
     },
   ]);
   const [chatInput, setChatInput] = useState("");
   const [isAiThinking, setIsAiThinking] = useState(false);
   const chatBottomRef = useRef<HTMLDivElement>(null);
+
+  // Gemini AI Strategic Insights State
+  const [copilotInsights, setCopilotInsights] = useState<string | null>(null);
+  const [isGeneratingInsights, setIsGeneratingInsights] = useState(false);
+
+  const handleGenerateCopilotInsights = async () => {
+    setIsGeneratingInsights(true);
+    try {
+      const topSrvNames = bestServices.map((b) => b.name);
+      const res = await generateSalonCopilotInsights({
+        revenue: totalMonthRevenue,
+        invoicesCount: totalAppointmentsCount,
+        topServices: topSrvNames,
+        slowDay: "Tuesday & Wednesday afternoon",
+      });
+      if (res.insight) {
+        setCopilotInsights(res.insight);
+        showToast("AI Revenue Optimization Strategy generated!");
+      } else {
+        setCopilotInsights(
+          "• Offer a Midweek Haircare Pass on Tuesdays & Wednesdays to increase chair yield by 35%.\n• Cross-sell backbar Olaplex/Keratin boosters on every haircut ticket to expand ticket size by ₹850.\n• Send automated WhatsApp reminder to clients 28 days post-color for gloss refresh."
+        );
+        showToast("Generated optimization recommendations (heuristic mode).");
+      }
+    } catch (e) {
+      setCopilotInsights(
+        "• Boost Tuesday chair occupancy with targeted WhatsApp Pamper Pass.\n• Cross-sell Keratin & Hair Spa boosters to lift average ticket size.\n• Replenish low stock items before the weekend rush."
+      );
+    } finally {
+      setIsGeneratingInsights(false);
+    }
+  };
 
   const quickQuestions = [
     "Who is our top-earning stylist?",
@@ -185,7 +222,7 @@ export function SalonOwnerView() {
     "What is our customer retention rate?",
   ];
 
-  const handleSendChat = (questionText?: string) => {
+  const handleSendChat = async (questionText?: string) => {
     const query = (questionText || chatInput).trim();
     if (!query) return;
 
@@ -200,95 +237,141 @@ export function SalonOwnerView() {
     if (!questionText) setChatInput("");
     setIsAiThinking(true);
 
-    setTimeout(() => {
-      const q = query.toLowerCase();
-      let aiResponse = "";
-      let quickAction: ChatMessage["quickAction"] | undefined = undefined;
+    try {
+      const staffSummary = workerAnalytics
+        .slice(0, 3)
+        .map(
+          (s) =>
+            `${s.name}: ${formatCurrency(s.revenueGenerated)} (${s.customersHandled} clients, ${s.rating}★)`
+        )
+        .join("; ");
+      const topServicesStr = bestServices
+        .slice(0, 3)
+        .map((b) => `${b.name} (${formatCurrency(b.revenue)})`)
+        .join(", ");
+      const lowStockStr =
+        lowStockItems.length > 0
+          ? lowStockItems.map((i) => `${i.name} (${i.currentStock} left)`).join(", ")
+          : "All products in stock";
 
-      if (q.includes("stylist") || q.includes("worker") || q.includes("staff") || q.includes("who")) {
-        const topStylist = workerAnalytics[0];
-        aiResponse = `👑 **Top Earner:** **${topStylist.name}** is your #1 stylist this month, generating **${formatCurrency(
-          topStylist.revenueGenerated
-        )}** across **${topStylist.customersHandled} clients** with a **${topStylist.rating}★ rating**. Her top service is ${topStylist.topService}.`;
-        quickAction = { label: "View Staff Ledger", actionType: "staff" };
-      } else if (
-        q.includes("most revenue") ||
-        q.includes("best service") ||
-        q.includes("top service") ||
-        q.includes("highest")
-      ) {
-        aiResponse = `⭐ **Highest Revenue Service:** **Keratin Protein Smoothing Therapy** brought in **${formatCurrency(
-          bestServices[0].revenue
-        )}** across **${bestServices[0].bookings} bookings** (priced at ₹4,500). It currently delivers your salon's highest profit margin!`;
-        quickAction = { label: "Create Promo Bundle", actionType: "promo" };
-      } else if (
-        q.includes("worst") ||
-        q.includes("slow") ||
-        q.includes("least") ||
-        q.includes("low demand")
-      ) {
-        aiResponse = `⚠️ **Lowest Demand Service:** **Classic Beard Trim** (only ${slowServices[0].bookings} bookings) and **Express Nail Buff** (${slowServices[1].bookings} bookings). \n\n💡 **Action:** Bundle the beard trim with your popular Haircut at a ₹200 discount to boost chair occupancy.`;
-        quickAction = { label: "Draft WhatsApp Bundle", actionType: "promo" };
-      } else if (
-        q.includes("stock") ||
-        q.includes("product") ||
-        q.includes("inventory") ||
-        q.includes("shampoo") ||
-        q.includes("cream")
-      ) {
-        if (lowStockItems.length > 0) {
-          const names = lowStockItems.map((i) => `${i.name} (${i.currentStock} ${i.unit} left, min ${i.minThreshold})`).join(", ");
-          aiResponse = `📦 **Stock Alert:** You have **${lowStockItems.length} items** running low: **${names}**. Reordering is recommended before weekend rush.`;
-          quickAction = { label: "Order Stock via WhatsApp", actionType: "reorder" };
-        } else {
-          aiResponse = `📦 **All Stock Healthy:** All professional color tubes and retail products are above minimum threshold levels today.`;
-        }
-      } else if (
-        q.includes("retention") ||
-        q.includes("repeat") ||
-        q.includes("come back") ||
-        q.includes("loyal")
-      ) {
-        aiResponse = `🔁 **Customer Retention:** **${repeatClientPercentage}%** of your clients return within 40 days (industry benchmark is 50%). Your automated WhatsApp reminders have reduced appointment no-shows from **22% down to 3.5%**!`;
-      } else if (
-        q.includes("feedback") ||
-        q.includes("rating") ||
-        q.includes("friendliness") ||
-        q.includes("improve") ||
-        q.includes("review")
-      ) {
-        aiResponse = `⭐ **Customer Feedback Numbers:** \n• **Overall Salon Rating:** 4.9★ across ${feedbacks.length + 180} reviews.\n• **Staff Friendliness:** 98% positive (clients love the polite attitude & complimentary espresso/tea).\n• **Top Praise:** 86% praised stylist skill & zero waiting.\n• **Room for Improvement:** Only 10% noted slight wait times during peak Saturday 4 PM rush.`;
-        quickAction = { label: "View Feedback Board", actionType: "staff" };
-      } else if (
-        q.includes("tuesday") ||
-        q.includes("slow day") ||
-        q.includes("boost") ||
-        q.includes("increase sales") ||
-        q.includes("more clients")
-      ) {
-        aiResponse = `💡 **Midweek Boost Strategy:** Chair occupancy drops by ~32% on Tuesdays and Wednesdays. \n\n🎯 **Recommendation:** Send an automated WhatsApp broadcast offering a *"Midweek Pamper Pass"* (Haircut + Free Scalp Detox Massage) to fill empty daytime slots.`;
-        quickAction = { label: "Draft Tuesday Offer", actionType: "promo" };
-      } else if (q.includes("revenue") || q.includes("sales") || q.includes("money") || q.includes("earnings")) {
-        aiResponse = `💰 **Revenue Summary:** Your salon is pacing at **${formatCurrency(
-          totalMonthRevenue
-        )}** this month across **${totalAppointmentsCount} appointments**, with an average ticket size of **${formatCurrency(
-          avgBillSize
-        )}** per client (+24.5% vs last month).`;
-      } else {
-        aiResponse = `📊 **Salon Insights:** Luxe Haven is operating at healthy metrics with ${staff.length} active stylists, ${repeatClientPercentage}% repeat clientele, and strong weekend chair occupancy. For specific data, feel free to ask about staff sales, best/worst services, or stock warnings!`;
+      const aiResult = await askSalonCopilot(query, {
+        salonName: salon.name,
+        revenue: totalMonthRevenue,
+        appointments: totalAppointmentsCount,
+        staffInfo: staffSummary,
+        topServices: topServicesStr,
+        lowStockInfo: lowStockStr,
+        repeatRate: repeatClientPercentage,
+      });
+
+      if (aiResult.answer) {
+        const aiMsg: ChatMessage = {
+          id: `ai_${Date.now()}`,
+          sender: "ai",
+          text: aiResult.answer,
+          time: new Date().toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", hour12: true }),
+          quickAction: query.toLowerCase().includes("stock")
+            ? { label: "Order Stock via WhatsApp", actionType: "reorder" }
+            : query.toLowerCase().includes("tuesday") || query.toLowerCase().includes("slow")
+            ? { label: "Draft WhatsApp Bundle", actionType: "promo" }
+            : undefined,
+        };
+        setChatMessages((prev) => [...prev, aiMsg]);
+        setIsAiThinking(false);
+        return;
       }
+    } catch (err) {
+      console.warn("Gemini copilot query failed, using fallback:", err);
+    }
 
-      const aiMsg: ChatMessage = {
-        id: `ai_${Date.now()}`,
-        sender: "ai",
-        text: aiResponse,
-        time: new Date().toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", hour12: true }),
-        quickAction,
-      };
+    // Heuristic fallback if Gemini is offline or unconfigured
+    const q = query.toLowerCase();
+    let aiResponse = "";
+    let quickAction: ChatMessage["quickAction"] | undefined = undefined;
 
-      setChatMessages((prev) => [...prev, aiMsg]);
-      setIsAiThinking(false);
-    }, 600);
+    if (q.includes("stylist") || q.includes("worker") || q.includes("staff") || q.includes("who")) {
+      const topStylist = workerAnalytics[0];
+      aiResponse = `👑 **Top Earner:** **${topStylist.name}** is your #1 stylist this month, generating **${formatCurrency(
+        topStylist.revenueGenerated
+      )}** across **${topStylist.customersHandled} clients** with a **${topStylist.rating}★ rating**. Her top service is ${topStylist.topService}.`;
+      quickAction = { label: "View Staff Ledger", actionType: "staff" };
+    } else if (
+      q.includes("most revenue") ||
+      q.includes("best service") ||
+      q.includes("top service") ||
+      q.includes("highest")
+    ) {
+      aiResponse = `⭐ **Highest Revenue Service:** **Keratin Protein Smoothing Therapy** brought in **${formatCurrency(
+        bestServices[0].revenue
+      )}** across **${bestServices[0].bookings} bookings** (priced at ₹4,500). It currently delivers your salon's highest profit margin!`;
+      quickAction = { label: "Create Promo Bundle", actionType: "promo" };
+    } else if (
+      q.includes("worst") ||
+      q.includes("slow") ||
+      q.includes("least") ||
+      q.includes("low demand")
+    ) {
+      aiResponse = `⚠️ **Lowest Demand Service:** **Classic Beard Trim** (only ${slowServices[0].bookings} bookings) and **Express Nail Buff** (${slowServices[1].bookings} bookings). \n\n💡 **Action:** Bundle the beard trim with your popular Haircut at a ₹200 discount to boost chair occupancy.`;
+      quickAction = { label: "Draft WhatsApp Bundle", actionType: "promo" };
+    } else if (
+      q.includes("stock") ||
+      q.includes("product") ||
+      q.includes("inventory") ||
+      q.includes("shampoo") ||
+      q.includes("cream")
+    ) {
+      if (lowStockItems.length > 0) {
+        const names = lowStockItems.map((i) => `${i.name} (${i.currentStock} ${i.unit} left, min ${i.minThreshold})`).join(", ");
+        aiResponse = `📦 **Stock Alert:** You have **${lowStockItems.length} items** running low: **${names}**. Reordering is recommended before weekend rush.`;
+        quickAction = { label: "Order Stock via WhatsApp", actionType: "reorder" };
+      } else {
+        aiResponse = `📦 **All Stock Healthy:** All professional color tubes and retail products are above minimum threshold levels today.`;
+      }
+    } else if (
+      q.includes("retention") ||
+      q.includes("repeat") ||
+      q.includes("come back") ||
+      q.includes("loyal")
+    ) {
+      aiResponse = `🔁 **Customer Retention:** **${repeatClientPercentage}%** of your clients return within 40 days (industry benchmark is 50%). Your automated WhatsApp reminders have reduced appointment no-shows from **22% down to 3.5%**!`;
+    } else if (
+      q.includes("feedback") ||
+      q.includes("rating") ||
+      q.includes("friendliness") ||
+      q.includes("improve") ||
+      q.includes("review")
+    ) {
+      aiResponse = `⭐ **Customer Feedback Numbers:** \n• **Overall Salon Rating:** 4.9★ across ${feedbacks.length + 180} reviews.\n• **Staff Friendliness:** 98% positive (clients love the polite attitude & complimentary espresso/tea).\n• **Top Praise:** 86% praised stylist skill & zero waiting.\n• **Room for Improvement:** Only 10% noted slight wait times during peak Saturday 4 PM rush.`;
+      quickAction = { label: "View Feedback Board", actionType: "staff" };
+    } else if (
+      q.includes("tuesday") ||
+      q.includes("slow day") ||
+      q.includes("boost") ||
+      q.includes("increase sales") ||
+      q.includes("more clients")
+    ) {
+      aiResponse = `💡 **Midweek Boost Strategy:** Chair occupancy drops by ~32% on Tuesdays and Wednesdays. \n\n🎯 **Recommendation:** Send an automated WhatsApp broadcast offering a *"Midweek Pamper Pass"* (Haircut + Free Scalp Detox Massage) to fill empty daytime slots.`;
+      quickAction = { label: "Draft Tuesday Offer", actionType: "promo" };
+    } else if (q.includes("revenue") || q.includes("sales") || q.includes("money") || q.includes("earnings")) {
+      aiResponse = `💰 **Revenue Summary:** Your salon is pacing at **${formatCurrency(
+        totalMonthRevenue
+      )}** this month across **${totalAppointmentsCount} appointments**, with an average ticket size of **${formatCurrency(
+        avgBillSize
+      )}** per client (+24.5% vs last month).`;
+    } else {
+      aiResponse = `📊 **Salon Insights:** Luxe Haven is operating at healthy metrics with ${staff.length} active stylists, ${repeatClientPercentage}% repeat clientele, and strong weekend chair occupancy. For specific data, feel free to ask about staff sales, best/worst services, or stock warnings!`;
+    }
+
+    const aiMsg: ChatMessage = {
+      id: `ai_${Date.now()}`,
+      sender: "ai",
+      text: aiResponse,
+      time: new Date().toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", hour12: true }),
+      quickAction,
+    };
+
+    setChatMessages((prev) => [...prev, aiMsg]);
+    setIsAiThinking(false);
   };
 
   useEffect(() => {
@@ -418,6 +501,49 @@ export function SalonOwnerView() {
             {lowStockItems.length > 0 ? "Reorder needed soon" : "All products well stocked"}
           </p>
         </div>
+      </div>
+
+      {/* GEMINI AI REVENUE OPTIMIZER & STRATEGY PANEL */}
+      <div className="bg-gradient-to-r from-[#121212] to-[#181818] border border-[#FACC15]/30 p-6 rounded-2xl shadow-xl space-y-3">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-[#FACC15]/10 border border-[#FACC15]/40 text-[#FACC15] flex items-center justify-center shrink-0">
+              <Sparkles className="w-5 h-5 text-[#FACC15]" />
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <h3 className="text-base font-serif font-bold text-[#F8FAFC]">
+                  Gemini AI Revenue Copilot & Growth Optimizer
+                </h3>
+                <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded-full bg-[#FACC15]/20 text-[#FACC15] border border-[#FACC15]/30">
+                  Google Gemini 1.5
+                </span>
+              </div>
+              <p className="text-xs text-[#A1A1AA]">
+                Run instant AI audit on your seat occupancy, ticket sizes, and slow slots to unlock incremental salon profit.
+              </p>
+            </div>
+          </div>
+
+          <button
+            onClick={handleGenerateCopilotInsights}
+            disabled={isGeneratingInsights}
+            className="px-4 py-2 bg-[#FACC15] hover:bg-[#EAB308] disabled:opacity-50 text-[#080808] font-bold text-xs rounded-xl shadow-md transition-all flex items-center gap-2 self-start sm:self-auto cursor-pointer shrink-0"
+          >
+            <Sparkles className={`w-3.5 h-3.5 ${isGeneratingInsights ? "animate-spin" : ""}`} />
+            <span>{isGeneratingInsights ? "Analyzing Ledger..." : "Generate AI Growth Strategies"}</span>
+          </button>
+        </div>
+
+        {copilotInsights && (
+          <div className="mt-3 p-4 rounded-xl bg-[#080808]/80 border border-[#27272A] text-xs text-[#E4E4E7] space-y-2 whitespace-pre-line leading-relaxed font-sans animate-in fade-in">
+            <div className="text-[11px] font-mono font-bold text-[#FACC15] uppercase tracking-wider flex items-center gap-1.5">
+              <Lightbulb className="w-3.5 h-3.5" />
+              <span>Gemini Strategic Action Plan:</span>
+            </div>
+            {copilotInsights}
+          </div>
+        )}
       </div>
 
       {/* SALON OWNER AI CHATBOT SECTION */}
@@ -1095,17 +1221,28 @@ export function SalonOwnerView() {
                   <div className="flex items-center justify-between text-[10px] text-[#71717A] pt-1 border-t border-[#27272A] font-mono">
                     <span>{fb.date}</span>
                     <button
-                      onClick={() => {
+                      onClick={async () => {
                         const cleanPhone = fb.customerPhone.replace(/[^0-9]/g, "");
-                        const replyMsg = `Hi ${fb.customerName}! ✨ Thank you so much for your kind feedback and for visiting ${salon.name}. We really appreciate your support and can't wait to see you again! 💖`;
+                        let replyMsg = `Hi ${fb.customerName}! ✨ Thank you so much for your kind feedback and for visiting ${salon.name}. We really appreciate your support and can't wait to see you again! 💖`;
+                        try {
+                          const aiRes = await generateReviewReply(
+                            fb.customerName,
+                            fb.serviceRating,
+                            fb.comment || "Great service"
+                          );
+                          if (aiRes.reply) replyMsg = aiRes.reply;
+                        } catch (err) {
+                          console.warn("AI review reply error:", err);
+                        }
                         window.open(
                           `https://wa.me/${cleanPhone}?text=${encodeURIComponent(replyMsg)}`,
                           "_blank"
                         );
                       }}
-                      className="text-[#FACC15] hover:underline cursor-pointer"
+                      className="text-[#FACC15] hover:underline cursor-pointer flex items-center gap-1"
                     >
-                      Thank via WhatsApp →
+                      <Sparkles className="w-3 h-3 text-[#FACC15]" />
+                      <span>AI WhatsApp Reply →</span>
                     </button>
                   </div>
                 </div>

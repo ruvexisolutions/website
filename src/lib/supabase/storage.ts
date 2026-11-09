@@ -37,3 +37,4 @@ export async function uploadSalonMedia(
     return { error: err.message || "Failed to upload image" };
   }
 }
+

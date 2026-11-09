@@ -5,6 +5,7 @@ import { useRuvexi } from "@/lib/ruvexi-context";
 import { formatCurrency } from "@/lib/utils";
 import { ServiceItem } from "@/lib/types";
 import { uploadSalonMedia } from "@/lib/supabase/storage";
+import { generateTreatmentDescription } from "@/lib/gemini-ai";
 import {
   Scissors,
   Plus,
@@ -46,6 +47,7 @@ export function ServicesView() {
   const [newMaterialUnit, setNewMaterialUnit] = useState("ml");
   const [newPopular, setNewPopular] = useState(false);
   const [newImageUrl, setNewImageUrl] = useState("");
+  const [isGeneratingAiDesc, setIsGeneratingAiDesc] = useState(false);
 
   const categories = ["All", "Hair", "Skin & Spa", "Nails", "Beard & Grooming", "Makeup"];
 
@@ -399,7 +401,26 @@ export function ServicesView() {
               </div>
 
               <div>
-                <label className="font-mono text-[11px] text-[#A1A1AA] block mb-1">Description</label>
+                <div className="flex items-center justify-between mb-1">
+                  <label className="font-mono text-[11px] text-[#A1A1AA]">Description</label>
+                  <button
+                    type="button"
+                    disabled={isGeneratingAiDesc || !newName.trim()}
+                    onClick={async () => {
+                      if (!newName.trim()) return;
+                      setIsGeneratingAiDesc(true);
+                      const res = await generateTreatmentDescription(newName, newCategory);
+                      setIsGeneratingAiDesc(false);
+                      if (res.description) {
+                        setNewDescription(res.description);
+                      }
+                    }}
+                    className="text-[10px] font-mono text-[#FACC15] hover:text-[#EAB308] flex items-center gap-1 font-bold disabled:opacity-40 cursor-pointer"
+                  >
+                    <Sparkles className="w-3 h-3 text-[#FACC15]" />
+                    <span>{isGeneratingAiDesc ? "Gemini AI Crafting..." : "Generate with Gemini AI"}</span>
+                  </button>
+                </div>
                 <textarea
                   rows={2}
                   placeholder="Bespoke service details, benefits and steps..."

@@ -4,6 +4,7 @@ import React, { useState } from "react";
 import { useRuvexi } from "@/lib/ruvexi-context";
 import { formatCurrency } from "@/lib/utils";
 import { FollowUpCampaign, CustomerProfile } from "@/lib/types";
+import { generateWhatsAppRetentionMessage } from "@/lib/gemini-ai";
 import {
   MessageSquare,
   Sparkles,
@@ -37,6 +38,7 @@ export function CrmFollowupsView() {
   const [customDraft, setCustomDraft] = useState<string>(followUps[0]?.suggestedMessage || "");
   const [clientSearch, setClientSearch] = useState<string>("");
   const [sentSuccessFeedback, setSentSuccessFeedback] = useState<boolean>(false);
+  const [isGeneratingAiMsg, setIsGeneratingAiMsg] = useState<boolean>(false);
 
   // New follow-up modal
   const [showNewModal, setShowNewModal] = useState<boolean>(false);
@@ -375,9 +377,32 @@ export function CrmFollowupsView() {
 
               {/* Editable Draft Area */}
               <div>
-                <label className="text-xs font-mono font-bold text-[#A1A1AA] block mb-1">
-                  Customize Message Content:
-                </label>
+                <div className="flex items-center justify-between mb-1">
+                  <label className="text-xs font-mono font-bold text-[#A1A1AA]">
+                    Customize Message Content:
+                  </label>
+                  <button
+                    type="button"
+                    disabled={isGeneratingAiMsg || !selectedFollowUp}
+                    onClick={async () => {
+                      if (!selectedFollowUp) return;
+                      setIsGeneratingAiMsg(true);
+                      const res = await generateWhatsAppRetentionMessage(
+                        selectedFollowUp.customerName,
+                        selectedFollowUp.serviceName || "Bespoke Treatment",
+                        selectedFollowUp.daysSinceLastVisit || 28
+                      );
+                      setIsGeneratingAiMsg(false);
+                      if (res.message) {
+                        setCustomDraft(res.message);
+                      }
+                    }}
+                    className="text-[10px] font-mono text-[#FACC15] hover:text-[#EAB308] flex items-center gap-1 font-bold disabled:opacity-40 cursor-pointer"
+                  >
+                    <Sparkles className="w-3 h-3 text-[#FACC15]" />
+                    <span>{isGeneratingAiMsg ? "Gemini AI Composing..." : "Re-write with Gemini AI"}</span>
+                  </button>
+                </div>
                 <textarea
                   rows={4}
                   value={customDraft}

@@ -151,3 +151,4 @@ export function QRStandeeGeneratorModal({ salon, onClose }: QRStandeeGeneratorMo
     </div>
   );
 }
+
