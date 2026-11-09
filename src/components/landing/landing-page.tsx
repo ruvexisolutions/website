@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import React, { useState } from "react";
 import Link from "next/link";
@@ -176,8 +176,8 @@ export function LandingPage() {
       a: "Yes. Granular role-based security allows receptionists and stylists to manage daily calendars, seat walk-ins, and ring up sales while strictly restricting gross margins, staff payouts, and tax ledgers to salon owners.",
     },
     {
-      q: "Does Ruvexi connect with thermal receipt printers and barcode scanners?",
-      a: "Yes. Works out of the box with standard 80mm & 58mm ESC/POS thermal printers (Epson, TVS, Star Micronics), USB/Bluetooth barcode scanners, and sends automated paperless WhatsApp tax receipts.",
+      q: "Does Ruvexi support instant receipt delivery and barcode scanners?",
+      a: "Yes. Generates crisp instant digital receipts, paperless WhatsApp tax receipts, and connects seamlessly with standard barcode scanners for quick checkout.",
     },
     {
       q: "How does automated WhatsApp retention recover lapsed clients?",
@@ -1624,7 +1624,7 @@ export function LandingPage() {
                       <td className="py-3 px-5 text-emerald-400">Included</td>
                     </tr>
                     <tr>
-                      <td className="py-3 px-5 text-white font-medium">Fast POS & GST Thermal Printing (80mm/58mm)</td>
+                      <td className="py-3 px-5 text-white font-medium">Fast POS Billing & Digital WhatsApp Receipts</td>
                       <td className="py-3 px-5 text-emerald-400">Included</td>
                       <td className="py-3 px-5 text-emerald-400 bg-white/[0.03]">Included</td>
                       <td className="py-3 px-5 text-emerald-400">Included</td>

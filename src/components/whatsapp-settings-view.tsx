@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import React, { useState, useEffect } from "react";
 import { useRuvexi } from "@/lib/ruvexi-context";
@@ -795,7 +795,7 @@ export function WhatsAppSettingsView() {
               <div className="p-3 bg-[#151515] rounded-xl border border-[#27272A] space-y-1">
                 <span className="font-bold text-[#F8FAFC] block">POS Offline Resiliency</span>
                 <p className="text-[11px] text-[#71717A] leading-relaxed">
-                  If Meta Cloud API is experiencing downtime, Ruvexi POS automatically falls back to local thermal print and digital receipt links without interrupting checkout.
+                  If Meta Cloud API is experiencing downtime, Ruvexi POS automatically falls back to instant web receipt links without interrupting checkout.
                 </p>
               </div>
             </div>

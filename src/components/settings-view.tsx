@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import React, { useState, useRef } from "react";
 import { useRuvexi } from "@/lib/ruvexi-context";
@@ -778,12 +778,11 @@ export function SettingsView({ initialSubTab = "general" }: SettingsViewProps) {
                   className="w-full px-3 py-2 bg-[#151515] border border-[#27272A] rounded-xl text-[#F8FAFC] focus:outline-none focus:border-[#FACC15] font-bold"
                 >
                   <option value="80mm (Standard POS)" className="bg-[#151515] text-[#F8FAFC]">80mm (Standard Countertop POS)</option>
-                  <option value="58mm (Mini Bluetooth)" className="bg-[#151515] text-[#F8FAFC]">58mm (Mini Portable Bluetooth)</option>
                   <option value="A4 / A5 (Full Sheet)" className="bg-[#151515] text-[#F8FAFC]">A4 / A5 (Full Laser Invoice)</option>
                 </select>
               </div>
               <div className="p-3 bg-[#151515] rounded-xl border border-[#27272A] text-[11px] text-[#71717A] font-mono leading-relaxed">
-                ESC/POS Bluetooth &amp; USB thermal printing compatible without drivers.
+                Direct browser &amp; PDF thermal invoice printing compatible without hardware drivers.
               </div>
             </div>
           </div>
