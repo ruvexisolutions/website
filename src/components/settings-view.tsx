@@ -62,9 +62,9 @@ export function SettingsView({ initialSubTab = "general" }: SettingsViewProps) {
   const [paymentError, setPaymentError] = useState<string | null>(null);
   const [previewQrUrl, setPreviewQrUrl] = useState<string>("");
   const [bankAccountName, setBankAccountName] = useState(salon.bankAccountName || salon.name);
-  const [bankAccountNumber, setBankAccountNumber] = useState(salon.bankAccountNumber || "50200088991122");
-  const [bankIfsc, setBankIfsc] = useState(salon.bankIfsc || "HDFC0001043");
-  const [bankName, setBankName] = useState(salon.bankName || "HDFC Bank (Indiranagar Branch)");
+  const [bankAccountNumber, setBankAccountNumber] = useState(salon.bankAccountNumber || "");
+  const [bankIfsc, setBankIfsc] = useState(salon.bankIfsc || "");
+  const [bankName, setBankName] = useState(salon.bankName || "");
   const [savedSuccess, setSavedSuccess] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [showStandeeModal, setShowStandeeModal] = useState(false);
@@ -87,7 +87,6 @@ export function SettingsView({ initialSubTab = "general" }: SettingsViewProps) {
   const [openTime, setOpenTime] = useState("09:30 AM");
   const [closeTime, setCloseTime] = useState("08:30 PM");
   const [gstRate, setGstRate] = useState("5%");
-  const [printerWidth, setPrinterWidth] = useState("80mm (Standard POS)");
   const [autoSendWhatsApp, setAutoSendWhatsApp] = useState(true);
   const [isMetaSignupOpen, setIsMetaSignupOpen] = useState(false);
   const [metaWabaStatus, setMetaWabaStatus] = useState<any>(salon.whatsapp || {
@@ -156,7 +155,7 @@ export function SettingsView({ initialSubTab = "general" }: SettingsViewProps) {
         phone,
         email,
         ...(canEditBusiness && {
-          gstin,
+          ...(gstin !== (salon.gstin || "") ? { gstin } : {}),
           upiId: upiId.trim(),
           cashEnabled,
           upiEnabled,
@@ -774,29 +773,6 @@ export function SettingsView({ initialSubTab = "general" }: SettingsViewProps) {
               />
               <span>Auto-dispatch receipts &amp; reminders</span>
             </label>
-          </div>
-
-          {/* POS Hardware */}
-          <div className="bg-[#101010] border border-[#27272A] p-6 rounded-2xl space-y-4 shadow-xl">
-            <h3 className="text-xs font-mono font-bold text-[#A1A1AA] uppercase tracking-wider flex items-center gap-1.5 pb-3 border-b border-[#27272A]">
-              <Printer className="w-4 h-4 text-[#FACC15]" /> POS Hardware &amp; Receipt
-            </h3>
-            <div className="text-xs space-y-3">
-              <div>
-                <label className="font-mono text-[11px] text-[#A1A1AA] block mb-1">Thermal Paper Roll Width</label>
-                <select
-                  value={printerWidth}
-                  onChange={(e) => setPrinterWidth(e.target.value)}
-                  className="w-full px-3 py-2 bg-[#151515] border border-[#27272A] rounded-xl text-[#F8FAFC] focus:outline-none focus:border-[#FACC15] font-bold"
-                >
-                  <option value="80mm (Standard POS)" className="bg-[#151515] text-[#F8FAFC]">80mm (Standard Countertop POS)</option>
-                  <option value="A4 / A5 (Full Sheet)" className="bg-[#151515] text-[#F8FAFC]">A4 / A5 (Full Laser Invoice)</option>
-                </select>
-              </div>
-              <div className="p-3 bg-[#151515] rounded-xl border border-[#27272A] text-[11px] text-[#71717A] font-mono leading-relaxed">
-                Direct browser &amp; PDF thermal invoice printing compatible without hardware drivers.
-              </div>
-            </div>
           </div>
 
           {/* Save / Reset */}

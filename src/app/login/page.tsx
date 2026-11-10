@@ -197,8 +197,11 @@ export default function LoginPage() {
     try {
       const res = await signInWithGoogle();
       if (res.success && res.user && res.salon) {
+        if (res.isNewUser && typeof window !== "undefined") {
+          localStorage.setItem("Ruvexi_needs_onboarding", "true");
+        }
         setSession(res.user, { ...salon, ...res.salon } as any, res.token);
-        showToast(`Welcome back, ${res.user.name}!`, "success");
+        showToast(res.isNewUser ? `Welcome to RUVEXI, ${res.user.name}!` : `Welcome back, ${res.user.name}!`, "success");
         router.push("/overview");
         return;
       }

@@ -419,11 +419,11 @@ const DEFAULT_SALON: Salon = {
   timing: "10:00 AM - 09:30 PM (All Days)",
   rating: 0,
   reviewCount: 0,
-  upiId: "Ruvexi.pos@icici",
-  bankAccountName: "Ruvexi Solutions Atelier & Spa",
-  bankAccountNumber: "50200088991122",
-  bankIfsc: "HDFC0001043",
-  bankName: "HDFC Bank (Indiranagar Branch)",
+  upiId: "",
+  bankAccountName: "",
+  bankAccountNumber: "",
+  bankIfsc: "",
+  bankName: "",
 };
 
 const INITIAL_SERVICES: Service[] = [];
@@ -472,6 +472,69 @@ export function RuvexiProvider({ children }: { children: React.ReactNode }) {
   };
 
   // Load from localStorage first, then sync directly from the FastAPI backend database
+  const hydrateFromBackend = () => {
+    if (typeof window === "undefined") return;
+    const token = localStorage.getItem("Ruvexi_token");
+    if (!token) return;
+
+    RuvexiApi
+      .getBootstrap()
+      .then((data) => {
+        if (!data) return;
+        setIsBackendConnected(true);
+
+        if (data.salon) {
+          setSalon(data.salon);
+          persist("Ruvexi_salon", data.salon);
+        }
+        if (Array.isArray(data.customers)) {
+          setCustomers(data.customers);
+          persist("Ruvexi_customers", data.customers);
+        }
+        if (Array.isArray(data.services)) {
+          setServices(data.services);
+          persist("Ruvexi_services", data.services);
+        }
+        if (Array.isArray(data.staff)) {
+          setStaff(data.staff);
+          persist("Ruvexi_staff", data.staff);
+        }
+        if (Array.isArray(data.inventory)) {
+          setInventory(data.inventory);
+          persist("Ruvexi_inventory", data.inventory);
+        }
+        if (Array.isArray(data.appointments)) {
+          setAppointments(data.appointments);
+          persist("Ruvexi_appointments", data.appointments);
+        }
+        if (Array.isArray(data.invoices)) {
+          setInvoices(data.invoices);
+          persist("Ruvexi_invoices", data.invoices);
+        }
+        if (Array.isArray(data.followUps)) {
+          setFollowUps(data.followUps);
+          persist("Ruvexi_followups", data.followUps);
+        }
+        if (Array.isArray(data.feedbacks)) {
+          setFeedbacks(data.feedbacks);
+          persist("Ruvexi_feedbacks", data.feedbacks);
+        }
+      })
+      .catch((err) => {
+        console.info("Ruvexi: Connected via offline cached data:", err.message);
+      });
+
+    RuvexiApi
+      .getCurrentShift()
+      .then((data) => {
+        if (data && data.hasOpenShift && data.shift) {
+          setCurrentShift(data.shift);
+          persist("Ruvexi_current_shift", data.shift);
+        }
+      })
+      .catch(() => {});
+  };
+
   useEffect(() => {
     try {
       // Clean slate migration: purge previous demo cache and remove old bypass auth tokens
@@ -560,63 +623,8 @@ export function RuvexiProvider({ children }: { children: React.ReactNode }) {
       });
     }
 
-    // Connect and synchronize from live backend database
-    RuvexiApi
-      .getBootstrap()
-      .then((data) => {
-        if (!data) return;
-        setIsBackendConnected(true);
-
-        if (data.salon) {
-          setSalon(data.salon);
-          persist("Ruvexi_salon", data.salon);
-        }
-        if (Array.isArray(data.customers)) {
-          setCustomers(data.customers);
-          persist("Ruvexi_customers", data.customers);
-        }
-        if (Array.isArray(data.services)) {
-          setServices(data.services);
-          persist("Ruvexi_services", data.services);
-        }
-        if (Array.isArray(data.staff)) {
-          setStaff(data.staff);
-          persist("Ruvexi_staff", data.staff);
-        }
-        if (Array.isArray(data.inventory)) {
-          setInventory(data.inventory);
-          persist("Ruvexi_inventory", data.inventory);
-        }
-        if (Array.isArray(data.appointments)) {
-          setAppointments(data.appointments);
-          persist("Ruvexi_appointments", data.appointments);
-        }
-        if (Array.isArray(data.invoices)) {
-          setInvoices(data.invoices);
-          persist("Ruvexi_invoices", data.invoices);
-        }
-        if (Array.isArray(data.followUps)) {
-          setFollowUps(data.followUps);
-          persist("Ruvexi_followups", data.followUps);
-        }
-        if (Array.isArray(data.feedbacks)) {
-          setFeedbacks(data.feedbacks);
-          persist("Ruvexi_feedbacks", data.feedbacks);
-        }
-      })
-      .catch((err) => {
-        console.info("Ruvexi: Connected via offline cached data:", err.message);
-      });
-
-    RuvexiApi
-      .getCurrentShift()
-      .then((data) => {
-        if (data && data.hasOpenShift && data.shift) {
-          setCurrentShift(data.shift);
-          persist("Ruvexi_current_shift", data.shift);
-        }
-      })
-      .catch(() => {});
+    // Connect and synchronize from live backend database only when authenticated
+    hydrateFromBackend();
   }, []);
 
   // Toast Notification handler
@@ -775,7 +783,12 @@ export function RuvexiProvider({ children }: { children: React.ReactNode }) {
       persist("Ruvexi_salon", updated);
       return updated;
     });
-    RuvexiApi.updateSalon(data).catch((err) => console.warn("Backend sync notice:", err.message));
+    const backendPayload: Partial<Salon> = { ...data };
+    if (typeof backendPayload.logoUrl === "string" && backendPayload.logoUrl.length > 500) {
+      delete backendPayload.logoUrl;
+      delete backendPayload.logo;
+    }
+    RuvexiApi.updateSalon(backendPayload).catch((err) => console.warn("Backend sync notice:", err.message));
     showToast("Salon settings updated successfully.");
   };
 
@@ -797,6 +810,7 @@ export function RuvexiProvider({ children }: { children: React.ReactNode }) {
     persist("Ruvexi_salon", newSalon);
     if (token && typeof window !== "undefined") {
       localStorage.setItem("Ruvexi_token", token);
+      hydrateFromBackend();
     }
   };
 
@@ -1565,20 +1579,21 @@ export function RuvexiProvider({ children }: { children: React.ReactNode }) {
         addFeedback,
         bookAppointment: (data: any) =>
           addAppointment({
-            customerId: "cst_online_" + Date.now(),
+            ...data,
+            customerId: data.customerId || "cst_online_" + Date.now(),
             customerName: data.customerName,
             customerPhone: data.customerPhone,
-            serviceId: services.find((s) => s.name === data.serviceName)?.id || services[0]?.id || "srv_1",
+            serviceId: data.serviceId || services.find((s) => s.name === data.serviceName)?.id || services[0]?.id || "srv_1",
             serviceName: data.serviceName,
             staffId: data.staffId || staff[0]?.id || "stf_1",
             staffName: data.staffName || staff[0]?.name || "Priya Sharma",
-            date: new Date().toISOString().split("T")[0],
-            startTime: data.time || "11:00",
-            endTime: "11:45",
+            date: data.date || new Date().toISOString().split("T")[0],
+            startTime: data.startTime || data.time || "11:00",
+            endTime: data.endTime || "11:45",
             durationMinutes: data.durationMinutes || 45,
             price: data.price || 1500,
-            status: "confirmed",
-            notes: "Online booking reservation",
+            status: data.status || "confirmed",
+            notes: data.notes || "Online booking reservation",
           }),
         sendFollowUp: markFollowUpSent,
         createFollowUp: addFollowUp,

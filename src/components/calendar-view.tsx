@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import React, { useState } from "react";
 import { useRuvexi } from "@/lib/ruvexi-context";
@@ -158,7 +158,7 @@ export function CalendarView({ onGoToPosBilling }: CalendarViewProps) {
       customerPhone: custPhone,
       serviceName,
       staffName,
-      staffId: st?.id || staff[0].id,
+      staffId: st?.id || staff[0]?.id || "staff_house",
       time: timeSlot,
       durationMinutes: srv?.durationMinutes || 60,
       price: srv?.price || 2000,
@@ -191,7 +191,7 @@ export function CalendarView({ onGoToPosBilling }: CalendarViewProps) {
         loyaltyPoints: 50,
         lastVisitDate: "Today",
         lastService: "Salon Treatment",
-        preferredStaff: staff[0].name,
+        preferredStaff: staff[0]?.name || "House",
         tags: ["First Visit", "Formula Card Pending"],
         notes: "First time consultation at Luxe Haven.",
         formulaNotes: "Patch test pending. Consultation in progress.",
@@ -714,7 +714,7 @@ export function CalendarView({ onGoToPosBilling }: CalendarViewProps) {
       {/* ============================================================ */}
       {selectedAppointmentForDetail && (
         <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="w-full max-w-lg bg-[#151515] border border-[#27272A] rounded-2xl shadow-2xl p-6 space-y-5 animate-in zoom-in-95 duration-150">
+          <div className="w-full max-w-lg max-h-[90vh] overflow-y-auto bg-[#151515] border border-[#27272A] rounded-2xl shadow-2xl p-6 space-y-5 animate-in zoom-in-95 duration-150">
             <div className="flex items-center justify-between pb-3 border-b border-[#27272A]">
               <div className="flex items-center gap-2">
                 <CalendarIcon className="w-5 h-5 text-[#FACC15]" />
@@ -862,7 +862,7 @@ export function CalendarView({ onGoToPosBilling }: CalendarViewProps) {
       {/* ============================================================ */}
       {showBookModal && (
         <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="w-full max-w-lg bg-[#151515] border border-[#27272A] rounded-2xl shadow-2xl p-6 space-y-4 animate-in zoom-in-95 duration-150">
+          <div className="w-full max-w-lg max-h-[90vh] overflow-y-auto bg-[#151515] border border-[#27272A] rounded-2xl shadow-2xl p-6 space-y-4 animate-in zoom-in-95 duration-150">
             <div className="flex items-center justify-between pb-3 border-b border-[#27272A]">
               <div className="flex items-center gap-2">
                 <CalendarIcon className="w-5 h-5 text-[#FACC15]" />

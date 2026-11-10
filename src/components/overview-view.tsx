@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import React, { useState } from "react";
 import { useRuvexi } from "@/lib/ruvexi-context";
@@ -28,9 +28,11 @@ import {
 
 interface OverviewViewProps {
   onNavigateTab: (tab: string) => void;
+  onOpenSwitchLocation?: () => void;
+  activeBranch?: string;
 }
 
-export function OverviewView({ onNavigateTab }: OverviewViewProps) {
+export function OverviewView({ onNavigateTab, onOpenSwitchLocation, activeBranch }: OverviewViewProps) {
   const { salon, staff, inventory, followUps, invoices, appointments, updateAppointmentStatus } =
     useRuvexi();
 
@@ -78,13 +80,14 @@ export function OverviewView({ onNavigateTab }: OverviewViewProps) {
   return (
     <div className="space-y-6 text-[#F8FAFC]">
       {/* ============================================================ */}
-      {/* PAGE HEADER: Current Salon / Branch & Operational Status */}
+      {/* PAGE HEADER: Current Salon / Branch, Trial & Quick Actions */}
       {/* ============================================================ */}
       <div className="relative overflow-hidden bg-[#101010] border border-[#27272A] p-6 sm:p-8 rounded-2xl shadow-xl">
         <div className="absolute top-0 right-0 w-80 h-80 bg-[#FACC15]/5 rounded-full blur-3xl pointer-events-none" />
 
-        <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-6">
-          <div className="space-y-2.5">
+        <div className="relative z-10 space-y-5">
+          {/* Top Status & Active Studio Switcher / Trial Row */}
+          <div className="flex flex-wrap items-center justify-between gap-3">
             <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[#151515] border border-[#27272A] text-xs font-mono tracking-wider">
               <span className="w-2 h-2 rounded-full bg-[#10B981] animate-pulse" />
               <span className="text-[#10B981] font-semibold">Live Operational</span>
@@ -92,30 +95,87 @@ export function OverviewView({ onNavigateTab }: OverviewViewProps) {
               <span className="text-[#A1A1AA]">{todayDateString}</span>
             </div>
 
-            <h1 className="font-serif text-2xl sm:text-3xl font-medium text-[#F8FAFC] tracking-tight">
-              {salon.name}
-            </h1>
+            <div className="flex flex-wrap items-center gap-2.5">
+              {/* Active Studio & Switch Location */}
+              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[#151515] border border-[#27272A]">
+                <span className="text-[10px] font-mono uppercase tracking-wider text-[#71717A]">
+                  Active Studio:
+                </span>
+                <span className="text-[11px] font-medium text-[#F8FAFC] flex items-center gap-1">
+                  <Building2 className="w-3 h-3 text-[#FACC15]" />
+                  {salon.city || activeBranch || salon.branch}
+                </span>
+                {onOpenSwitchLocation && (
+                  <button
+                    type="button"
+                    onClick={onOpenSwitchLocation}
+                    className="ml-1 text-[9px] font-mono uppercase text-[#FACC15] bg-[#FACC15]/10 hover:bg-[#FACC15]/20 px-2 py-0.5 rounded-full border border-[#FACC15]/25 cursor-pointer transition-colors"
+                    title="Switch or Add Studio Locations"
+                  >
+                    Switch Location
+                  </button>
+                )}
+              </div>
 
-            <p className="text-xs sm:text-sm text-[#A1A1AA] max-w-2xl leading-relaxed font-light">
-              {salon.branch} • Active center control panel. Monitor live styling chairs, real-time POS collections, and staff yield.
-            </p>
+              {/* 7-Day Trial Status Pill */}
+              {salon.subscriptionStatus === "trial" && (
+                <button
+                  type="button"
+                  onClick={() => onNavigateTab("subscription")}
+                  className="cursor-pointer bg-[#FACC15]/10 border border-[#FACC15]/25 hover:border-[#FACC15] rounded-full px-3 py-1 flex items-center gap-1.5 transition-colors"
+                  title="7-Day Free Trial Active. Click to view subscription options."
+                >
+                  <span className="w-1.5 h-1.5 rounded-full bg-[#FACC15] animate-ping" />
+                  <span className="text-[11px] font-mono text-[#FACC15] font-semibold">
+                    7-Day Trial: {typeof salon.trialDaysLeft === "number" ? salon.trialDaysLeft : 7}d left
+                  </span>
+                  <ChevronRight className="w-3 h-3 text-[#FACC15]" />
+                </button>
+              )}
+            </div>
           </div>
 
-          <div className="flex flex-wrap items-center gap-3">
-            <button
-              onClick={() => onNavigateTab("frontdesk")}
-              className="px-4 py-2.5 bg-[#151515] hover:bg-[#1C1C1C] text-[#F8FAFC] font-semibold text-xs rounded-xl border border-[#27272A] hover:border-[#FACC15]/50 transition-all flex items-center gap-2 cursor-pointer"
-            >
-              <CheckCircle2 className="w-4 h-4 text-[#10B981]" />
-              <span>Front Desk Counter</span>
-            </button>
-            <button
-              onClick={() => onNavigateTab("pos")}
-              className="px-4 py-2.5 bg-[#FACC15] hover:bg-[#EAB308] text-[#080808] font-bold text-xs uppercase tracking-wider rounded-xl shadow-md transition-all flex items-center gap-2 cursor-pointer"
-            >
-              <Receipt className="w-4 h-4" />
-              <span>Make a Bill</span>
-            </button>
+          {/* Main Salon Title + Action Buttons */}
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
+            <div className="flex items-center gap-4">
+              {(salon.logoUrl || salon.logo) ? (
+                <img
+                  src={salon.logoUrl || salon.logo}
+                  alt={salon.name}
+                  className="w-12 h-12 sm:w-14 sm:h-14 rounded-xl object-cover border border-[#FACC15]/40 shrink-0 bg-[#090909]"
+                />
+              ) : (
+                <div className="w-12 h-12 sm:w-14 sm:h-14 rounded-xl bg-[#FACC15]/10 border border-[#FACC15]/30 flex items-center justify-center text-[#FACC15] font-bold text-lg shrink-0 font-serif">
+                  {salon.name ? salon.name.substring(0, 2).toUpperCase() : "RV"}
+                </div>
+              )}
+
+              <div className="space-y-1">
+                <h1 className="font-serif text-2xl sm:text-3xl font-medium text-[#F8FAFC] tracking-tight">
+                  {salon.name}
+                </h1>
+                <p className="text-xs sm:text-sm text-[#A1A1AA] max-w-2xl leading-relaxed font-light">
+                  {salon.branch} • Active center control panel. Monitor live styling chairs, real-time POS collections, and staff yield.
+                </p>
+              </div>
+            </div>
+
+            <div className="flex flex-wrap items-center gap-3">
+              <button
+                onClick={() => onNavigateTab("frontdesk")}
+                className="px-4 py-2.5 bg-[#151515] hover:bg-[#1C1C1C] text-[#F8FAFC] font-semibold text-xs rounded-xl border border-[#27272A] hover:border-[#FACC15]/50 transition-all flex items-center gap-2 cursor-pointer"
+              >
+                <CheckCircle2 className="w-4 h-4 text-[#10B981]" />
+                <span>Front Desk Counter</span>
+              </button>
+              <button
+                onClick={() => onNavigateTab("pos")}
+                className="px-4 py-2.5 bg-[#FACC15] hover:bg-[#EAB308] text-[#080808] font-bold text-xs uppercase tracking-wider rounded-xl shadow-md transition-all flex items-center gap-2 cursor-pointer"
+              >
+                <Receipt className="w-4 h-4" />
+                <span>Quick POS Bill</span>
+              </button>
+            </div>
           </div>
         </div>
       </div>

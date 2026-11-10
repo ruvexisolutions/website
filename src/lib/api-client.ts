@@ -342,6 +342,17 @@ export const RuvexiApi = {
       method: "POST",
       body: JSON.stringify(data),
     }),
+  createAutoVerifyQr: (data: { amount: number; invoiceNumber: string }) =>
+    request<any>("/payments/create-auto-verify-qr", {
+      method: "POST",
+      body: JSON.stringify(data),
+    }),
+  pollPaymentStatus: (referenceId: string, invoiceId?: string) =>
+    request<any>(
+      `/payments/poll-status/${encodeURIComponent(referenceId)}${
+        invoiceId ? `?invoice_id=${encodeURIComponent(invoiceId)}` : ""
+      }`
+    ),
   confirmPayment: (
     invoiceId: string,
     data: {

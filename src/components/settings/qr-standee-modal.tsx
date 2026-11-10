@@ -21,15 +21,21 @@ export function QRStandeeGeneratorModal({ salon, onClose }: QRStandeeGeneratorMo
   const [bookingQr, setBookingQr] = useState<string>("");
   const [reviewQr, setReviewQr] = useState<string>("");
 
-  const upiId = salon.upiId || "ruvexi.atelier@icici";
+  const upiId = (salon.upiId || "").trim();
   const payee = salon.upiPayeeName || salon.name;
-  const bookingUrl = `https://ruvexisolutions.com/book/${salon.slug || "flagship"}`;
-  const googleReviewUrl = `https://search.google.com/local/writereview?placeid=${salon.slug || "ruvexi"}`;
+  const siteOrigin =
+    typeof window !== "undefined" ? window.location.origin : "https://ruvexi.netlify.app";
+  const bookingUrl = `${siteOrigin}/book/${salon.slug || "flagship"}`;
+  const googleReviewUrl = `https://www.google.com/search?q=${encodeURIComponent(`${salon.name} ${salon.city || ""} reviews`)}`;
 
   useEffect(() => {
-    // 1. Generate UPI Payment QR
-    const upiIntent = `upi://pay?pa=${encodeURIComponent(upiId)}&pn=${encodeURIComponent(payee)}&cu=INR`;
-    QRCode.toDataURL(upiIntent, { width: 300, margin: 1 }).then(setUpiQr);
+    // 1. Generate UPI Payment QR ONLY when a real merchant VPA is configured
+    if (upiId) {
+      const upiIntent = `upi://pay?pa=${encodeURIComponent(upiId)}&pn=${encodeURIComponent(payee)}&cu=INR`;
+      QRCode.toDataURL(upiIntent, { width: 300, margin: 1 }).then(setUpiQr);
+    } else {
+      setUpiQr("");
+    }
 
     // 2. Generate Booking QR
     QRCode.toDataURL(bookingUrl, { width: 300, margin: 1 }).then(setBookingQr);
@@ -43,8 +49,8 @@ export function QRStandeeGeneratorModal({ salon, onClose }: QRStandeeGeneratorMo
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/85 backdrop-blur-md p-4 overflow-y-auto animate-in fade-in">
-      <div className="bg-[#101010] border border-[#27272A] rounded-2xl max-w-2xl w-full p-6 shadow-2xl space-y-6 animate-in zoom-in-95 my-8">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/85 backdrop-blur-md p-4 animate-in fade-in">
+      <div className="bg-[#101010] border border-[#27272A] rounded-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto p-6 shadow-2xl space-y-6 animate-in zoom-in-95">
         {/* Modal Header */}
         <div className="flex items-center justify-between pb-4 border-b border-[#27272A]">
           <div>
@@ -91,7 +97,9 @@ export function QRStandeeGeneratorModal({ salon, onClose }: QRStandeeGeneratorMo
               {upiQr ? (
                 <img src={upiQr} alt="UPI Payment QR" className="w-40 h-40 object-contain mx-auto" />
               ) : (
-                <div className="w-40 h-40 bg-slate-100 flex items-center justify-center text-xs text-black">Generating...</div>
+                <div className="w-40 h-40 bg-slate-100 flex items-center justify-center text-[11px] font-bold text-slate-700 px-3 text-center">
+                  {upiId ? "Generating..." : "Set Business UPI ID in Settings"}
+                </div>
               )}
             </div>
 
@@ -100,7 +108,7 @@ export function QRStandeeGeneratorModal({ salon, onClose }: QRStandeeGeneratorMo
                 Scan to Pay Any UPI App
               </span>
               <p className="text-[10px] text-[#71717A] font-mono">
-                Google Pay • PhonePe • Paytm • BHIM ({upiId})
+                {upiId ? `Google Pay • PhonePe • Paytm • BHIM (${upiId})` : "Configure your Salon Business UPI ID first"}
               </p>
             </div>
 

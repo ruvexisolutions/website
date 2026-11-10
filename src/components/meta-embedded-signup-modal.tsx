@@ -1,6 +1,7 @@
-﻿"use client";
+"use client";
 
 import React, { useState } from "react";
+import { RuvexiApi } from "@/lib/api-client";
 import {
   CheckCircle2,
   ShieldCheck,
@@ -54,38 +55,28 @@ export function MetaEmbeddedSignupModal({
   const handleVerifyOtp = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsVerifying(true);
-    const token = typeof window !== "undefined" ? localStorage.getItem("Ruvexi_token") : null;
     const metaAppId = process.env.NEXT_PUBLIC_META_APP_ID;
 
     if (!metaAppId) {
-      setTestStatus("Meta App ID is not configured. Please use Manual Configuration tab to enter your Meta Phone Number ID and System Access Token.");
+      setTestStatus("Meta App ID is not configured. Please use Manual Configuration to enter your Meta Phone Number ID and System Access Token.");
       setIsVerifying(false);
       return;
     }
 
     try {
-      // Call backend with real Meta embedded signup authorization code
-      const res = await fetch("/api/v1/whatsapp/embedded-signup", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          ...(token ? { Authorization: `Bearer ${token}` } : {})
-        },
-        body: JSON.stringify({
-          code: otpInput,
-          displayNumber: displayPhone,
-          verifiedName: businessName,
-        }),
+      const data = await RuvexiApi.embeddedSignupWhatsApp({
+        code: otpInput,
+        displayNumber: displayPhone,
+        verifiedName: businessName,
       });
-      const data = await res.json();
-      if (res.ok && data.success) {
+      if (data?.success) {
         onSuccess(data.salon || {});
         setStep(4);
       } else {
-        setTestStatus(data.detail || data.error || "Meta verification failed.");
+        setTestStatus(data?.detail || data?.error || "Meta verification failed.");
       }
     } catch (err: any) {
-      setTestStatus(err.message || "Failed to reach backend.");
+      setTestStatus(err?.message || "Failed to reach backend.");
     } finally {
       setIsVerifying(false);
     }
@@ -94,30 +85,21 @@ export function MetaEmbeddedSignupModal({
   const handleSendTestMessage = async () => {
     setIsSendingTest(true);
     setTestStatus(null);
-    const token = typeof window !== "undefined" ? localStorage.getItem("Ruvexi_token") : null;
     try {
-      const res = await fetch("/api/v1/whatsapp/send-bill", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          ...(token ? { Authorization: `Bearer ${token}` } : {})
-        },
-        body: JSON.stringify({
-          customerPhone: testRecipient,
-          customerName: "Salon Owner Test",
-          invoiceNumber: "TEST-001",
-          totalAmount: 1200.0,
-          items: [{ name: "Signature Hair Sculpting & Wash", price: 1200 }],
-        }),
+      const data = await RuvexiApi.sendWhatsAppBill({
+        customerPhone: testRecipient,
+        customerName: "Salon Owner Test",
+        invoiceNumber: "TEST-001",
+        totalAmount: 1200.0,
+        items: [{ name: "Signature Hair Sculpting & Wash", price: 1200 }],
       });
-      const data = await res.json();
-      if (data.success) {
+      if (data?.success) {
         setTestStatus("✅ Test bill delivered to " + testRecipient + " from " + businessName + "!");
       } else {
-        setTestStatus("❌ Message delivery not sent: " + (data.error || data.detail || "WhatsApp not connected"));
+        setTestStatus("❌ Message delivery not sent: " + (data?.error || data?.message || data?.detail || "WhatsApp not connected"));
       }
     } catch (err: any) {
-      setTestStatus("❌ Error: " + (err.message || "Failed to dispatch test message."));
+      setTestStatus("❌ Error: " + (err?.message || "Failed to dispatch test message."));
     } finally {
       setIsSendingTest(false);
     }

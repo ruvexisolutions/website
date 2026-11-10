@@ -1,11 +1,12 @@
-﻿"use client";
+"use client";
 
 import React, { useState, useEffect } from "react";
+import QRCode from "qrcode";
+import { RuvexiApi } from "@/lib/api-client";
 import { formatCurrency } from "@/lib/utils";
 import { playPaymentAlertSound } from "@/lib/audio-alerts";
 import {
   QrCode,
-  ShieldCheck,
   CheckCircle2,
   Copy,
   Check,
@@ -13,14 +14,10 @@ import {
   ExternalLink,
   RefreshCw,
   Clock,
-  Sparkles,
-  Smartphone,
   Lock,
   X,
-  CreditCard,
-  Banknote,
   AlertCircle,
-  Volume2
+  ShieldAlert,
 } from "lucide-react";
 
 interface UpiCounterQrModalProps {
@@ -65,59 +62,93 @@ export function UpiCounterQrModal({
 }: UpiCounterQrModalProps) {
   const [activeTab, setActiveTab] = useState<"qr" | "bank">("qr");
   const [loading, setLoading] = useState<boolean>(true);
-  const [qrSvgUrl, setQrSvgUrl] = useState<string>("");
+  const [qrDataUrl, setQrDataUrl] = useState<string>("");
   const [upiIntent, setUpiIntent] = useState<string>("");
-  const [merchantVpa, setMerchantVpa] = useState<string>(upiId);
+  const [merchantVpa, setMerchantVpa] = useState<string>((upiId || "").trim());
+  const [gatewayQrId, setGatewayQrId] = useState<string>("");
+  const [isAutoPolling, setIsAutoPolling] = useState<boolean>(false);
   const [copiedUpi, setCopiedUpi] = useState<boolean>(false);
   const [copiedField, setCopiedField] = useState<string | null>(null);
-  const [timeLeft, setTimeLeft] = useState<number>(300); // 5 minutes session
+  const [timeLeft, setTimeLeft] = useState<number>(300);
+  const [staffConfirmedFunds, setStaffConfirmedFunds] = useState<boolean>(false);
   const [isVerifying, setIsVerifying] = useState<boolean>(false);
   const [manualUtr, setManualUtr] = useState<string>("");
+  const [errorBanner, setErrorBanner] = useState<string | null>(null);
   const [paymentState, setPaymentState] = useState<"pending" | "success" | "failed">("pending");
   const [confirmedRef, setConfirmedRef] = useState<string>("");
 
-  // Fetch or generate dynamic UPI QR code
+  const cleanConfiguredVpa = (upiId || "").trim();
+  const hasBankDetails = Boolean(bankDetails?.accountNumber?.trim() && bankDetails?.ifsc?.trim());
+
   const fetchQrCode = async () => {
     setLoading(true);
     setPaymentState("pending");
-    try {
-      const res = await fetch("/api/v1/payments/generate-upi-qr", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          amount,
-          invoiceNumber,
-          salonName,
-          merchantVpa: upiId,
-        }),
-      });
+    setStaffConfirmedFunds(false);
+    setErrorBanner(null);
+    setGatewayQrId("");
+    setIsAutoPolling(false);
 
-      if (res.ok) {
-        const data = await res.json();
-        setQrSvgUrl(data.qr_svg_url);
-        setUpiIntent(data.upi_intent);
-        setMerchantVpa(data.merchant_vpa || upiId);
-      } else {
-        // Deterministic fallback if backend offline
-        const targetVpa = upiId || "Ruvexi.pos@icici";
+    if (!cleanConfiguredVpa) {
+      setQrDataUrl("");
+      setUpiIntent("");
+      setMerchantVpa("");
+      setLoading(false);
+      return;
+    }
+
+    try {
+      // 1. Check if Razorpay zero-webhook polling QR is available on server
+      try {
+        const autoRes = await RuvexiApi.createAutoVerifyQr({ amount, invoiceNumber });
+        if (autoRes?.auto_verify_supported && autoRes?.qr_id && autoRes?.image_url) {
+          setGatewayQrId(autoRes.qr_id);
+          setIsAutoPolling(true);
+          setQrDataUrl(autoRes.image_url);
+          setMerchantVpa(cleanConfiguredVpa);
+          setLoading(false);
+          setTimeLeft(300);
+          return;
+        }
+      } catch {
+        // Direct VPA flow below
+      }
+
+      // 2. Ask authenticated backend for verified VPA intent, or construct locally for salon's configured VPA
+      let targetVpa = cleanConfiguredVpa;
+      let intent = "";
+      let serverQr = "";
+
+      try {
+        const res = await RuvexiApi.generateUpiQr({ amount, invoiceNumber });
+        if (res?.merchantVpa) targetVpa = res.merchantVpa;
+        if (res?.upiIntent) intent = res.upiIntent;
+        if (res?.qrDataUrl) serverQr = res.qrDataUrl;
+      } catch {
+        // Fallback strictly uses the salon's own configured VPA — never a hardcoded demo VPA
+      }
+
+      if (!intent) {
         const amtStr = amount.toFixed(2);
         const encodedName = encodeURIComponent(salonName);
         const note = encodeURIComponent(`Invoice ${invoiceNumber}`);
-        const intent = `upi://pay?pa=${targetVpa}&pn=${encodedName}&tr=${invoiceNumber}&am=${amtStr}&cu=INR&tn=${note}`;
-        setUpiIntent(intent);
-        setMerchantVpa(targetVpa);
-        setQrSvgUrl(`https://api.qrserver.com/v1/create-qr-code/?size=300x300&margin=10&data=${encodeURIComponent(intent)}`);
+        intent = `upi://pay?pa=${encodeURIComponent(targetVpa)}&pn=${encodedName}&tr=${encodeURIComponent(invoiceNumber)}&am=${amtStr}&cu=INR&tn=${note}`;
       }
-    } catch (err) {
-      console.warn("Using offline UPI intent generator:", err);
-      const targetVpa = upiId || "Ruvexi.pos@icici";
-      const amtStr = amount.toFixed(2);
-      const encodedName = encodeURIComponent(salonName);
-      const note = encodeURIComponent(`Invoice ${invoiceNumber}`);
-      const intent = `upi://pay?pa=${targetVpa}&pn=${encodedName}&tr=${invoiceNumber}&am=${amtStr}&cu=INR&tn=${note}`;
-      setUpiIntent(intent);
+
       setMerchantVpa(targetVpa);
-      setQrSvgUrl(`https://api.qrserver.com/v1/create-qr-code/?size=300x300&margin=10&data=${encodeURIComponent(intent)}`);
+      setUpiIntent(intent);
+
+      if (serverQr) {
+        setQrDataUrl(serverQr);
+      } else {
+        const generated = await QRCode.toDataURL(intent, {
+          width: 280,
+          margin: 1,
+          color: { dark: "#000000", light: "#FFFFFF" },
+        });
+        setQrDataUrl(generated);
+      }
+    } catch (err: any) {
+      setErrorBanner(err?.message || "Failed to generate UPI QR.");
     } finally {
       setLoading(false);
       setTimeLeft(300);
@@ -131,10 +162,32 @@ export function UpiCounterQrModal({
     }
   }, [isOpen, amount, invoiceNumber, upiId]);
 
-  // Countdown timer with automatic timeout detection & alert chime
+  // Zero-webhook server polling (runs every 3s ONLY when a gateway single-use QR is active)
   useEffect(() => {
-    if (!isOpen || timeLeft <= 0 || paymentState !== "pending") {
-      if (timeLeft === 0 && paymentState === "pending") {
+    if (!isOpen || !isAutoPolling || !gatewayQrId || paymentState !== "pending") return;
+
+    const poller = setInterval(async () => {
+      try {
+        const pollRes = await RuvexiApi.pollPaymentStatus(gatewayQrId);
+        if (pollRes?.paid) {
+          const ref = pollRes.utr || pollRes.payment_id || gatewayQrId;
+          setConfirmedRef(ref);
+          setPaymentState("success");
+          setIsAutoPolling(false);
+          playPaymentAlertSound("success");
+        }
+      } catch {
+        // Ignore transient poll glitches
+      }
+    }, 3000);
+
+    return () => clearInterval(poller);
+  }, [isOpen, isAutoPolling, gatewayQrId, paymentState]);
+
+  // Countdown timer
+  useEffect(() => {
+    if (!isOpen || timeLeft <= 0 || paymentState !== "pending" || !cleanConfiguredVpa) {
+      if (timeLeft === 0 && paymentState === "pending" && cleanConfiguredVpa) {
         setPaymentState("failed");
         playPaymentAlertSound("failure");
       }
@@ -151,7 +204,7 @@ export function UpiCounterQrModal({
       });
     }, 1000);
     return () => clearInterval(interval);
-  }, [isOpen, timeLeft, paymentState]);
+  }, [isOpen, timeLeft, paymentState, cleanConfiguredVpa]);
 
   if (!isOpen) return null;
 
@@ -162,6 +215,7 @@ export function UpiCounterQrModal({
   };
 
   const handleCopyUpi = () => {
+    if (!merchantVpa) return;
     navigator.clipboard.writeText(merchantVpa);
     setCopiedUpi(true);
     setTimeout(() => setCopiedUpi(false), 2500);
@@ -174,6 +228,12 @@ export function UpiCounterQrModal({
   };
 
   const handleConfirmPayment = () => {
+    setErrorBanner(null);
+    if (!staffConfirmedFunds) {
+      setErrorBanner("Please verify funds arrived in the salon's UPI / Bank app and check the confirmation box.");
+      return;
+    }
+
     setIsVerifying(true);
     const txnRef = manualUtr.trim() || `UPI-${Date.now().toString().slice(-8)}`;
     setConfirmedRef(txnRef);
@@ -181,25 +241,14 @@ export function UpiCounterQrModal({
     setTimeout(() => {
       setIsVerifying(false);
       setPaymentState("success");
-      // Instant receptionist Soundbox chime
       playPaymentAlertSound("success");
-
-      // Auto-settle after 2 seconds or allow manual close
-      setTimeout(() => {
-        onPaymentSuccess({
-          paymentMethod: activeTab === "qr" ? "UPI / Dynamic QR" : "Bank Transfer / IMPS",
-          transactionRef: txnRef,
-          paidAmount: amount,
-        });
-        onClose();
-      }, 2200);
-    }, 500);
+    }, 250);
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/85 backdrop-blur-md p-3 sm:p-5 overflow-y-auto animate-in fade-in duration-200">
-      <div className="relative w-full max-w-lg bg-[#101010] text-[#F8FAFC] rounded-3xl shadow-2xl border border-[#27272A] overflow-hidden my-auto flex flex-col">
-        {/* Countertop Obsidian Top Bar */}
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/85 backdrop-blur-md p-3 sm:p-5 animate-in fade-in duration-200">
+      <div className="relative w-full max-w-lg max-h-[90vh] overflow-y-auto bg-[#101010] text-[#F8FAFC] rounded-3xl shadow-2xl border border-[#27272A] flex flex-col">
+        {/* Countertop Header */}
         <div className="flex items-center justify-between px-5 py-4 bg-[#080808] border-b border-[#27272A]">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-2xl bg-[#FACC15]/10 border border-[#FACC15]/25 flex items-center justify-center text-[#FACC15]">
@@ -211,7 +260,7 @@ export function UpiCounterQrModal({
                   Dynamic UPI Payment Terminal
                 </h3>
                 <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-[#FACC15]/15 text-[#FACC15] border border-[#FACC15]/30">
-                  NPCI Certified
+                  {isAutoPolling ? "Auto-Polling" : "Direct UPI QR"}
                 </span>
               </div>
               <p className="text-[11px] text-[#A1A1AA]">
@@ -227,7 +276,7 @@ export function UpiCounterQrModal({
           </button>
         </div>
 
-        {/* Tab Selector: Dynamic QR vs Direct Bank Transfer */}
+        {/* Tab Selector */}
         <div className="flex border-b border-[#27272A] bg-[#080808] p-1.5 gap-1.5">
           <button
             type="button"
@@ -239,7 +288,7 @@ export function UpiCounterQrModal({
             }`}
           >
             <QrCode className="w-3.5 h-3.5" />
-            <span>Dynamic UPI QR (Scan & Pay)</span>
+            <span>Dynamic UPI QR</span>
           </button>
           <button
             type="button"
@@ -258,21 +307,19 @@ export function UpiCounterQrModal({
         {/* Modal Body */}
         <div className="p-5 space-y-4">
           {paymentState === "success" ? (
-            /* SUCCESS NOTICE: SOUNDBOX AUDIO CHIME + CELEBRATION */
             <div className="py-6 px-4 flex flex-col items-center text-center space-y-4 animate-in zoom-in-95 duration-200">
-              <div className="w-20 h-20 rounded-full bg-emerald-500/20 border-2 border-emerald-400 flex items-center justify-center text-emerald-400 shadow-xl shadow-emerald-500/25 animate-bounce">
+              <div className="w-20 h-20 rounded-full bg-emerald-500/20 border-2 border-emerald-400 flex items-center justify-center text-emerald-400 shadow-xl shadow-emerald-500/25">
                 <CheckCircle2 className="w-10 h-10" />
               </div>
               <div>
-                <span className="text-[11px] font-mono uppercase tracking-widest text-emerald-400 font-bold flex items-center justify-center gap-1.5">
-                  <Volume2 className="w-3.5 h-3.5 animate-pulse" />
-                  Soundbox Payment Confirmed
+                <span className="text-[11px] font-mono uppercase tracking-widest text-emerald-400 font-bold">
+                  {isAutoPolling ? "Gateway Poll Verified" : "Staff Verified Receipt"}
                 </span>
                 <h3 className="text-3xl font-serif font-black text-white mt-1">
                   {formatCurrency(amount)}
                 </h3>
                 <p className="text-xs text-[#A1A1AA] mt-1">
-                  Credited directly to {salonName} • Ref: {confirmedRef}
+                  Credited to {salonName} • Ref: {confirmedRef}
                 </p>
               </div>
 
@@ -283,12 +330,8 @@ export function UpiCounterQrModal({
                 </div>
                 <div className="flex items-center justify-between text-[#A1A1AA]">
                   <span>Payment Tender:</span>
-                  <span className="text-emerald-400 font-bold">{activeTab === "qr" ? "Direct Countertop UPI" : "Bank Transfer"}</span>
-                </div>
-                <div className="flex items-center justify-between text-[#A1A1AA]">
-                  <span>WhatsApp Receipt:</span>
-                  <span className="text-sky-400 font-semibold flex items-center gap-1">
-                    <Check className="w-3.5 h-3.5 text-sky-400" /> Automated Dispatch Sent
+                  <span className="text-emerald-400 font-bold">
+                    {activeTab === "qr" ? "UPI / Dynamic QR" : "Bank Transfer"}
                   </span>
                 </div>
               </div>
@@ -305,24 +348,23 @@ export function UpiCounterQrModal({
                 }}
                 className="w-full py-3.5 rounded-xl bg-emerald-500 hover:bg-emerald-600 text-slate-950 font-extrabold text-xs uppercase tracking-wider transition-all cursor-pointer shadow-lg shadow-emerald-500/20"
               >
-                Close & Print Tax Invoice
+                Complete Bill &amp; Open Invoice
               </button>
             </div>
           ) : paymentState === "failed" ? (
-            /* FAILED / TIMEOUT NOTICE: WARNING BUZZER + RETRY */
             <div className="py-6 px-4 flex flex-col items-center text-center space-y-4 animate-in zoom-in-95 duration-200">
               <div className="w-20 h-20 rounded-full bg-rose-500/20 border-2 border-rose-400 flex items-center justify-center text-rose-400 shadow-xl shadow-rose-500/20">
                 <AlertCircle className="w-10 h-10" />
               </div>
               <div>
                 <span className="text-[11px] font-mono uppercase tracking-widest text-rose-400 font-bold">
-                  Session Expired / Not Received
+                  QR Session Timed Out
                 </span>
                 <h3 className="text-xl font-serif font-bold text-white mt-1">
-                  Payment Verification Timeout
+                  Payment Window Expired
                 </h3>
                 <p className="text-xs text-[#A1A1AA] mt-1 max-w-xs leading-relaxed">
-                  No payment was received in the salon account for {formatCurrency(amount)} within the 5-minute session window.
+                  No confirmation recorded for {formatCurrency(amount)} within the 5-minute window. Generate a fresh QR to retry.
                 </p>
               </div>
 
@@ -343,255 +385,255 @@ export function UpiCounterQrModal({
                   onClick={onClose}
                   className="py-3 px-3 rounded-xl bg-[#181818] hover:bg-[#27272A] text-white border border-[#27272A] font-bold text-xs uppercase tracking-wider flex items-center justify-center gap-1.5 transition-all cursor-pointer"
                 >
-                  <span>Select Cash</span>
+                  <span>Close / Cash</span>
                 </button>
               </div>
             </div>
           ) : (
             <>
-              {/* Amount Locked Display Banner */}
-          <div className="bg-[#151515] p-4 rounded-2xl border border-[#27272A] flex items-center justify-between">
-            <div>
-              <span className="text-[11px] font-bold text-[#A1A1AA] block uppercase tracking-wider">
-                {isSplitPayment ? "Remaining UPI Balance (Locked in QR)" : "Total Bill Amount (Locked)"}
-              </span>
-              <div className="text-3xl font-serif font-black text-white font-mono tracking-tight flex items-baseline gap-2 mt-0.5">
-                <span className="text-[#FACC15]">{formatCurrency(amount)}</span>
-                {isSplitPayment && totalBillAmount && (
-                  <span className="text-xs text-[#A1A1AA] font-normal">
-                    (Total Bill: {formatCurrency(totalBillAmount)})
+              {/* Amount Locked Banner */}
+              <div className="bg-[#151515] p-4 rounded-2xl border border-[#27272A] flex items-center justify-between">
+                <div>
+                  <span className="text-[11px] font-bold text-[#A1A1AA] block uppercase tracking-wider">
+                    {isSplitPayment ? "Remaining UPI Balance (Locked)" : "Total Payable Amount (Locked)"}
                   </span>
-                )}
-              </div>
-              <div className="text-[11px] text-[#A1A1AA] flex flex-wrap items-center gap-2 mt-1">
-                <span>Client: <b className="text-[#F8FAFC]">{customerName}</b> {customerPhone ? `(${customerPhone})` : ""}</span>
-                {isSplitPayment && cashCollected !== undefined && (
-                  <span className="px-2 py-0.5 rounded-md bg-purple-500/20 text-purple-300 border border-purple-500/30 font-bold">
-                    💵 Cash Received: {formatCurrency(cashCollected)}
-                  </span>
-                )}
-              </div>
-            </div>
-            <div className="text-right">
-              <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-xl bg-[#FACC15]/10 border border-[#FACC15]/30 text-[#FACC15] text-[11px] font-bold">
-                <Lock className="w-3 h-3" /> Locked
-              </span>
-              <div className="text-[10px] text-[#71717A] mt-1 font-mono">
-                {isSplitPayment ? "Split QR" : "No manual edit"}
-              </div>
-            </div>
-          </div>
-
-          {activeTab === "qr" ? (
-            /* Tab 1: Dynamic Countertop UPI QR */
-            <div className="space-y-4">
-              {/* QR Container */}
-              <div className="relative mx-auto w-64 h-64 bg-white rounded-3xl p-4 shadow-2xl flex flex-col items-center justify-center border-4 border-slate-700">
-                {loading ? (
-                  <div className="flex flex-col items-center gap-3">
-                    <RefreshCw className="w-8 h-8 text-blue-600 animate-spin" />
-                    <span className="text-xs font-bold text-slate-600">Generating Secure UPI QR...</span>
+                  <div className="text-3xl font-serif font-black text-white font-mono tracking-tight flex items-baseline gap-2 mt-0.5">
+                    <span className="text-[#FACC15]">{formatCurrency(amount)}</span>
+                    {isSplitPayment && totalBillAmount && (
+                      <span className="text-xs text-[#A1A1AA] font-normal">
+                        (Total: {formatCurrency(totalBillAmount)})
+                      </span>
+                    )}
                   </div>
-                ) : qrSvgUrl ? (
-                  <>
-                    <img
-                      src={qrSvgUrl}
-                      alt="Dynamic UPI QR Code"
-                      className="w-full h-full object-contain rounded-xl"
-                    />
-                    {/* Salon Logo or Watermark overlay */}
-                    <div className="absolute inset-0 pointer-events-none flex items-center justify-center">
-                      <div className="w-10 h-10 rounded-xl bg-white shadow-lg border border-slate-200 flex items-center justify-center p-1">
-                        <span className="text-xs font-black text-blue-700">BC</span>
+                  <div className="text-[11px] text-[#A1A1AA] flex flex-wrap items-center gap-2 mt-1">
+                    <span>Client: <b className="text-[#F8FAFC]">{customerName}</b> {customerPhone ? `(${customerPhone})` : ""}</span>
+                    {isSplitPayment && cashCollected !== undefined && (
+                      <span className="px-2 py-0.5 rounded-md bg-purple-500/20 text-purple-300 border border-purple-500/30 font-bold">
+                        Cash: {formatCurrency(cashCollected)}
+                      </span>
+                    )}
+                  </div>
+                </div>
+                <div className="text-right">
+                  <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-xl bg-[#FACC15]/10 border border-[#FACC15]/30 text-[#FACC15] text-[11px] font-bold">
+                    <Lock className="w-3 h-3" /> Locked
+                  </span>
+                </div>
+              </div>
+
+              {errorBanner && (
+                <div className="p-3 bg-rose-500/10 border border-rose-500/30 rounded-xl text-xs text-rose-300 flex items-start gap-2">
+                  <AlertCircle className="w-4 h-4 shrink-0 mt-0.5 text-rose-400" />
+                  <span>{errorBanner}</span>
+                </div>
+              )}
+
+              {activeTab === "qr" ? (
+                !cleanConfiguredVpa ? (
+                  <div className="p-5 bg-amber-500/10 border border-amber-500/30 rounded-2xl text-center space-y-2.5">
+                    <ShieldAlert className="w-8 h-8 text-amber-400 mx-auto" />
+                    <h4 className="text-sm font-bold text-[#F8FAFC]">Business UPI ID Not Configured</h4>
+                    <p className="text-xs text-amber-200/80 leading-relaxed">
+                      For your protection, UPI QRs are disabled until the Salon Manager enters your real Business UPI ID in Settings → Payments.
+                    </p>
+                  </div>
+                ) : (
+                  <div className="space-y-4">
+                    {/* QR Container */}
+                    <div className="relative mx-auto w-60 h-60 bg-white rounded-3xl p-4 shadow-2xl flex flex-col items-center justify-center border-4 border-[#27272A]">
+                      {loading ? (
+                        <div className="flex flex-col items-center gap-3">
+                          <RefreshCw className="w-8 h-8 text-[#080808] animate-spin" />
+                          <span className="text-xs font-bold text-slate-600">Generating Secure UPI QR...</span>
+                        </div>
+                      ) : qrDataUrl ? (
+                        <img
+                          src={qrDataUrl}
+                          alt="Dynamic UPI QR Code"
+                          className="w-full h-full object-contain rounded-xl"
+                        />
+                      ) : (
+                        <div className="text-center p-4">
+                          <AlertCircle className="w-8 h-8 text-rose-500 mx-auto mb-2" />
+                          <p className="text-xs text-slate-600 font-bold">Unable to generate QR</p>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Merchant VPA Box */}
+                    <div className="flex items-center justify-between p-3 bg-[#151515] rounded-2xl border border-[#27272A] text-xs">
+                      <div className="min-w-0">
+                        <span className="text-[10px] text-[#71717A] block font-semibold">Salon Receiving UPI ID:</span>
+                        <span className="font-mono font-bold text-emerald-400 text-xs truncate block">{merchantVpa}</span>
+                      </div>
+                      <div className="flex items-center gap-1.5 shrink-0">
+                        <button
+                          type="button"
+                          onClick={handleCopyUpi}
+                          className="px-2.5 py-1.5 rounded-xl bg-[#181818] hover:bg-[#27272A] text-[#F8FAFC] border border-[#27272A] text-[11px] font-bold flex items-center gap-1 transition-colors cursor-pointer"
+                        >
+                          {copiedUpi ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
+                          <span>{copiedUpi ? "Copied" : "Copy ID"}</span>
+                        </button>
+
+                        {upiIntent && (
+                          <a
+                            href={upiIntent}
+                            className="px-2.5 py-1.5 rounded-xl bg-[#FACC15]/15 hover:bg-[#FACC15]/25 text-[#FACC15] border border-[#FACC15]/30 text-[11px] font-bold flex items-center gap-1 transition-colors"
+                          >
+                            <ExternalLink className="w-3.5 h-3.5" />
+                            <span>App</span>
+                          </a>
+                        )}
                       </div>
                     </div>
-                  </>
-                ) : (
-                  <div className="text-center p-4">
-                    <AlertCircle className="w-8 h-8 text-rose-500 mx-auto mb-2" />
-                    <p className="text-xs text-slate-600 font-bold">Failed to load QR</p>
+
+                    {/* Countdown & Auto-Poll Status */}
+                    <div className="flex items-center justify-between text-xs text-[#A1A1AA] px-1">
+                      <span className="flex items-center gap-1.5 font-mono text-[11px]">
+                        <Clock className="w-3.5 h-3.5 text-amber-400" />
+                        {isAutoPolling ? "Auto-checking gateway status • " : "Session expires in: "}
+                        <b className={timeLeft < 60 ? "text-rose-400" : "text-[#F8FAFC]"}>
+                          {formatTimer(timeLeft)}
+                        </b>
+                      </span>
+                      <button
+                        type="button"
+                        onClick={fetchQrCode}
+                        className="text-[11px] text-[#FACC15] hover:underline font-semibold flex items-center gap-1 cursor-pointer"
+                      >
+                        <RefreshCw className="w-3 h-3" /> Refresh QR
+                      </button>
+                    </div>
                   </div>
-                )}
-              </div>
-
-              {/* Supported UPI App Badges */}
-              <div className="flex items-center justify-center gap-2 flex-wrap text-[11px] font-semibold text-slate-300">
-                <span className="px-2.5 py-1 rounded-lg bg-slate-900 border border-slate-800 flex items-center gap-1">
-                  🟢 Google Pay
-                </span>
-                <span className="px-2.5 py-1 rounded-lg bg-slate-900 border border-slate-800 flex items-center gap-1">
-                  🟣 PhonePe
-                </span>
-                <span className="px-2.5 py-1 rounded-lg bg-slate-900 border border-slate-800 flex items-center gap-1">
-                  🔵 Paytm
-                </span>
-                <span className="px-2.5 py-1 rounded-lg bg-slate-900 border border-slate-800 flex items-center gap-1">
-                  ⚫ CRED / BHIM
-                </span>
-              </div>
-
-              {/* Merchant UPI ID Box */}
-              <div className="flex items-center justify-between p-3 bg-slate-900/90 rounded-2xl border border-slate-800 text-xs">
-                <div>
-                  <span className="text-[10px] text-slate-400 block font-semibold">Salon Verified UPI ID:</span>
-                  <span className="font-mono font-bold text-emerald-400 text-xs">{merchantVpa}</span>
+                )
+              ) : !hasBankDetails ? (
+                <div className="p-5 bg-[#151515] border border-[#27272A] rounded-2xl text-center space-y-2">
+                  <Building2 className="w-7 h-7 text-[#71717A] mx-auto" />
+                  <p className="text-xs font-bold text-[#F8FAFC]">Bank Account Details Not Configured</p>
+                  <p className="text-[11px] text-[#71717A]">
+                    Add your salon&apos;s Bank Account Number and IFSC in Settings to display IMPS/NEFT details here.
+                  </p>
                 </div>
-                <div className="flex items-center gap-1.5">
-                  <button
-                    type="button"
-                    onClick={handleCopyUpi}
-                    className="px-2.5 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 text-[11px] font-bold flex items-center gap-1 transition-colors cursor-pointer"
-                  >
-                    {copiedUpi ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
-                    <span>{copiedUpi ? "Copied" : "Copy ID"}</span>
-                  </button>
-
-                  {upiIntent && (
-                    <a
-                      href={upiIntent}
-                      className="px-2.5 py-1.5 rounded-xl bg-blue-600/30 hover:bg-blue-600/50 text-blue-400 border border-blue-500/30 text-[11px] font-bold flex items-center gap-1 transition-colors"
-                      title="Open in UPI App on this device"
-                    >
-                      <ExternalLink className="w-3.5 h-3.5" />
-                      <span>App</span>
-                    </a>
-                  )}
-                </div>
-              </div>
-
-              {/* Countdown & Refresh */}
-              <div className="flex items-center justify-between text-xs text-slate-400 px-1">
-                <span className="flex items-center gap-1.5 font-mono text-[11px]">
-                  <Clock className="w-3.5 h-3.5 text-amber-400" />
-                  QR expires in:{" "}
-                  <b className={timeLeft < 60 ? "text-rose-400" : "text-slate-200"}>
-                    {formatTimer(timeLeft)}
-                  </b>
-                </span>
-                <button
-                  type="button"
-                  onClick={fetchQrCode}
-                  className="text-[11px] text-sky-400 hover:text-sky-300 font-semibold flex items-center gap-1 cursor-pointer"
-                >
-                  <RefreshCw className="w-3 h-3" /> Refresh QR
-                </button>
-              </div>
-            </div>
-          ) : (
-            /* Tab 2: Direct Bank Account Transfer (IMPS / NEFT / RTGS) */
-            <div className="space-y-3">
-              <div className="p-3 bg-blue-950/40 rounded-2xl border border-blue-900/50 text-xs text-blue-300">
-                💡 Useful for bridal packages or high-value bills above standard UPI limits. Direct settlement to salon bank account.
-              </div>
-
-              <div className="space-y-2 text-xs">
-                {/* Account Name */}
-                <div className="p-3 bg-slate-900/90 rounded-2xl border border-slate-800 flex items-center justify-between">
-                  <div>
-                    <span className="text-[10px] text-slate-400 block font-semibold">Account Holder Name</span>
-                    <span className="font-bold text-slate-100">{bankDetails?.accountName || salonName}</span>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => handleCopyField(bankDetails?.accountName || salonName, "name")}
-                    className="p-1.5 rounded-lg bg-slate-800 text-slate-300 hover:text-white"
-                  >
-                    {copiedField === "name" ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
-                  </button>
-                </div>
-
-                {/* Account Number */}
-                <div className="p-3 bg-slate-900/90 rounded-2xl border border-slate-800 flex items-center justify-between">
-                  <div>
-                    <span className="text-[10px] text-slate-400 block font-semibold">Account Number</span>
-                    <span className="font-mono font-bold text-emerald-400 text-sm">
-                      {bankDetails?.accountNumber || "50200088991122"}
-                    </span>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => handleCopyField(bankDetails?.accountNumber || "50200088991122", "acc")}
-                    className="p-1.5 rounded-lg bg-slate-800 text-slate-300 hover:text-white"
-                  >
-                    {copiedField === "acc" ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
-                  </button>
-                </div>
-
-                {/* IFSC Code & Bank Name */}
-                <div className="grid grid-cols-2 gap-2">
-                  <div className="p-3 bg-slate-900/90 rounded-2xl border border-slate-800 flex items-center justify-between">
+              ) : (
+                <div className="space-y-2.5 text-xs">
+                  <div className="p-3 bg-[#151515] rounded-2xl border border-[#27272A] flex items-center justify-between">
                     <div>
-                      <span className="text-[10px] text-slate-400 block font-semibold">IFSC Code</span>
-                      <span className="font-mono font-bold text-sky-400">{bankDetails?.ifsc || "HDFC0001043"}</span>
+                      <span className="text-[10px] text-[#71717A] block font-semibold">Account Holder Name</span>
+                      <span className="font-bold text-[#F8FAFC]">{bankDetails?.accountName || salonName}</span>
                     </div>
                     <button
                       type="button"
-                      onClick={() => handleCopyField(bankDetails?.ifsc || "HDFC0001043", "ifsc")}
-                      className="p-1.5 rounded-lg bg-slate-800 text-slate-300 hover:text-white"
+                      onClick={() => handleCopyField(bankDetails?.accountName || salonName, "name")}
+                      className="p-1.5 rounded-lg bg-[#181818] text-[#A1A1AA] hover:text-white cursor-pointer"
                     >
-                      {copiedField === "ifsc" ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
+                      {copiedField === "name" ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
                     </button>
                   </div>
 
-                  <div className="p-3 bg-slate-900/90 rounded-2xl border border-slate-800">
-                    <span className="text-[10px] text-slate-400 block font-semibold">Bank & Branch</span>
-                    <span className="font-bold text-slate-200 truncate block">
-                      {bankDetails?.bankName || "HDFC Bank (Indiranagar)"}
-                    </span>
+                  <div className="p-3 bg-[#151515] rounded-2xl border border-[#27272A] flex items-center justify-between">
+                    <div>
+                      <span className="text-[10px] text-[#71717A] block font-semibold">Account Number</span>
+                      <span className="font-mono font-bold text-emerald-400 text-sm">{bankDetails?.accountNumber}</span>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => handleCopyField(bankDetails?.accountNumber || "", "acc")}
+                      className="p-1.5 rounded-lg bg-[#181818] text-[#A1A1AA] hover:text-white cursor-pointer"
+                    >
+                      {copiedField === "acc" ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
+                    </button>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-2">
+                    <div className="p-3 bg-[#151515] rounded-2xl border border-[#27272A] flex items-center justify-between">
+                      <div>
+                        <span className="text-[10px] text-[#71717A] block font-semibold">IFSC Code</span>
+                        <span className="font-mono font-bold text-[#FACC15]">{bankDetails?.ifsc}</span>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => handleCopyField(bankDetails?.ifsc || "", "ifsc")}
+                        className="p-1.5 rounded-lg bg-[#181818] text-[#A1A1AA] hover:text-white cursor-pointer"
+                      >
+                        {copiedField === "ifsc" ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
+                      </button>
+                    </div>
+                    <div className="p-3 bg-[#151515] rounded-2xl border border-[#27272A]">
+                      <span className="text-[10px] text-[#71717A] block font-semibold">Bank &amp; Branch</span>
+                      <span className="font-bold text-[#F8FAFC] truncate block">
+                        {bankDetails?.bankName || "Configured Bank"}
+                      </span>
+                    </div>
                   </div>
                 </div>
-              </div>
-            </div>
-          )}
+              )}
 
-          {/* Optional UTR / Bank Reference Input */}
-          <div className="pt-2 border-t border-[#27272A]">
-            <label className="text-[11px] font-bold text-[#A1A1AA] block mb-1">
-              Bank Ref / UTR / Order Note (Optional)
-            </label>
-            <input
-              type="text"
-              value={manualUtr}
-              onChange={(e) => setManualUtr(e.target.value)}
-              placeholder="e.g. 423489110294 or leave blank for auto-ref"
-              className="w-full px-3 py-2 bg-[#080808] border border-[#27272A] rounded-xl text-xs font-mono text-[#F8FAFC] focus:outline-none focus:border-[#FACC15]"
-            />
-          </div>
+              {(activeTab === "qr" ? Boolean(cleanConfiguredVpa) : hasBankDetails) && (
+                <>
+                  {/* UTR Reference */}
+                  <div className="pt-2 border-t border-[#27272A]">
+                    <label className="text-[11px] font-bold text-[#A1A1AA] block mb-1">
+                      12-Digit UPI UTR / Bank Reference (Recommended)
+                    </label>
+                    <input
+                      type="text"
+                      value={manualUtr}
+                      onChange={(e) => setManualUtr(e.target.value)}
+                      placeholder="e.g. 423489110294 (duplicate UTRs blocked by server)"
+                      className="w-full px-3 py-2 bg-[#080808] border border-[#27272A] rounded-xl text-xs font-mono text-[#F8FAFC] focus:outline-none focus:border-[#FACC15]"
+                    />
+                  </div>
 
-          {/* Confirmation Actions */}
-          <div className="pt-2 space-y-2">
-            <button
-              type="button"
-              onClick={handleConfirmPayment}
-              disabled={isVerifying}
-              className="w-full py-3.5 px-4 bg-gradient-to-r from-[#FACC15] via-[#F0C120] to-[#E5B81D] hover:opacity-95 text-slate-950 font-bold text-sm rounded-2xl shadow-xl shadow-[#FACC15]/20 flex items-center justify-center gap-2 transition-all cursor-pointer transform active:scale-[0.99] disabled:opacity-50"
-            >
-              {isVerifying ? (
-                <>
-                  <RefreshCw className="w-5 h-5 animate-spin" />
-                  <span>Verifying Transaction...</span>
-                </>
-              ) : (
-                <>
-                  <CheckCircle2 className="w-5 h-5 text-slate-950" />
-                  <span>
-                    {isSplitPayment
-                      ? `Confirm Cash (${formatCurrency(cashCollected || 0)}) + UPI (${formatCurrency(amount)}) • Complete Bill`
-                      : `Payment Received • Confirm ${formatCurrency(amount)}`}
-                  </span>
+                  {/* Mandatory Staff Confirmation Checkbox */}
+                  <label className="p-3 bg-amber-500/10 border border-amber-500/30 rounded-xl flex items-start gap-2.5 cursor-pointer text-xs">
+                    <input
+                      type="checkbox"
+                      checked={staffConfirmedFunds}
+                      onChange={(e) => setStaffConfirmedFunds(e.target.checked)}
+                      className="mt-0.5 w-4 h-4 accent-[#FACC15] rounded cursor-pointer shrink-0"
+                    />
+                    <span className="text-amber-100 leading-relaxed">
+                      I have checked the salon&apos;s UPI/Bank app or soundbox and confirm <b>{formatCurrency(amount)}</b> has arrived.
+                    </span>
+                  </label>
+
+                  {/* Actions */}
+                  <div className="pt-1 space-y-2">
+                    <button
+                      type="button"
+                      onClick={handleConfirmPayment}
+                      disabled={isVerifying || !staffConfirmedFunds}
+                      className="w-full py-3.5 px-4 bg-[#FACC15] hover:bg-[#EAB308] disabled:opacity-40 disabled:cursor-not-allowed text-[#080808] font-bold text-xs uppercase tracking-wider rounded-2xl shadow-lg flex items-center justify-center gap-2 transition-all cursor-pointer"
+                    >
+                      {isVerifying ? (
+                        <>
+                          <RefreshCw className="w-4 h-4 animate-spin" />
+                          <span>Confirming...</span>
+                        </>
+                      ) : (
+                        <>
+                          <CheckCircle2 className="w-4 h-4" />
+                          <span>
+                            {isSplitPayment
+                              ? `Confirm Cash (${formatCurrency(cashCollected || 0)}) + UPI (${formatCurrency(amount)})`
+                              : `Confirm ${formatCurrency(amount)} Received`}
+                          </span>
+                        </>
+                      )}
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={onClose}
+                      className="w-full py-2.5 px-3 bg-[#181818] hover:bg-[#27272A] text-[#A1A1AA] hover:text-white font-semibold text-xs rounded-xl border border-[#27272A] transition-all cursor-pointer"
+                    >
+                      Cancel / Switch Payment Method
+                    </button>
+                  </div>
                 </>
               )}
-            </button>
-
-            <button
-              type="button"
-              onClick={onClose}
-              className="w-full py-2.5 px-3 bg-[#181818] hover:bg-[#27272A] text-[#A1A1AA] hover:text-white font-semibold text-xs rounded-xl border border-[#27272A] transition-all cursor-pointer"
-            >
-              Cancel / Select Different Payment Method
-            </button>
-          </div>
-          </>
+            </>
           )}
         </div>
       </div>

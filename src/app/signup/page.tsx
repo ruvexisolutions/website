@@ -91,7 +91,10 @@ export default function SignupPage() {
       }
 
       if (res.success) {
-        router.push("/dashboard");
+        if (typeof window !== "undefined") {
+          localStorage.setItem("Ruvexi_needs_onboarding", "true");
+        }
+        router.push("/overview");
       } else {
         setErrors({ general: res.error || "Failed to create account. Please try again." });
       }
@@ -109,6 +112,9 @@ export default function SignupPage() {
     try {
       const res = await signInWithGoogle();
       if (res.success && res.user && res.salon) {
+        if (res.isNewUser && typeof window !== "undefined") {
+          localStorage.setItem("Ruvexi_needs_onboarding", "true");
+        }
         setSession(res.user, { ...salon, ...res.salon } as any, res.token);
         showToast(`Welcome to RUVEXI, ${res.user.name}!`, "success");
         router.push("/overview");

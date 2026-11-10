@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import React, { useState } from "react";
 import { useRuvexi } from "@/lib/ruvexi-context";
@@ -67,7 +67,7 @@ export function PosView() {
   const isUpiConfigured = Boolean(salon.upiId && salon.upiId.trim());
   const isUpiAvailable = Boolean(isUpiConfigured && (salon.paymentSettings?.upiEnabled ?? (salon as any).upiEnabled ?? false));
 
-  const [paymentMethod, setPaymentMethod] = useState<"CASH" | "UPI" | "WALLET">(isUpiAvailable ? "UPI" : "CASH");
+  const [paymentMethod, setPaymentMethod] = useState<"CASH" | "UPI">(isUpiAvailable ? "UPI" : "CASH");
   const [cashTendered, setCashTendered] = useState<number>(0);
   const [upiQrDataUrl, setUpiQrDataUrl] = useState<string>("");
   const [upiIntentUri, setUpiIntentUri] = useState<string>("");
@@ -142,7 +142,7 @@ export function PosView() {
     preferredStaffId?: string
   ) => {
     const defaultStaff = staff.find((s) => s.status === "clocked_in") || staff[0];
-    const staffId = preferredStaffId || defaultStaff.id;
+    const staffId = preferredStaffId || defaultStaff?.id || "staff_house";
     const staffName = staff.find((s) => s.id === staffId)?.name || "House";
 
     setCart((prev) => {
@@ -265,31 +265,21 @@ export function PosView() {
         return;
       }
 
+      const trimmedUtr = manualUtr.trim();
+      if (trimmedUtr && invoices.some((inv) => (inv.paymentReference || "").toLowerCase() === trimmedUtr.toLowerCase())) {
+        setCheckoutError(`Duplicate UTR / Bank Reference "${trimmedUtr}" detected! This reference has already been used on a previous invoice.`);
+        return;
+      }
+
       finalizeCheckout("UPI", {
         status: "paid",
-        transactionReference: manualUtr.trim() || undefined,
+        transactionReference: trimmedUtr || undefined,
         explicitVerification: true,
-      });
-    } else if (paymentMethod === "WALLET") {
-      if (isWalkIn || !selectedCustomer) {
-        setCheckoutError("Prepaid Wallet payment is only available for registered clients. Please select or register a customer first.");
-        return;
-      }
-      const availableWallet = selectedCustomer.walletBalance || 0;
-      if (availableWallet < grandTotal) {
-        setCheckoutError(`Insufficient wallet balance. Available: ${formatCurrency(availableWallet)}, but bill is ${formatCurrency(grandTotal)}. Top-up needed: ${formatCurrency(grandTotal - availableWallet)}.`);
-        return;
-      }
-      finalizeCheckout("WALLET", {
-        status: "paid",
-        amountReceived: grandTotal,
-        changeGiven: 0,
-        transactionReference: `BC-WLT-${Date.now().toString().slice(-6)}`,
       });
     }
   };
 
-  const finalizeCheckout = (method: "CASH" | "UPI" | "WALLET", extraDetails: any = {}) => {
+  const finalizeCheckout = (method: "CASH" | "UPI", extraDetails: any = {}) => {
     if (isSubmitting) return;
     setIsSubmitting(true);
     setCheckoutError(null);
@@ -392,21 +382,19 @@ export function PosView() {
         <div className="flex items-center gap-1.5 bg-[#181818] p-1.5 rounded-xl border border-[#27272A]">
           <button
             onClick={() => setActiveSubTab("terminal")}
-            className={`px-4 py-2 text-xs font-bold rounded-lg transition-all ${
-              activeSubTab === "terminal"
+            className={`px-4 py-2 text-xs font-bold rounded-lg transition-all ${activeSubTab === "terminal"
                 ? "bg-[#FACC15] text-[#080808] shadow-sm"
                 : "text-[#A1A1AA] hover:text-[#F8FAFC]"
-            }`}
+              }`}
           >
             Counter Terminal
           </button>
           <button
             onClick={() => setActiveSubTab("history")}
-            className={`px-4 py-2 text-xs font-bold rounded-lg transition-all flex items-center gap-1.5 ${
-              activeSubTab === "history"
+            className={`px-4 py-2 text-xs font-bold rounded-lg transition-all flex items-center gap-1.5 ${activeSubTab === "history"
                 ? "bg-[#FACC15] text-[#080808] shadow-sm"
                 : "text-[#A1A1AA] hover:text-[#F8FAFC]"
-            }`}
+              }`}
           >
             <span>Bill Ledger</span>
             <span className={`px-1.5 py-0.2 rounded text-[10px] font-mono ${activeSubTab === "history" ? "bg-[#080808] text-[#FACC15]" : "bg-[#27272A] text-[#A1A1AA]"}`}>
@@ -438,21 +426,19 @@ export function PosView() {
                   <div className="flex items-center gap-1 bg-[#181818] p-1 rounded-xl border border-[#27272A] flex-1 sm:flex-initial">
                     <button
                       onClick={() => setItemTypeTab("services")}
-                      className={`flex-1 sm:flex-initial px-3.5 py-1.5 text-xs font-bold rounded-lg transition-all flex items-center justify-center gap-1.5 ${
-                        itemTypeTab === "services"
+                      className={`flex-1 sm:flex-initial px-3.5 py-1.5 text-xs font-bold rounded-lg transition-all flex items-center justify-center gap-1.5 ${itemTypeTab === "services"
                           ? "bg-[#FACC15] text-[#080808] shadow-sm"
                           : "text-[#A1A1AA] hover:text-[#F8FAFC]"
-                      }`}
+                        }`}
                     >
                       <Scissors className="w-3.5 h-3.5" /> Treatments ({services.length})
                     </button>
                     <button
                       onClick={() => setItemTypeTab("retail")}
-                      className={`flex-1 sm:flex-initial px-3.5 py-1.5 text-xs font-bold rounded-lg transition-all flex items-center justify-center gap-1.5 ${
-                        itemTypeTab === "retail"
+                      className={`flex-1 sm:flex-initial px-3.5 py-1.5 text-xs font-bold rounded-lg transition-all flex items-center justify-center gap-1.5 ${itemTypeTab === "retail"
                           ? "bg-[#FACC15] text-[#080808] shadow-sm"
                           : "text-[#A1A1AA] hover:text-[#F8FAFC]"
-                      }`}
+                        }`}
                     >
                       <ShoppingBag className="w-3.5 h-3.5" /> Retail ({inventory.filter((i) => i.usageType === "Retail Sale").length})
                     </button>
@@ -465,22 +451,21 @@ export function PosView() {
                     title="Add manual custom service or sudden product add-on"
                   >
                     <Plus className="w-3.5 h-3.5" />
-                    <span>+ Custom</span>
+                    <span>Custom</span>
                   </button>
                 </div>
               </div>
 
               {itemTypeTab === "services" && (
                 <div className="flex items-center gap-2 overflow-x-auto pb-1 text-xs">
-                  {["All", "Hair", "Skin & Spa", "Nails", "Beard & Grooming"].map((cat) => (
+                  {["All", "Hair", "Skin & Spa", "Nails", "Beard & Grooming", "Makeup"].map((cat) => (
                     <button
                       key={cat}
                       onClick={() => setCategoryFilter(cat)}
-                      className={`px-3.5 py-1.5 rounded-lg whitespace-nowrap text-xs font-bold transition-all ${
-                        categoryFilter === cat
+                      className={`px-3.5 py-1.5 rounded-lg whitespace-nowrap text-xs font-bold transition-all ${categoryFilter === cat
                           ? "bg-[#FACC15] text-[#080808] shadow-sm"
                           : "bg-[#181818] text-[#A1A1AA] hover:text-[#F8FAFC] border border-[#27272A]"
-                      }`}
+                        }`}
                     >
                       {cat}
                     </button>
@@ -585,11 +570,10 @@ export function PosView() {
                             {prod.brand}
                           </span>
                           <span
-                            className={`text-[10px] font-mono font-bold px-2 py-0.5 rounded-full ${
-                              prod.currentStock <= prod.minThreshold
+                            className={`text-[10px] font-mono font-bold px-2 py-0.5 rounded-full ${prod.currentStock <= prod.minThreshold
                                 ? "bg-amber-500/10 text-amber-400 border border-amber-500/30"
                                 : "bg-[#181818] text-[#A1A1AA] border border-[#27272A]"
-                            }`}
+                              }`}
                           >
                             Stock: {prod.currentStock} {prod.unit}
                           </span>
@@ -789,11 +773,17 @@ export function PosView() {
                               onChange={(e) => updateItemStaff(idx, e.target.value)}
                               className="text-[11px] font-bold bg-[#181818] border border-[#27272A] rounded-lg px-2 py-0.5 text-[#F8FAFC] focus:outline-none"
                             >
-                              {staff.map((s) => (
-                                <option key={s.id} value={s.id} className="bg-[#151515] text-[#F8FAFC]">
-                                  {s.name} ({s.commissionRate}%)
+                              {staff.length === 0 ? (
+                                <option value="staff_house" className="bg-[#151515] text-[#F8FAFC]">
+                                  House Stylist
                                 </option>
-                              ))}
+                              ) : (
+                                staff.map((s) => (
+                                  <option key={s.id} value={s.id} className="bg-[#151515] text-[#F8FAFC]">
+                                    {s.name} ({s.commissionRate}%)
+                                  </option>
+                                ))
+                              )}
                             </select>
                           </div>
 
@@ -835,31 +825,28 @@ export function PosView() {
                 <div className="flex flex-wrap gap-1.5">
                   <button
                     onClick={() => applyPredefinedCoupon("FESTIVE20")}
-                    className={`px-3 py-1 rounded-lg text-xs font-bold border transition-all ${
-                      discountCode === "FESTIVE20"
+                    className={`px-3 py-1 rounded-lg text-xs font-bold border transition-all ${discountCode === "FESTIVE20"
                         ? "bg-[#FACC15] text-[#080808] border-[#FACC15] shadow-sm"
                         : "bg-[#181818] text-[#A1A1AA] border-[#27272A] hover:bg-[#27272A]"
-                    }`}
+                      }`}
                   >
                     🏷️ FESTIVE20 (20% Off)
                   </button>
                   <button
                     onClick={() => applyPredefinedCoupon("LUXE10")}
-                    className={`px-3 py-1 rounded-lg text-xs font-bold border transition-all ${
-                      discountCode === "LUXE10"
+                    className={`px-3 py-1 rounded-lg text-xs font-bold border transition-all ${discountCode === "LUXE10"
                         ? "bg-[#FACC15] text-[#080808] border-[#FACC15] shadow-sm"
                         : "bg-[#181818] text-[#A1A1AA] border-[#27272A] hover:bg-[#27272A]"
-                    }`}
+                      }`}
                   >
                     🏷️ LUXE10 (10% Off)
                   </button>
                   <button
                     onClick={() => applyPredefinedCoupon("VIP500")}
-                    className={`px-3 py-1 rounded-lg text-xs font-bold border transition-all ${
-                      discountCode === "VIP500"
+                    className={`px-3 py-1 rounded-lg text-xs font-bold border transition-all ${discountCode === "VIP500"
                         ? "bg-[#FACC15] text-[#080808] border-[#FACC15] shadow-sm"
                         : "bg-[#181818] text-[#A1A1AA] border-[#27272A] hover:bg-[#27272A]"
-                    }`}
+                      }`}
                   >
                     🏷️ VIP500 (₹500 Off)
                   </button>
@@ -890,11 +877,10 @@ export function PosView() {
                         setTipPercentage(pct);
                         setTipAmount(pct === 0 ? 0 : Math.round((subtotal * pct) / 100));
                       }}
-                      className={`py-1.5 rounded-lg text-xs font-bold border transition-all font-mono ${
-                        tipPercentage === pct
+                      className={`py-1.5 rounded-lg text-xs font-bold border transition-all font-mono ${tipPercentage === pct
                           ? "bg-[#FACC15] text-[#080808] border-[#FACC15] shadow-sm"
                           : "bg-[#181818] text-[#A1A1AA] border-[#27272A] hover:bg-[#27272A]"
-                      }`}
+                        }`}
                     >
                       {pct === 0 ? "No Tip" : `${pct}%`}
                     </button>
@@ -949,7 +935,7 @@ export function PosView() {
                 <label className="text-xs font-mono font-bold text-[#A1A1AA] uppercase tracking-wider block">
                   Step 2: Select Payment Method
                 </label>
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   {/* CASH CARD */}
                   <div
                     onClick={() => {
@@ -958,11 +944,10 @@ export function PosView() {
                         setCheckoutError(null);
                       }
                     }}
-                    className={`p-3.5 rounded-2xl border transition-all cursor-pointer flex flex-col justify-between ${
-                      paymentMethod === "CASH"
+                    className={`p-3.5 rounded-2xl border transition-all cursor-pointer flex flex-col justify-between ${paymentMethod === "CASH"
                         ? "bg-[#181818] border-[#FACC15] ring-1 ring-[#FACC15] shadow-lg shadow-[#FACC15]/5"
                         : "bg-[#121212] border-[#27272A] hover:border-[#3F3F46] opacity-80"
-                    } ${!isCashAvailable ? "opacity-40 cursor-not-allowed" : ""}`}
+                      } ${!isCashAvailable ? "opacity-40 cursor-not-allowed" : ""}`}
                   >
                     <div className="flex items-start justify-between gap-2">
                       <div className="w-9 h-9 rounded-xl bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-center text-emerald-400">
@@ -995,15 +980,13 @@ export function PosView() {
                         setCheckoutError(null);
                       }
                     }}
-                    className={`p-3.5 rounded-2xl border transition-all flex flex-col justify-between ${
-                      paymentMethod === "UPI"
+                    className={`p-3.5 rounded-2xl border transition-all flex flex-col justify-between ${paymentMethod === "UPI"
                         ? "bg-[#181818] border-[#FACC15] ring-1 ring-[#FACC15] shadow-lg shadow-[#FACC15]/5"
                         : "bg-[#121212] border-[#27272A] hover:border-[#3F3F46] opacity-80"
-                    } ${
-                      isUpiAvailable
+                      } ${isUpiAvailable
                         ? "cursor-pointer"
                         : "opacity-40 cursor-not-allowed border-dashed"
-                    }`}
+                      }`}
                   >
                     <div className="flex items-start justify-between gap-2">
                       <div className="w-9 h-9 rounded-xl bg-[#FACC15]/10 border border-[#FACC15]/30 flex items-center justify-center text-[#FACC15]">
@@ -1028,41 +1011,6 @@ export function PosView() {
                       </div>
                       <p className="text-[11px] text-[#71717A] mt-0.5 leading-tight">
                         Customer scans and pays using a UPI app.
-                      </p>
-                    </div>
-                  </div>
-
-                  {/* PREPAID WALLET CARD */}
-                  <div
-                    onClick={() => {
-                      setPaymentMethod("WALLET");
-                      setCheckoutError(null);
-                    }}
-                    className={`p-3.5 rounded-2xl border transition-all cursor-pointer flex flex-col justify-between ${
-                      paymentMethod === "WALLET"
-                        ? "bg-[#181818] border-[#FACC15] ring-1 ring-[#FACC15] shadow-lg shadow-[#FACC15]/5"
-                        : "bg-[#121212] border-[#27272A] hover:border-[#3F3F46] opacity-80"
-                    }`}
-                  >
-                    <div className="flex items-start justify-between gap-2">
-                      <div className="w-9 h-9 rounded-xl bg-purple-500/10 border border-purple-500/30 flex items-center justify-center text-purple-400">
-                        <Wallet className="w-5 h-5" />
-                      </div>
-                      {paymentMethod === "WALLET" && (
-                        <span className="w-5 h-5 rounded-full bg-[#FACC15] text-[#080808] flex items-center justify-center">
-                          <Check className="w-3.5 h-3.5 stroke-[3]" />
-                        </span>
-                      )}
-                    </div>
-                    <div className="mt-2.5">
-                      <div className="flex items-center gap-1.5">
-                        <span className="text-sm font-bold text-[#F8FAFC]">Wallet</span>
-                        <span className="text-[10px] font-mono font-bold px-1.5 py-0.2 rounded bg-purple-500/20 text-purple-400">
-                          {selectedCustomer ? formatCurrency(selectedCustomer.walletBalance || 0) : "No Client"}
-                        </span>
-                      </div>
-                      <p className="text-[11px] text-[#71717A] mt-0.5 leading-tight">
-                        Deduct directly from prepaid customer balance.
                       </p>
                     </div>
                   </div>
@@ -1319,88 +1267,6 @@ export function PosView() {
                   </div>
                 </div>
               )}
-
-              {/* FLOW C: PREPAID WALLET CHECKOUT */}
-              {paymentMethod === "WALLET" && (
-                <div className="p-4 bg-[#141414] border border-[#27272A] rounded-2xl space-y-4 animate-in fade-in">
-                  <div className="flex items-center justify-between pb-2 border-b border-[#27272A]">
-                    <span className="text-xs font-mono font-bold text-[#A1A1AA] uppercase tracking-wider flex items-center gap-1.5">
-                      <Wallet className="w-4 h-4 text-purple-400" /> Customer Prepaid Wallet Settlement
-                    </span>
-                    <span className="text-xs font-mono font-bold text-[#FACC15]">
-                      Bill: {formatCurrency(grandTotal)}
-                    </span>
-                  </div>
-
-                  {isWalkIn || !selectedCustomer ? (
-                    <div className="p-3 bg-amber-500/10 border border-amber-500/30 rounded-xl text-xs text-amber-300 flex items-center gap-2">
-                      <AlertCircle className="w-4 h-4 shrink-0" />
-                      <span>
-                        Prepaid Wallet billing requires a registered client. Please switch off "Walk-in Guest" or select an existing client above.
-                      </span>
-                    </div>
-                  ) : (
-                    <div className="space-y-3">
-                      <div className="p-3.5 bg-[#181818] border border-[#27272A] rounded-xl space-y-2 text-xs">
-                        <div className="flex justify-between items-center text-[#A1A1AA]">
-                          <span>Client Account:</span>
-                          <span className="font-bold text-[#F8FAFC]">{selectedCustomer.name}</span>
-                        </div>
-                        <div className="flex justify-between items-center text-[#A1A1AA]">
-                          <span>Current Wallet Balance:</span>
-                          <span className="font-mono font-bold text-purple-400 text-sm">
-                            {formatCurrency(selectedCustomer.walletBalance || 0)}
-                          </span>
-                        </div>
-                        <div className="flex justify-between items-center text-[#A1A1AA]">
-                          <span>Bill Deduction:</span>
-                          <span className="font-mono font-bold text-rose-400">
-                            - {formatCurrency(grandTotal)}
-                          </span>
-                        </div>
-                        <div className="pt-2 border-t border-[#27272A] flex justify-between items-center font-bold">
-                          <span className="text-[#F8FAFC]">Remaining Balance After Settle:</span>
-                          <span className={`font-mono text-sm ${
-                            (selectedCustomer.walletBalance || 0) >= grandTotal ? "text-emerald-400" : "text-amber-400"
-                          }`}>
-                            {formatCurrency(Math.max(0, (selectedCustomer.walletBalance || 0) - grandTotal))}
-                          </span>
-                        </div>
-                      </div>
-
-                      {(selectedCustomer.walletBalance || 0) < grandTotal && (
-                        <div className="p-3 bg-rose-500/10 border border-rose-500/30 rounded-xl text-xs text-rose-300 flex items-start gap-2">
-                          <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
-                          <div>
-                            <span className="font-bold block">Insufficient Prepaid Balance</span>
-                            <span className="text-[11px] text-rose-200/80">
-                              Client needs {formatCurrency(grandTotal - (selectedCustomer.walletBalance || 0))} more. Please top-up the wallet in Clients view or switch to Cash / UPI.
-                            </span>
-                          </div>
-                        </div>
-                      )}
-
-                      <button
-                        type="button"
-                        onClick={() => handleCheckout(false)}
-                        disabled={
-                          cart.length === 0 ||
-                          isSubmitting ||
-                          (selectedCustomer.walletBalance || 0) < grandTotal
-                        }
-                        className="w-full py-3.5 px-4 bg-purple-600 hover:bg-purple-500 disabled:opacity-40 disabled:cursor-not-allowed text-white font-extrabold text-sm rounded-xl shadow-lg shadow-purple-600/10 flex items-center justify-center gap-2 transition-all cursor-pointer"
-                      >
-                        <CheckCircle2 className="w-5 h-5" />
-                        <span>
-                          {isSubmitting
-                            ? "Deducting from Wallet..."
-                            : `Settle via Prepaid Wallet (${formatCurrency(grandTotal)})`}
-                        </span>
-                      </button>
-                    </div>
-                  )}
-                </div>
-              )}
             </div>
           </div>
         </div>
@@ -1481,7 +1347,7 @@ export function PosView() {
       {/* Quick Custom Charge Modal */}
       {showCustomItemModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 animate-in fade-in duration-200">
-          <div className="bg-[#101010] border border-[#27272A] rounded-2xl w-full max-w-md p-6 space-y-4 shadow-2xl relative">
+          <div className="bg-[#101010] border border-[#27272A] rounded-2xl w-full max-w-md max-h-[90vh] overflow-y-auto p-6 space-y-4 shadow-2xl relative">
             <div className="flex items-center justify-between border-b border-[#27272A] pb-3">
               <div className="flex items-center gap-2">
                 <span className="p-1.5 rounded-lg bg-[#FACC15]/10 text-[#FACC15] border border-[#FACC15]/30">

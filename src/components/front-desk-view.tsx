@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import React, { useState, useMemo, useEffect, useRef } from "react";
 import { useRuvexi } from "@/lib/ruvexi-context";
@@ -54,30 +54,21 @@ export function FrontDeskView({ onNavigateTab, onGoToPosBilling }: FrontDeskView
     staff,
     services,
     customers,
+    addCustomer,
     updateAppointmentStatus,
     bookAppointment,
     createInvoice,
     showToast,
-    currentShift,
-    openRegisterShift,
-    closeRegisterShift,
     appendServiceToAppointment,
     sendChairReadyWhatsApp,
   } = useRuvexi();
-
-  // Shift Cash Drawer Modal
-  const [showShiftModal, setShowShiftModal] = useState<boolean>(false);
-  const [openingFloatInput, setOpeningFloatInput] = useState<number>(2000);
-  const [countedCashInput, setCountedCashInput] = useState<number>(0);
-  const [shiftNotesInput, setShiftNotesInput] = useState<string>("");
 
   // Mid-service In-Chair Add-on Modal
   const [inChairAddonApt, setInChairAddonApt] = useState<any>(null);
   const [addonServiceName, setAddonServiceName] = useState<string>("");
   const [addonStaffName, setAddonStaffName] = useState<string>("");
 
-  // Multi-tender Split details
-  const [walletAmount, setWalletAmount] = useState<number>(0);
+  // Dynamic UPI QR state
   const [dynamicUpiQrUrl, setDynamicUpiQrUrl] = useState<string>("");
 
   // Active status filter for appointments
@@ -85,16 +76,19 @@ export function FrontDeskView({ onNavigateTab, onGoToPosBilling }: FrontDeskView
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedChairDetail, setSelectedChairDetail] = useState<any>(null);
 
-  // Step 1: Customer Enters Salon Modal (Old vs New Auto-Detect)
+  // Step 1: Customer Enters Salon Modal (Existing DB vs New Customer Creation)
   const [showWalkInModal, setShowWalkInModal] = useState(false);
+  const [customerMode, setCustomerMode] = useState<"existing" | "new">("existing");
   const [lookupInput, setLookupInput] = useState("");
   const [detectedCustomer, setDetectedCustomer] = useState<any>(null);
-  const [isNewCustomer, setIsNewCustomer] = useState(false);
 
-  // Form Fields
+  // New Customer & Check-in Form Fields
   const [walkInName, setWalkInName] = useState("");
+  const [walkInGender, setWalkInGender] = useState<"female" | "male" | "other">("female");
   const [walkInPhone, setWalkInPhone] = useState("+91 ");
-  const [walkInService, setWalkInService] = useState(services[0]?.name || "Haircut");
+  const [walkInServices, setWalkInServices] = useState<string[]>(services[0]?.name ? [services[0].name] : []);
+  const [customWalkInServiceName, setCustomWalkInServiceName] = useState("");
+  const [customWalkInServicePrice, setCustomWalkInServicePrice] = useState<number>(500);
   const [walkInStaff, setWalkInStaff] = useState(staff[0]?.name || "Priya Sharma");
   const [walkInChair, setWalkInChair] = useState<number>(1);
 
@@ -104,7 +98,7 @@ export function FrontDeskView({ onNavigateTab, onGoToPosBilling }: FrontDeskView
 
   // Step 4: Billing with QR & Split Pay Modal
   const [billingApt, setBillingApt] = useState<any>(null);
-  const [payMethod, setPayMethod] = useState<"UPI" | "Cash" | "Split" | "Wallet">("UPI");
+  const [payMethod, setPayMethod] = useState<"UPI" | "Cash" | "Split">("UPI");
   const [cashAmount, setCashAmount] = useState<number>(0);
   const [upiAmount, setUpiAmount] = useState<number>(0);
   const [finalBillAmount, setFinalBillAmount] = useState<number>(0);
@@ -133,10 +127,7 @@ export function FrontDeskView({ onNavigateTab, onGoToPosBilling }: FrontDeskView
 
       if (e.key.toLowerCase() === "n" && !showWalkInModal && !serviceModalApt && !billingApt) {
         e.preventDefault();
-        setShowWalkInModal(true);
-        setLookupInput("");
-        setDetectedCustomer(null);
-        setIsNewCustomer(false);
+        openWalkInModal();
       } else if (e.key === "/" && !showWalkInModal && !serviceModalApt && !billingApt) {
         e.preventDefault();
         searchInputRef.current?.focus();
@@ -202,12 +193,29 @@ export function FrontDeskView({ onNavigateTab, onGoToPosBilling }: FrontDeskView
   // Total salon chairs configuration
   const totalChairs = salon.chairs || 6;
 
-  // Chair assignment mapping
+  // Chair assignment mapping (honors explicit chairNumber first, then falls back cleanly)
   const chairAssignments = useMemo(() => {
     const chairsList = [];
+    const usedAptIds = new Set<string>();
+
+    // Pass 1: Match explicitly assigned chairNumber
+    const explicitMap: Record<number, any> = {};
+    inServiceVisits.forEach((apt) => {
+      const cNum = (apt as any).chairNumber;
+      if (typeof cNum === "number" && cNum >= 1 && cNum <= totalChairs && !explicitMap[cNum]) {
+        explicitMap[cNum] = apt;
+        usedAptIds.add(apt.id);
+      }
+    });
+
+    const unnumberedQueue = inServiceVisits.filter((a) => !usedAptIds.has(a.id));
+    let queuePtr = 0;
+
     for (let i = 1; i <= totalChairs; i++) {
-      // Find in-service appointment allotted to this chair or index
-      const activeApt = inServiceVisits[i - 1];
+      let activeApt = explicitMap[i] || null;
+      if (!activeApt && queuePtr < unnumberedQueue.length) {
+        activeApt = unnumberedQueue[queuePtr++];
+      }
       const assignedStylist = activeApt ? activeApt.staffName : staff[i - 1]?.name || null;
       const isOccupied = !!activeApt;
       const isUnavailable = !staff[i - 1] && i > staff.length && !activeApt;
@@ -262,82 +270,176 @@ export function FrontDeskView({ onNavigateTab, onGoToPosBilling }: FrontDeskView
     return Math.max(5, Math.min(45, Math.round(inServiceVisits.length * 12)));
   }, [availableChairsCount, inServiceVisits]);
 
-  // Auto-detect customer as receptionist types phone or name
-  const handleLookupChange = (val: string) => {
-    setLookupInput(val);
-    const query = val.trim().toLowerCase();
-
-    if (!query) {
-      setDetectedCustomer(null);
-      setIsNewCustomer(false);
-      setWalkInName("");
-      setWalkInPhone("+91 ");
-      return;
-    }
-
-    const cleanInput = query.replace(/[^0-9]/g, "");
-
-    // Check if phone or name matches existing customer
-    const match = customers.find((c) => {
-      const cPhoneClean = c.phone.replace(/[^0-9]/g, "");
-      const matchesPhone = cleanInput.length >= 4 && cPhoneClean.includes(cleanInput);
-      const matchesName = c.name.toLowerCase().includes(query);
-      return matchesPhone || matchesName;
+  // Filtered Database Customers for Existing Customer lookup
+  const filteredDbCustomers = useMemo(() => {
+    const q = lookupInput.trim().toLowerCase();
+    const cleanNum = q.replace(/[^0-9]/g, "");
+    if (!q) return customers;
+    return customers.filter((c) => {
+      const cPhone = (c.phone || "").replace(/[^0-9]/g, "");
+      return (
+        c.name.toLowerCase().includes(q) ||
+        (cleanNum.length > 0 && cPhone.includes(cleanNum))
+      );
     });
+  }, [customers, lookupInput]);
 
-    if (match) {
-      setDetectedCustomer(match);
-      setIsNewCustomer(false);
-      setWalkInName(match.name);
-      setWalkInPhone(match.phone);
-      if (match.preferredStaff) {
-        setWalkInStaff(match.preferredStaff);
-      }
-    } else {
-      setDetectedCustomer(null);
-      setIsNewCustomer(true);
+  // Open Walk-In Modal cleanly
+  const openWalkInModal = (preselectedChair?: number) => {
+    const firstOpenChair =
+      preselectedChair ||
+      chairAssignments.find((c) => c.status === "Available")?.chairNumber ||
+      1;
+    setCustomerMode(customers.length > 0 ? "existing" : "new");
+    setLookupInput("");
+    setDetectedCustomer(null);
+    setWalkInName("");
+    setWalkInGender("female");
+    setWalkInPhone("+91 ");
+    setWalkInServices(services[0]?.name ? [services[0].name] : []);
+    setCustomWalkInServiceName("");
+    setCustomWalkInServicePrice(500);
+    setWalkInStaff(nextUpStylist || staff[0]?.name || "House Stylist");
+    setWalkInChair(firstOpenChair);
+    setShowWalkInModal(true);
+  };
+
+  // Toggle multi-service selection inside Check-in modal
+  const handleToggleWalkInService = (srvName: string) => {
+    setWalkInServices((prev) =>
+      prev.includes(srvName) ? prev.filter((s) => s !== srvName) : [...prev, srvName]
+    );
+  };
+
+  // Select an existing customer from database
+  const handleSelectExistingCustomer = (cust: any) => {
+    setDetectedCustomer(cust);
+    setWalkInName(cust.name);
+    setWalkInPhone(cust.phone || "+91 ");
+    if (cust.preferredStaff) {
+      setWalkInStaff(cust.preferredStaff);
+    }
+  };
+
+  // Switch to creating a new customer (pre-filling whatever was typed in lookup)
+  const handleSwitchToNewCustomer = () => {
+    setCustomerMode("new");
+    setDetectedCustomer(null);
+    const val = lookupInput.trim();
+    if (val) {
       if (/^[0-9+ ]+$/.test(val)) {
         setWalkInPhone(val.startsWith("+91 ") ? val : "+91 " + val.replace(/^\+91\s*/, ""));
+        setWalkInName("");
       } else {
         setWalkInName(val);
+        setWalkInPhone("+91 ");
       }
     }
   };
 
-  // Receptionist clicks "Allot Chair & Begin" in Walk-In Modal
+  // Receptionist confirms Check-in & Appoints Customer to Chair
   const handleAllotChairAndBegin = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!walkInName.trim()) {
-      showToast("Please enter customer name", "warning");
+
+    let finalCustomerId = "";
+    let finalCustomerName = "";
+    let finalCustomerPhone = "";
+
+    if (customerMode === "existing") {
+      if (!detectedCustomer) {
+        showToast("Please select an existing customer from the database or create a new one", "warning");
+        return;
+      }
+      finalCustomerId = detectedCustomer.id;
+      finalCustomerName = detectedCustomer.name;
+      finalCustomerPhone = detectedCustomer.phone || "";
+    } else {
+      const cleanName = walkInName.trim();
+      const cleanPhone = walkInPhone.trim();
+      if (!cleanName) {
+        showToast("Please enter the customer's full name", "warning");
+        return;
+      }
+      if (cleanPhone.replace(/[^0-9]/g, "").length < 10) {
+        showToast("Please enter a valid 10-digit phone number", "warning");
+        return;
+      }
+
+      // Create new customer right into CRM database
+      const created = addCustomer({
+        name: cleanName,
+        gender: walkInGender,
+        phone: cleanPhone,
+        preferredStaff: walkInStaff,
+        tags: ["Walk-In"],
+      });
+      finalCustomerId = created.id;
+      finalCustomerName = created.name;
+      finalCustomerPhone = created.phone;
+    }
+
+    // Resolve selected services
+    const selectedServiceObjects = services.filter((s) => walkInServices.includes(s.name));
+    let combinedServiceName = "";
+    let totalPrice = 0;
+    let totalDuration = 0;
+    let firstServiceId = "srv_custom";
+    let servicesListPayload: any[] = [];
+
+    if (selectedServiceObjects.length > 0) {
+      combinedServiceName = selectedServiceObjects.map((s) => s.name).join(" + ");
+      totalPrice = selectedServiceObjects.reduce((acc, s) => acc + (s.price || 0), 0);
+      totalDuration = selectedServiceObjects.reduce((acc, s) => acc + (s.durationMinutes || 30), 0);
+      firstServiceId = selectedServiceObjects[0].id;
+      servicesListPayload = selectedServiceObjects.map((s) => ({
+        name: s.name,
+        price: s.price,
+        durationMinutes: s.durationMinutes,
+        staffName: walkInStaff,
+      }));
+    } else if (customWalkInServiceName.trim()) {
+      combinedServiceName = customWalkInServiceName.trim();
+      totalPrice = customWalkInServicePrice || 500;
+      totalDuration = 30;
+      servicesListPayload = [
+        {
+          name: combinedServiceName,
+          price: totalPrice,
+          durationMinutes: 30,
+          staffName: walkInStaff,
+        },
+      ];
+    } else {
+      showToast("Please select at least one service", "warning");
       return;
     }
 
-    const matchedService = services.find((s) => s.name === walkInService);
-    const servicePrice = matchedService?.price || 1500;
     const matchedStaff = staff.find((s) => s.name === walkInStaff) || staff[0];
+    const nowTime = new Date().toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", hour12: true });
 
     const newAptData = {
-      customerId: detectedCustomer?.id || "cst_" + Date.now(),
-      customerName: walkInName.trim(),
-      customerPhone: walkInPhone.trim(),
-      serviceId: matchedService?.id || "srv_1",
-      serviceName: walkInService,
+      customerId: finalCustomerId,
+      customerName: finalCustomerName,
+      customerPhone: finalCustomerPhone,
+      serviceId: firstServiceId,
+      serviceName: combinedServiceName,
+      servicesList: servicesListPayload,
       staffId: matchedStaff?.id || "stf_1",
       staffName: walkInStaff,
       date: new Date().toISOString().split("T")[0],
-      startTime: new Date().toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", hour12: true }),
-      time: new Date().toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", hour12: true }),
+      startTime: nowTime,
+      time: nowTime,
       endTime: "12:00",
-      durationMinutes: matchedService?.durationMinutes || 45,
-      price: servicePrice,
+      durationMinutes: totalDuration,
+      price: totalPrice,
       status: "In-Service",
-      notes: `Walk-in client seated at Chair ${walkInChair}`,
+      notes: `Seated at Chair #${walkInChair}`,
       chairNumber: walkInChair,
     };
 
     bookAppointment(newAptData);
     setShowWalkInModal(false);
-    showToast(`${walkInName} seated at Chair ${walkInChair} with ${walkInStaff}!`);
+    showToast(`${finalCustomerName} appointed to Chair #${walkInChair} (${combinedServiceName})!`);
   };
 
   // Quick seat a waiting customer directly from chair panel
@@ -393,7 +495,6 @@ export function FrontDeskView({ onNavigateTab, onGoToPosBilling }: FrontDeskView
     setFinalBillAmount(apt.price);
     setUpiAmount(apt.price);
     setCashAmount(0);
-    setWalletAmount(0);
     setPayMethod("UPI");
     const cust = customers.find(
       (c) =>
@@ -428,10 +529,6 @@ export function FrontDeskView({ onNavigateTab, onGoToPosBilling }: FrontDeskView
     setUpiAmount(val);
   };
 
-  const handleWalletChange = (val: number) => {
-    setWalletAmount(val);
-  };
-
   // Receptionist finishes bill & triggers WhatsApp Thank You
   const handleCompleteBillAndSendWhatsApp = () => {
     if (!billingApt) return;
@@ -458,11 +555,11 @@ export function FrontDeskView({ onNavigateTab, onGoToPosBilling }: FrontDeskView
       paymentMethod: payMethod,
       splitDetails:
         payMethod === "Split"
-          ? { cash: cashAmount, upi: upiAmount, wallet: walletAmount }
+          ? { cash: cashAmount, upi: upiAmount }
           : undefined,
       paymentBreakdown:
         payMethod === "Split"
-          ? { cash: cashAmount, upi: upiAmount, wallet: walletAmount }
+          ? { cash: cashAmount, upi: upiAmount }
           : undefined,
       status: "paid",
     });
@@ -566,17 +663,12 @@ We look forward to seeing you again soon! 💇‍♀️✨`;
           {/* Actions */}
           <div className="flex flex-wrap items-center gap-2.5 sm:self-center">
             <button
-              onClick={() => {
-                setShowWalkInModal(true);
-                setLookupInput("");
-                setDetectedCustomer(null);
-                setIsNewCustomer(false);
-              }}
+              onClick={() => openWalkInModal()}
               className="px-4 py-2.5 bg-[#FACC15] hover:bg-[#EAB308] text-[#080808] font-semibold text-xs rounded-xl shadow-sm transition-colors flex items-center gap-2 cursor-pointer focus:outline-none focus:ring-2 focus:ring-[#FACC15]/40"
               title="Add Walk-in Customer (Press N)"
             >
               <Plus className="w-4 h-4 text-[#080808]" />
-              <span>+ Add Walk-in Customer</span>
+              <span>Add Walk-in Customer</span>
               <kbd className="hidden md:inline-block px-1.5 py-0.5 text-[9px] font-mono bg-black/15 text-[#080808] rounded border border-black/10 font-bold">
                 N
               </kbd>
@@ -588,31 +680,6 @@ We look forward to seeing you again soon! 💇‍♀️✨`;
             >
               <Receipt className="w-4 h-4 text-[#FACC15]" />
               <span>Quick Bill</span>
-            </button>
-
-            {/* Feature 1: Shift Cash Drawer Handover */}
-            <button
-              onClick={() => {
-                setShowShiftModal(true);
-                if (currentShift) {
-                  setCountedCashInput(currentShift.expectedCash);
-                } else {
-                  setOpeningFloatInput(2000);
-                }
-              }}
-              className={`px-3.5 py-2.5 rounded-xl border text-xs font-mono font-bold flex items-center gap-2 transition-all cursor-pointer ${
-                currentShift
-                  ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/30 hover:bg-emerald-500/20"
-                  : "bg-rose-500/10 text-rose-300 border-rose-500/30 hover:bg-rose-500/20"
-              }`}
-              title="Open or Close Register Shift & Reconcile Cash"
-            >
-              <Banknote className="w-4 h-4" />
-              <span>
-                {currentShift
-                  ? `Shift Open: ${formatCurrency(currentShift.expectedCash)}`
-                  : "Open Shift Drawer"}
-              </span>
             </button>
           </div>
         </div>
@@ -810,10 +877,11 @@ We look forward to seeing you again soon! 💇‍♀️✨`;
                   </div>
                   <div className="flex items-center justify-center gap-2.5 pt-1">
                     <button
-                      onClick={() => setShowWalkInModal(true)}
-                      className="px-4 py-2 bg-[#FACC15] hover:bg-[#EAB308] text-[#080808] font-semibold text-xs rounded-xl shadow-sm transition-colors cursor-pointer"
+                      onClick={() => openWalkInModal()}
+                      className="px-4 py-2 bg-[#FACC15] hover:bg-[#EAB308] text-[#080808] font-semibold text-xs rounded-xl shadow-sm transition-colors cursor-pointer flex items-center gap-1.5"
                     >
-                      + Add Walk-in Customer
+                      <Plus className="w-3.5 h-3.5" />
+                      <span>Add Walk-in Customer</span>
                     </button>
                     <button
                       onClick={() => onNavigateTab("calendar")}
@@ -951,7 +1019,7 @@ We look forward to seeing you again soon! 💇‍♀️✨`;
                               title="Upsell / Append an extra service in-chair"
                             >
                               <Plus className="w-3.5 h-3.5 text-purple-400" />
-                              <span>+ Add-on</span>
+                              <span>Add-on</span>
                             </button>
 
                             <button
@@ -1024,8 +1092,12 @@ We look forward to seeing you again soon! 💇‍♀️✨`;
                   <div
                     key={chair.chairNumber}
                     onClick={() => {
-                      if (isAvail && waitingVisits.length > 0) {
-                        handleQuickSeatWaiting(chair.chairNumber);
+                      if (isAvail) {
+                        if (waitingVisits.length > 0) {
+                          handleQuickSeatWaiting(chair.chairNumber);
+                        } else {
+                          openWalkInModal(chair.chairNumber);
+                        }
                       } else {
                         setSelectedChairDetail(chair);
                       }
@@ -1160,22 +1232,23 @@ We look forward to seeing you again soon! 💇‍♀️✨`;
       </div>
 
       {/* ============================================================ */}
-      {/* MODAL 1: CUSTOMER ENTERS SALON (WALK-IN WORKFLOW) */}
+      {/* MODAL 1: CUSTOMER ENTERS SALON (EXISTING DB vs NEW + SERVICES + CHAIR) */}
       {/* ============================================================ */}
       {showWalkInModal && (
         <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-[#151515] border border-[#27272A] text-[#F8FAFC] rounded-2xl max-w-lg w-full p-6 shadow-2xl space-y-4 animate-in fade-in zoom-in-95 duration-200 max-h-[90vh] overflow-y-auto">
+          <div className="bg-[#151515] border border-[#27272A] text-[#F8FAFC] rounded-2xl max-w-xl w-full p-6 shadow-2xl space-y-4 animate-in fade-in zoom-in-95 duration-200 max-h-[92vh] overflow-y-auto">
             {/* Modal Header */}
             <div className="flex items-center justify-between pb-3 border-b border-[#27272A]">
               <div>
                 <h3 className="text-lg font-semibold text-[#F8FAFC]">
-                  Add Walk-in Customer
+                  Front Desk Customer Check-In
                 </h3>
                 <p className="text-xs text-[#A1A1AA]">
-                  Search existing customer or enter details to check in.
+                  Select an existing customer or create a new one, pick services, and appoint to a chair.
                 </p>
               </div>
               <button
+                type="button"
                 onClick={() => setShowWalkInModal(false)}
                 className="w-8 h-8 rounded-xl bg-[#111111] hover:bg-[#1A1A1A] text-[#71717A] hover:text-[#F8FAFC] border border-[#27272A] flex items-center justify-center transition-colors cursor-pointer"
               >
@@ -1183,93 +1256,168 @@ We look forward to seeing you again soon! 💇‍♀️✨`;
               </button>
             </div>
 
-            {/* Step 1: Search Existing Client */}
-            <div className="space-y-1.5">
-              <label className="text-xs font-medium text-[#A1A1AA]">
-                Customer Name or Phone Number
+            {/* Step 1: Ask Existing Customer vs New Customer */}
+            <div className="space-y-2">
+              <label className="text-[11px] font-mono uppercase tracking-wider text-[#A1A1AA] block">
+                1. Existing Customer or New Customer?
               </label>
-              <div className="relative">
-                <Search className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-[#71717A]" />
-                <input
-                  type="text"
-                  placeholder="e.g. 9845012890 or Ananya..."
-                  value={lookupInput}
-                  onChange={(e) => handleLookupChange(e.target.value)}
-                  className="w-full pl-10 pr-4 py-2.5 bg-[#111111] border border-[#27272A] rounded-xl text-xs font-medium text-[#F8FAFC] placeholder-[#71717A] focus:outline-none focus:border-[#FACC15]"
-                  autoFocus
-                />
+              <div className="grid grid-cols-2 gap-2 p-1 bg-[#111111] border border-[#27272A] rounded-xl">
+                <button
+                  type="button"
+                  onClick={() => setCustomerMode("existing")}
+                  className={`py-2 px-3 rounded-lg text-xs font-semibold transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
+                    customerMode === "existing"
+                      ? "bg-[#FACC15] text-[#080808] shadow-sm font-bold"
+                      : "text-[#A1A1AA] hover:text-[#F8FAFC]"
+                  }`}
+                >
+                  <Search className="w-3.5 h-3.5" />
+                  <span>Existing Customer ({customers.length})</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setCustomerMode("new");
+                    setDetectedCustomer(null);
+                  }}
+                  className={`py-2 px-3 rounded-lg text-xs font-semibold transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
+                    customerMode === "new"
+                      ? "bg-[#60A5FA] text-[#080808] shadow-sm font-bold"
+                      : "text-[#A1A1AA] hover:text-[#F8FAFC]"
+                  }`}
+                >
+                  <Plus className="w-3.5 h-3.5" />
+                  <span>New Customer</span>
+                </button>
               </div>
             </div>
 
-            {/* Recognized Returning Client */}
-            {detectedCustomer && (
-              <div className="p-3.5 rounded-xl bg-[#111111] border border-[#10B981]/40 space-y-2 animate-in fade-in">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-1.5 text-[#10B981] font-mono text-xs">
-                    <Sparkles className="w-3.5 h-3.5" />
-                    <span>Returning Client Recognized</span>
-                  </div>
-                  <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-[#10B981]/15 text-[#10B981] border border-[#10B981]/30">
-                    {detectedCustomer.visitsCount || detectedCustomer.totalVisits || 1} Past Visits
-                  </span>
+            {/* MODE A: EXISTING CUSTOMER FROM DATABASE */}
+            {customerMode === "existing" && (
+              <div className="space-y-3 animate-in fade-in">
+                <div className="relative">
+                  <Search className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-[#71717A]" />
+                  <input
+                    type="text"
+                    placeholder="Search database by name or phone number..."
+                    value={lookupInput}
+                    onChange={(e) => setLookupInput(e.target.value)}
+                    className="w-full pl-10 pr-4 py-2.5 bg-[#111111] border border-[#27272A] rounded-xl text-xs font-medium text-[#F8FAFC] placeholder-[#71717A] focus:outline-none focus:border-[#FACC15]"
+                    autoFocus
+                  />
                 </div>
 
-                <div className="text-xs text-[#A1A1AA] space-y-2">
-                  <div className="text-[#F8FAFC] font-medium">{detectedCustomer.name} • {detectedCustomer.phone}</div>
-                  <div className="text-[11px] text-[#71717A]">
-                    Preferred Stylist: <span className="text-[#FACC15]">{detectedCustomer.preferredStaff || "Priya Sharma"}</span>
-                  </div>
-
-                  {/* Feature 5: Health & Scalp Allergy Alert Banner */}
-                  {(detectedCustomer.patchTestStatus !== "Valid" ||
-                    detectedCustomer.formulaNotes?.toLowerCase().includes("allerg") ||
-                    detectedCustomer.notes?.toLowerCase().includes("allerg") ||
-                    detectedCustomer.formulaNotes?.toLowerCase().includes("sensit")) && (
-                    <div className="p-2.5 rounded-xl bg-rose-500/10 border border-rose-500/30 text-rose-300 text-xs flex items-start gap-2">
-                      <AlertTriangle className="w-4 h-4 text-rose-400 shrink-0 mt-0.5" />
-                      <div>
-                        <span className="font-bold block">Health & Sensitivity Alert</span>
-                        <span className="text-[11px] text-rose-200/90 leading-snug">
-                          {detectedCustomer.formulaNotes || detectedCustomer.notes || "Check patch test validity before chemical service."}
-                        </span>
+                {/* Selected Customer Banner OR Scrollable DB List */}
+                {detectedCustomer ? (
+                  <div className="p-3.5 rounded-xl bg-[#111111] border border-[#10B981]/50 space-y-2">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-1.5 text-[#10B981] font-mono text-xs font-semibold">
+                        <CheckCircle2 className="w-3.5 h-3.5" />
+                        <span>Selected from Database</span>
                       </div>
+                      <button
+                        type="button"
+                        onClick={() => setDetectedCustomer(null)}
+                        className="text-[11px] font-medium text-[#FACC15] hover:underline cursor-pointer"
+                      >
+                        Change Customer
+                      </button>
                     </div>
-                  )}
 
-                  {/* Feature 5: VIP Membership & Prepaid Wallet Pill */}
-                  <div className="flex flex-wrap items-center gap-2 pt-0.5 text-[11px] font-mono">
-                    {detectedCustomer.vipTier && (
-                      <span className="px-2 py-0.5 rounded-md bg-purple-500/15 text-purple-300 border border-purple-500/30 flex items-center gap-1 font-bold">
-                        <Crown className="w-3 h-3 text-purple-400" />
-                        {detectedCustomer.vipTier} Member
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <div className="text-sm font-semibold text-[#F8FAFC] flex items-center gap-2">
+                          <span>{detectedCustomer.name}</span>
+                          {detectedCustomer.gender && (
+                            <span className="text-[10px] font-mono uppercase px-1.5 py-0.5 rounded bg-[#181818] border border-[#27272A] text-[#A1A1AA]">
+                              {detectedCustomer.gender}
+                            </span>
+                          )}
+                        </div>
+                        <div className="text-xs text-[#A1A1AA] font-mono mt-0.5">
+                          {detectedCustomer.phone} • Preferred: <span className="text-[#FACC15]">{detectedCustomer.preferredStaff || "Any Stylist"}</span>
+                        </div>
+                      </div>
+                      <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-[#10B981]/15 text-[#10B981] border border-[#10B981]/30">
+                        {detectedCustomer.visitsCount || detectedCustomer.totalVisits || 0} Visits
                       </span>
-                    )}
-                    <span className="px-2 py-0.5 rounded-md bg-purple-500/10 text-purple-300 border border-purple-500/20 flex items-center gap-1">
-                      <Wallet className="w-3 h-3 text-purple-400" />
-                      Wallet: {formatCurrency(detectedCustomer.walletBalance || 0)}
-                    </span>
-                    <span className="px-2 py-0.5 rounded-md bg-[#181818] text-[#FACC15] border border-[#27272A]">
-                      Points: {detectedCustomer.loyaltyPoints || 0}
-                    </span>
-                  </div>
-
-                  {/* Feature 5: Hospitality Preference */}
-                  {detectedCustomer.notes && (
-                    <div className="p-2 rounded-lg bg-[#181818] border border-[#27272A] text-[11px] text-[#A1A1AA] flex items-center gap-1.5">
-                      <Coffee className="w-3.5 h-3.5 text-amber-400 shrink-0" />
-                      <span>Hospitality Note: <strong className="text-[#F8FAFC]">{detectedCustomer.notes}</strong></span>
                     </div>
-                  )}
-                </div>
+
+                    {(detectedCustomer.formulaNotes?.toLowerCase().includes("allerg") ||
+                      detectedCustomer.notes?.toLowerCase().includes("allerg") ||
+                      detectedCustomer.formulaNotes?.toLowerCase().includes("sensit")) && (
+                      <div className="p-2 rounded-lg bg-rose-500/10 border border-rose-500/30 text-rose-300 text-[11px] flex items-start gap-2">
+                        <AlertTriangle className="w-3.5 h-3.5 text-rose-400 shrink-0 mt-0.5" />
+                        <span>{detectedCustomer.formulaNotes || detectedCustomer.notes}</span>
+                      </div>
+                    )}
+                  </div>
+                ) : (
+                  <div className="bg-[#111111] border border-[#27272A] rounded-xl overflow-hidden">
+                    {filteredDbCustomers.length > 0 ? (
+                      <div className="max-h-44 overflow-y-auto divide-y divide-[#27272A]/60">
+                        {filteredDbCustomers.slice(0, 20).map((cust) => (
+                          <button
+                            key={cust.id}
+                            type="button"
+                            onClick={() => handleSelectExistingCustomer(cust)}
+                            className="w-full px-3.5 py-2.5 flex items-center justify-between hover:bg-[#181818] text-left transition-colors cursor-pointer"
+                          >
+                            <div className="flex items-center gap-2.5 min-w-0">
+                              <div className="w-7 h-7 rounded-lg bg-[#1C1C1C] border border-[#27272A] flex items-center justify-center text-xs font-bold text-[#FACC15] shrink-0">
+                                {cust.name.charAt(0).toUpperCase()}
+                              </div>
+                              <div className="min-w-0">
+                                <div className="text-xs font-semibold text-[#F8FAFC] truncate flex items-center gap-1.5">
+                                  <span>{cust.name}</span>
+                                  {cust.gender && (
+                                    <span className="text-[9px] font-mono uppercase px-1.5 py-0.2 rounded bg-[#181818] text-[#A1A1AA] border border-[#27272A]">
+                                      {cust.gender}
+                                    </span>
+                                  )}
+                                </div>
+                                <div className="text-[11px] text-[#71717A] font-mono truncate">
+                                  {cust.phone || "No phone"}
+                                </div>
+                              </div>
+                            </div>
+                            <span className="text-[10px] font-mono text-[#10B981] shrink-0 ml-2">
+                              Select
+                            </span>
+                          </button>
+                        ))}
+                      </div>
+                    ) : (
+                      <div className="p-4 text-center space-y-2">
+                        <p className="text-xs text-[#A1A1AA]">
+                          {customers.length === 0
+                            ? "No customers in database yet."
+                            : `No existing customer found matching "${lookupInput}".`}
+                        </p>
+                        <button
+                          type="button"
+                          onClick={handleSwitchToNewCustomer}
+                          className="px-3 py-1.5 rounded-lg bg-[#60A5FA]/15 text-[#60A5FA] border border-[#60A5FA]/30 hover:bg-[#60A5FA]/25 text-xs font-semibold cursor-pointer inline-flex items-center gap-1.5"
+                        >
+                          <Plus className="w-3.5 h-3.5" />
+                          <span>Create New Customer Instead</span>
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
             )}
 
-            {/* New Client Input Form */}
-            {isNewCustomer && (
-              <div className="p-3.5 rounded-xl bg-[#111111] border border-[#60A5FA]/40 space-y-3 animate-in fade-in">
-                <div className="flex items-center gap-1.5 text-[#60A5FA] font-mono text-xs">
-                  <User className="w-3.5 h-3.5" />
-                  <span>New Client Entry</span>
+            {/* MODE B: CREATE NEW CUSTOMER RIGHT HERE */}
+            {customerMode === "new" && (
+              <div className="p-4 rounded-xl bg-[#111111] border border-[#60A5FA]/40 space-y-3 animate-in fade-in">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-1.5 text-[#60A5FA] font-mono text-xs font-semibold">
+                    <User className="w-3.5 h-3.5" />
+                    <span>Create New Customer</span>
+                  </div>
+                  <span className="text-[10px] font-mono text-[#71717A]">Saved to CRM automatically</span>
                 </div>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -1277,82 +1425,180 @@ We look forward to seeing you again soon! 💇‍♀️✨`;
                     <label className="text-[11px] font-medium text-[#A1A1AA]">Full Name *</label>
                     <input
                       type="text"
-                      placeholder="e.g. Rahul Mehta"
+                      placeholder="e.g. Priya Sharma"
                       value={walkInName}
                       onChange={(e) => setWalkInName(e.target.value)}
-                      className="w-full px-3 py-2 bg-[#151515] border border-[#27272A] rounded-xl text-xs text-[#F8FAFC] focus:outline-none focus:border-[#FACC15]"
-                      required
+                      className="w-full px-3 py-2 bg-[#151515] border border-[#27272A] rounded-xl text-xs text-[#F8FAFC] focus:outline-none focus:border-[#60A5FA]"
+                      autoFocus
                     />
                   </div>
                   <div className="space-y-1">
-                    <label className="text-[11px] font-medium text-[#A1A1AA]">WhatsApp Phone *</label>
+                    <label className="text-[11px] font-medium text-[#A1A1AA]">Phone Number *</label>
                     <input
-                      type="text"
-                      placeholder="+91 98..."
+                      type="tel"
+                      placeholder="+91 98765 43210"
                       value={walkInPhone}
                       onChange={(e) => setWalkInPhone(e.target.value)}
-                      className="w-full px-3 py-2 bg-[#151515] border border-[#27272A] rounded-xl text-xs text-[#F8FAFC] focus:outline-none focus:border-[#FACC15] font-mono"
-                      required
+                      className="w-full px-3 py-2 bg-[#151515] border border-[#27272A] rounded-xl text-xs text-[#F8FAFC] focus:outline-none focus:border-[#60A5FA] font-mono"
                     />
+                  </div>
+                </div>
+
+                <div className="space-y-1.5">
+                  <label className="text-[11px] font-medium text-[#A1A1AA] block">Gender *</label>
+                  <div className="grid grid-cols-3 gap-2">
+                    {(["female", "male", "other"] as const).map((g) => (
+                      <button
+                        key={g}
+                        type="button"
+                        onClick={() => setWalkInGender(g)}
+                        className={`py-2 rounded-xl text-xs font-semibold capitalize border transition-all cursor-pointer ${
+                          walkInGender === g
+                            ? "bg-[#60A5FA] text-[#080808] border-[#60A5FA] font-bold"
+                            : "bg-[#151515] text-[#A1A1AA] border-[#27272A] hover:text-[#F8FAFC]"
+                        }`}
+                      >
+                        {g}
+                      </button>
+                    ))}
                   </div>
                 </div>
               </div>
             )}
 
-            {/* Steps 2-4: Service, Stylist & Chair Selection */}
-            <form onSubmit={handleAllotChairAndBegin} className="space-y-3.5 pt-1">
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
-                {/* Service Selection */}
-                <div className="space-y-1">
-                  <label className="text-xs font-medium text-[#A1A1AA]">Service</label>
-                  <select
-                    value={walkInService}
-                    onChange={(e) => setWalkInService(e.target.value)}
-                    className="w-full px-2.5 py-2 bg-[#111111] border border-[#27272A] rounded-xl text-xs text-[#F8FAFC] focus:outline-none focus:border-[#FACC15]"
-                  >
-                    {services.map((s) => (
-                      <option key={s.id} value={s.name} className="bg-[#151515]">
-                        {s.name} ({formatCurrency(s.price)})
-                      </option>
-                    ))}
-                  </select>
+            {/* Step 2 & 3: Select Services & Appoint to Chair */}
+            <form onSubmit={handleAllotChairAndBegin} className="space-y-4 pt-1">
+              {/* Step 2: Multi-Select Services */}
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <label className="text-[11px] font-mono uppercase tracking-wider text-[#A1A1AA]">
+                    2. Select Services
+                  </label>
+                  {walkInServices.length > 0 && (
+                    <span className="text-[11px] font-mono text-[#FACC15] font-semibold">
+                      {walkInServices.length} selected •{" "}
+                      {formatCurrency(
+                        services
+                          .filter((s) => walkInServices.includes(s.name))
+                          .reduce((sum, s) => sum + (s.price || 0), 0)
+                      )}
+                    </span>
+                  )}
                 </div>
 
-                {/* Stylist Selection */}
+                {services.length > 0 ? (
+                  <div className="grid grid-cols-2 gap-2 max-h-36 overflow-y-auto pr-1">
+                    {services.map((s) => {
+                      const isSel = walkInServices.includes(s.name);
+                      return (
+                        <button
+                          key={s.id}
+                          type="button"
+                          onClick={() => handleToggleWalkInService(s.name)}
+                          className={`p-2.5 rounded-xl border text-left transition-all flex items-center justify-between gap-2 cursor-pointer ${
+                            isSel
+                              ? "bg-[#FACC15]/15 border-[#FACC15] text-[#F8FAFC]"
+                              : "bg-[#111111] border-[#27272A] text-[#A1A1AA] hover:border-[#3F3F46]"
+                          }`}
+                        >
+                          <div className="min-w-0">
+                            <div className="text-xs font-semibold text-[#F8FAFC] truncate">{s.name}</div>
+                            <div className="text-[10px] font-mono text-[#71717A]">{s.durationMinutes} min</div>
+                          </div>
+                          <div className="text-right shrink-0">
+                            <div className="text-xs font-mono font-bold text-[#FACC15]">{formatCurrency(s.price)}</div>
+                            {isSel && <div className="text-[9px] font-mono text-[#10B981]">Selected</div>}
+                          </div>
+                        </button>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 p-3 bg-[#111111] border border-[#27272A] rounded-xl">
+                    <input
+                      type="text"
+                      placeholder="Service Name (e.g. Haircut)"
+                      value={customWalkInServiceName}
+                      onChange={(e) => setCustomWalkInServiceName(e.target.value)}
+                      className="px-3 py-2 bg-[#151515] border border-[#27272A] rounded-lg text-xs text-[#F8FAFC] focus:outline-none focus:border-[#FACC15]"
+                    />
+                    <input
+                      type="number"
+                      min="0"
+                      placeholder="Price (₹)"
+                      value={customWalkInServicePrice || ""}
+                      onChange={(e) => setCustomWalkInServicePrice(Number(e.target.value) || 0)}
+                      className="px-3 py-2 bg-[#151515] border border-[#27272A] rounded-lg text-xs font-mono text-[#F8FAFC] focus:outline-none focus:border-[#FACC15]"
+                    />
+                  </div>
+                )}
+              </div>
+
+              {/* Step 3: Stylist & Appoint to Chair */}
+              <div className="space-y-2.5">
+                <label className="text-[11px] font-mono uppercase tracking-wider text-[#A1A1AA] block">
+                  3. Assign Stylist & Appoint to Chair
+                </label>
+
                 <div className="space-y-1">
-                  <label className="text-xs font-medium text-[#A1A1AA]">Stylist</label>
+                  <label className="text-[11px] font-medium text-[#A1A1AA]">Stylist</label>
                   <select
                     value={walkInStaff}
                     onChange={(e) => setWalkInStaff(e.target.value)}
-                    className="w-full px-2.5 py-2 bg-[#111111] border border-[#27272A] rounded-xl text-xs text-[#F8FAFC] focus:outline-none focus:border-[#FACC15]"
+                    className="w-full px-3 py-2 bg-[#111111] border border-[#27272A] rounded-xl text-xs text-[#F8FAFC] focus:outline-none focus:border-[#FACC15]"
                   >
-                    {staff.map((s) => {
-                      const isFree = freeStaff.some((f) => f.id === s.id);
-                      const isNext = s.name === nextUpStylist;
-                      const turns = stylistTurns[s.name] || 0;
-                      return (
-                        <option key={s.id} value={s.name} className="bg-[#151515]">
-                          {isNext ? "⭐ " : ""}{s.name} {isNext ? "(Next in Turn)" : isFree ? "• Free" : "• Busy"} ({turns} turns)
-                        </option>
-                      );
-                    })}
+                    {staff.length > 0 ? (
+                      staff.map((s) => {
+                        const isFree = freeStaff.some((f) => f.id === s.id);
+                        const isNext = s.name === nextUpStylist;
+                        const turns = stylistTurns[s.name] || 0;
+                        return (
+                          <option key={s.id} value={s.name} className="bg-[#151515]">
+                            {isNext ? "Next Up: " : ""}{s.name} ({isFree ? "Free" : "Busy"} • {turns} turns)
+                          </option>
+                        );
+                      })
+                    ) : (
+                      <option value="House Stylist" className="bg-[#151515]">House Stylist</option>
+                    )}
                   </select>
                 </div>
 
-                {/* Chair Selection */}
-                <div className="space-y-1">
-                  <label className="text-xs font-medium text-[#A1A1AA]">Chair Allotment</label>
-                  <select
-                    value={walkInChair}
-                    onChange={(e) => setWalkInChair(Number(e.target.value))}
-                    className="w-full px-2.5 py-2 bg-[#111111] border border-[#27272A] rounded-xl text-xs text-[#F8FAFC] focus:outline-none focus:border-[#FACC15]"
-                  >
-                    {chairAssignments.map((c) => (
-                      <option key={c.chairNumber} value={c.chairNumber} className="bg-[#151515]">
-                        Chair #{c.chairNumber} ({c.status})
-                      </option>
-                    ))}
-                  </select>
+                {/* Visual Chair Selector */}
+                <div className="space-y-1.5">
+                  <label className="text-[11px] font-medium text-[#A1A1AA]">Select Chair</label>
+                  <div className="grid grid-cols-3 sm:grid-cols-4 gap-2">
+                    {chairAssignments.map((c) => {
+                      const isSelected = walkInChair === c.chairNumber;
+                      const isOcc = c.status === "Occupied";
+                      return (
+                        <button
+                          key={c.chairNumber}
+                          type="button"
+                          onClick={() => setWalkInChair(c.chairNumber)}
+                          className={`p-2 rounded-xl border text-center transition-all cursor-pointer ${
+                            isSelected
+                              ? "bg-[#FACC15] text-[#080808] border-[#FACC15] font-bold"
+                              : isOcc
+                              ? "bg-[#111111] text-[#71717A] border-amber-500/30 opacity-70"
+                              : "bg-[#111111] text-[#F8FAFC] border-[#27272A] hover:border-[#10B981]"
+                          }`}
+                        >
+                          <div className="text-xs font-bold flex items-center justify-center gap-1">
+                            <Armchair className="w-3.5 h-3.5" />
+                            <span>Chair #{c.chairNumber}</span>
+                          </div>
+                          <div
+                            className={`text-[9px] font-mono mt-0.5 ${
+                              isSelected ? "text-[#080808]" : isOcc ? "text-amber-400" : "text-[#10B981]"
+                            }`}
+                          >
+                            {isOcc ? "Busy" : "Available"}
+                          </div>
+                        </button>
+                      );
+                    })}
+                  </div>
                 </div>
               </div>
 
@@ -1367,11 +1613,12 @@ We look forward to seeing you again soon! 💇‍♀️✨`;
                 </button>
                 <button
                   type="submit"
-                  disabled={!walkInName.trim()}
-                  className="px-4 py-2 rounded-xl text-xs font-semibold bg-[#FACC15] hover:bg-[#EAB308] text-[#080808] transition-colors disabled:opacity-50 cursor-pointer flex items-center gap-1.5"
+                  className="px-5 py-2.5 rounded-xl text-xs font-bold bg-[#FACC15] hover:bg-[#EAB308] text-[#080808] transition-colors cursor-pointer flex items-center gap-1.5 shadow-md"
                 >
-                  <PlayCircle className="w-4 h-4" />
-                  <span>Confirm Check-in</span>
+                  <Armchair className="w-4 h-4" />
+                  <span>
+                    {customerMode === "new" ? "Create Customer & Appoint to Chair" : "Appoint to Chair"}
+                  </span>
                 </button>
               </div>
             </form>
@@ -1384,7 +1631,7 @@ We look forward to seeing you again soon! 💇‍♀️✨`;
       {/* ============================================================ */}
       {serviceModalApt && (
         <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-[#151515] border border-[#27272A] text-[#F8FAFC] rounded-2xl max-w-lg w-full p-6 shadow-2xl space-y-4 animate-in fade-in zoom-in-95 duration-200">
+          <div className="bg-[#151515] border border-[#27272A] text-[#F8FAFC] rounded-2xl max-w-lg w-full max-h-[90vh] overflow-y-auto p-6 shadow-2xl space-y-4 animate-in fade-in zoom-in-95 duration-200">
             <div className="flex items-center justify-between pb-3 border-b border-[#27272A]">
               <div>
                 <h3 className="text-base font-semibold text-[#F8FAFC]">
@@ -1520,18 +1767,13 @@ We look forward to seeing you again soon! 💇‍♀️✨`;
               </div>
             </div>
 
-            {/* Feature 6: Payment Method Selector (UPI / Cash / Wallet / Split) */}
+            {/* Payment Method Selector (UPI / Cash / Split) */}
             <div className="space-y-1.5">
               <div className="flex items-center justify-between text-xs">
                 <label className="font-medium text-[#A1A1AA]">Tender Type:</label>
-                {billingCustomer && (
-                  <span className="text-[10px] font-mono text-purple-300">
-                    Wallet: {formatCurrency(billingCustomer.walletBalance || 0)}
-                  </span>
-                )}
               </div>
-              <div className="grid grid-cols-4 gap-2">
-                {(["UPI", "Cash", "Wallet", "Split"] as const).map((method) => (
+              <div className="grid grid-cols-3 gap-2">
+                {(["UPI", "Cash", "Split"] as const).map((method) => (
                   <button
                     key={method}
                     type="button"
@@ -1540,28 +1782,12 @@ We look forward to seeing you again soon! 💇‍♀️✨`;
                       if (method === "UPI") {
                         setUpiAmount(finalBillAmount);
                         setCashAmount(0);
-                        setWalletAmount(0);
                       } else if (method === "Cash") {
                         setCashAmount(finalBillAmount);
                         setUpiAmount(0);
-                        setWalletAmount(0);
-                      } else if (method === "Wallet") {
-                        setWalletAmount(finalBillAmount);
-                        setCashAmount(0);
-                        setUpiAmount(0);
                       } else {
-                        // Default 50/50 split or utilize available wallet
-                        const availableW = billingCustomer?.walletBalance || 0;
-                        if (availableW > 0) {
-                          const wUse = Math.min(finalBillAmount, availableW);
-                          setWalletAmount(wUse);
-                          setUpiAmount(finalBillAmount - wUse);
-                          setCashAmount(0);
-                        } else {
-                          setCashAmount(Math.round(finalBillAmount / 2));
-                          setUpiAmount(finalBillAmount - Math.round(finalBillAmount / 2));
-                          setWalletAmount(0);
-                        }
+                        setCashAmount(Math.round(finalBillAmount / 2));
+                        setUpiAmount(finalBillAmount - Math.round(finalBillAmount / 2));
                       }
                     }}
                     className={`py-2 px-2.5 rounded-xl text-xs font-mono uppercase transition-colors cursor-pointer border text-center ${
@@ -1576,24 +1802,7 @@ We look forward to seeing you again soon! 💇‍♀️✨`;
               </div>
             </div>
 
-            {/* Wallet Tender Check */}
-            {payMethod === "Wallet" && (
-              <div className="p-3 rounded-xl bg-purple-500/10 border border-purple-500/30 space-y-1 text-xs">
-                <div className="flex justify-between items-center text-purple-200">
-                  <span>Client Prepaid Balance:</span>
-                  <span className="font-bold font-mono">
-                    {formatCurrency(billingCustomer?.walletBalance || 0)}
-                  </span>
-                </div>
-                {(billingCustomer?.walletBalance || 0) < finalBillAmount && (
-                  <p className="text-[11px] text-rose-300 font-semibold">
-                    ⚠️ Insufficient wallet balance. Needs {formatCurrency(finalBillAmount - (billingCustomer?.walletBalance || 0))} more. Switch to Split or Cash/UPI.
-                  </p>
-                )}
-              </div>
-            )}
-
-            {/* Feature 6: Dynamic 3-Way Split Breakdown */}
+            {/* Dynamic 2-Way Split Breakdown (Cash + UPI) */}
             {payMethod === "Split" && (
               <div className="p-3.5 rounded-xl bg-[#111111] border border-[#FACC15]/30 space-y-3">
                 <div className="flex items-center justify-between text-xs">
@@ -1601,17 +1810,17 @@ We look forward to seeing you again soon! 💇‍♀️✨`;
                     Multi-Tender Split Breakdown
                   </span>
                   <span className={`text-[10px] font-mono font-bold px-2 py-0.5 rounded ${
-                    cashAmount + upiAmount + walletAmount === finalBillAmount
+                    cashAmount + upiAmount === finalBillAmount
                       ? "bg-emerald-500/15 text-emerald-400 border border-emerald-500/30"
                       : "bg-rose-500/15 text-rose-400 border border-rose-500/30"
                   }`}>
-                    {cashAmount + upiAmount + walletAmount === finalBillAmount
+                    {cashAmount + upiAmount === finalBillAmount
                       ? "✓ Balanced"
-                      : `Diff: ${formatCurrency(finalBillAmount - (cashAmount + upiAmount + walletAmount))}`}
+                      : `Diff: ${formatCurrency(finalBillAmount - (cashAmount + upiAmount))}`}
                   </span>
                 </div>
 
-                <div className="grid grid-cols-3 gap-2">
+                <div className="grid grid-cols-2 gap-2">
                   <div className="space-y-1">
                     <label className="text-[10px] text-[#A1A1AA] font-mono block">Cash (₹)</label>
                     <input
@@ -1632,44 +1841,20 @@ We look forward to seeing you again soon! 💇‍♀️✨`;
                       className="w-full px-2.5 py-1.5 bg-[#151515] border border-[#27272A] rounded-xl text-xs font-mono text-[#F8FAFC] focus:outline-none focus:border-[#FACC15]"
                     />
                   </div>
-                  <div className="space-y-1">
-                    <label className="text-[10px] text-purple-300 font-mono block">Wallet (₹)</label>
-                    <input
-                      type="number"
-                      min="0"
-                      max={billingCustomer?.walletBalance || 0}
-                      value={walletAmount || ""}
-                      onChange={(e) => handleWalletChange(Number(e.target.value) || 0)}
-                      className="w-full px-2.5 py-1.5 bg-[#151515] border border-[#27272A] rounded-xl text-xs font-mono text-[#F8FAFC] focus:outline-none focus:border-purple-400"
-                    />
-                  </div>
                 </div>
 
                 {/* Quick Auto-balancer buttons */}
                 <div className="flex flex-wrap items-center gap-1.5 pt-1 text-[10px] font-mono">
-                  {billingCustomer && (billingCustomer.walletBalance || 0) > 0 && (
-                    <button
-                      type="button"
-                      onClick={() => {
-                        const maxW = Math.min(finalBillAmount, billingCustomer.walletBalance || 0);
-                        setWalletAmount(maxW);
-                        setUpiAmount(Math.max(0, finalBillAmount - cashAmount - maxW));
-                      }}
-                      className="px-2 py-0.5 rounded bg-purple-500/20 hover:bg-purple-500/30 text-purple-300 border border-purple-500/30 cursor-pointer"
-                    >
-                      Max Wallet ({formatCurrency(billingCustomer.walletBalance || 0)})
-                    </button>
-                  )}
                   <button
                     type="button"
-                    onClick={() => setUpiAmount(Math.max(0, finalBillAmount - cashAmount - walletAmount))}
+                    onClick={() => setUpiAmount(Math.max(0, finalBillAmount - cashAmount))}
                     className="px-2 py-0.5 rounded bg-[#181818] hover:bg-[#202020] text-[#FACC15] border border-[#27272A] cursor-pointer"
                   >
                     Rest to UPI
                   </button>
                   <button
                     type="button"
-                    onClick={() => setCashAmount(Math.max(0, finalBillAmount - upiAmount - walletAmount))}
+                    onClick={() => setCashAmount(Math.max(0, finalBillAmount - upiAmount))}
                     className="px-2 py-0.5 rounded bg-[#181818] hover:bg-[#202020] text-emerald-400 border border-[#27272A] cursor-pointer"
                   >
                     Rest to Cash
@@ -1690,10 +1875,7 @@ We look forward to seeing you again soon! 💇‍♀️✨`;
               <button
                 type="button"
                 onClick={handleCompleteBillAndSendWhatsApp}
-                disabled={
-                  (payMethod === "Split" && cashAmount + upiAmount + walletAmount !== finalBillAmount) ||
-                  (payMethod === "Wallet" && (billingCustomer?.walletBalance || 0) < finalBillAmount)
-                }
+                disabled={payMethod === "Split" && cashAmount + upiAmount !== finalBillAmount}
                 className="px-4 py-2 bg-[#10B981] hover:bg-[#0D9468] disabled:opacity-40 disabled:cursor-not-allowed text-[#080808] font-semibold text-xs rounded-xl shadow-sm flex items-center gap-1.5 cursor-pointer"
               >
                 <CheckCircle2 className="w-4 h-4" />
@@ -1709,7 +1891,7 @@ We look forward to seeing you again soon! 💇‍♀️✨`;
       {/* ============================================================ */}
       {whatsappSentModal && (
         <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-[#151515] border border-[#27272A] text-[#F8FAFC] rounded-2xl max-w-lg w-full p-6 shadow-2xl space-y-4 animate-in fade-in zoom-in-95 duration-200">
+          <div className="bg-[#151515] border border-[#27272A] text-[#F8FAFC] rounded-2xl max-w-lg w-full max-h-[90vh] overflow-y-auto p-6 shadow-2xl space-y-4 animate-in fade-in zoom-in-95 duration-200">
             <div className="flex items-center justify-between pb-3 border-b border-[#27272A]">
               <div className="flex items-center gap-2">
                 <div className="w-7 h-7 rounded-lg bg-[#10B981]/15 text-[#10B981] border border-[#10B981]/30 flex items-center justify-center font-bold">
@@ -1770,7 +1952,7 @@ We look forward to seeing you again soon! 💇‍♀️✨`;
       {/* CHAIR DETAIL MODAL */}
       {selectedChairDetail && (
         <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-[#151515] border border-[#27272A] text-[#F8FAFC] rounded-2xl max-w-sm w-full p-5 shadow-2xl space-y-3.5 animate-in fade-in zoom-in-95 duration-200">
+          <div className="bg-[#151515] border border-[#27272A] text-[#F8FAFC] rounded-2xl max-w-sm w-full max-h-[90vh] overflow-y-auto p-5 shadow-2xl space-y-3.5 animate-in fade-in zoom-in-95 duration-200">
             <div className="flex items-center justify-between pb-2 border-b border-[#27272A]">
               <div className="flex items-center gap-2">
                 <Armchair className="w-4 h-4 text-[#FACC15]" />
@@ -1828,190 +2010,11 @@ We look forward to seeing you again soon! 💇‍♀️✨`;
       )}
 
       {/* ============================================================ */}
-      {/* MODAL 5: SHIFT CASH DRAWER OPEN / CLOSE & HANDOVER (FEATURE 1) */}
-      {/* ============================================================ */}
-      {showShiftModal && (
-        <div className="fixed inset-0 z-50 bg-black/85 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-[#151515] border border-[#27272A] text-[#F8FAFC] rounded-2xl max-w-md w-full p-6 shadow-2xl space-y-4 animate-in fade-in zoom-in-95 duration-200">
-            <div className="flex items-center justify-between pb-3 border-b border-[#27272A]">
-              <div className="flex items-center gap-2.5">
-                <div className="w-9 h-9 rounded-xl bg-emerald-500/15 border border-emerald-500/30 text-emerald-400 flex items-center justify-center">
-                  <Banknote className="w-5 h-5" />
-                </div>
-                <div>
-                  <h3 className="text-base font-semibold text-[#F8FAFC]">
-                    {currentShift ? "Register Shift Reconciliation" : "Open Front Desk Register Shift"}
-                  </h3>
-                  <p className="text-[11px] text-[#A1A1AA] font-mono">
-                    {currentShift ? `Opened by ${currentShift.openedByName || "Front Desk"}` : "Start of day cash float"}
-                  </p>
-                </div>
-              </div>
-              <button
-                onClick={() => setShowShiftModal(false)}
-                className="w-8 h-8 rounded-xl bg-[#111111] hover:bg-[#1A1A1A] text-[#71717A] hover:text-[#F8FAFC] border border-[#27272A] flex items-center justify-center cursor-pointer"
-              >
-                <X className="w-4 h-4" />
-              </button>
-            </div>
-
-            {!currentShift ? (
-              /* OPEN SHIFT FORM */
-              <div className="space-y-3.5 text-xs">
-                <div className="p-3 bg-[#111111] rounded-xl border border-[#27272A] space-y-1">
-                  <span className="text-[#A1A1AA] block">Opening Cash Float</span>
-                  <p className="text-[11px] text-[#71717A]">
-                    Enter the physical petty cash placed in the register for change.
-                  </p>
-                </div>
-
-                <div className="space-y-1.5">
-                  <label className="text-xs font-mono text-[#A1A1AA]">Quick Float Amount (₹)</label>
-                  <div className="grid grid-cols-4 gap-1.5 font-mono">
-                    {[1000, 2000, 3000, 5000].map((amt) => (
-                      <button
-                        key={amt}
-                        type="button"
-                        onClick={() => setOpeningFloatInput(amt)}
-                        className={`py-2 rounded-xl text-xs font-bold border transition-all cursor-pointer ${
-                          openingFloatInput === amt
-                            ? "bg-[#FACC15] text-[#080808] border-[#FACC15]"
-                            : "bg-[#111111] text-[#A1A1AA] border-[#27272A] hover:bg-[#181818]"
-                        }`}
-                      >
-                        ₹{amt >= 1000 ? `${amt / 1000}k` : amt}
-                      </button>
-                    ))}
-                  </div>
-
-                  <input
-                    type="number"
-                    min="0"
-                    step="100"
-                    value={openingFloatInput || ""}
-                    onChange={(e) => setOpeningFloatInput(Number(e.target.value) || 0)}
-                    placeholder="Enter Float"
-                    className="w-full px-3.5 py-2.5 bg-[#111111] border border-[#27272A] rounded-xl text-sm font-mono font-bold text-[#F8FAFC] focus:outline-none focus:border-[#FACC15]"
-                  />
-                </div>
-
-                <div className="space-y-1">
-                  <label className="text-[11px] font-mono text-[#71717A]">Opening Notes (Optional)</label>
-                  <input
-                    type="text"
-                    value={shiftNotesInput}
-                    onChange={(e) => setShiftNotesInput(e.target.value)}
-                    placeholder="e.g. Morning opening shift verified by cashier"
-                    className="w-full px-3 py-2 bg-[#111111] border border-[#27272A] rounded-xl text-xs text-[#F8FAFC] focus:outline-none focus:border-[#FACC15]"
-                  />
-                </div>
-
-                <button
-                  type="button"
-                  onClick={async () => {
-                    await openRegisterShift(openingFloatInput, shiftNotesInput);
-                    setShowShiftModal(false);
-                    setShiftNotesInput("");
-                  }}
-                  className="w-full py-3 bg-[#FACC15] hover:bg-[#EAB308] text-[#080808] font-bold text-xs rounded-xl shadow-lg shadow-[#FACC15]/10 flex items-center justify-center gap-2 cursor-pointer transition-all"
-                >
-                  <PlayCircle className="w-4 h-4" />
-                  <span>Open Register Shift ({formatCurrency(openingFloatInput)})</span>
-                </button>
-              </div>
-            ) : (
-              /* CLOSE SHIFT RECONCILIATION */
-              <div className="space-y-3.5 text-xs">
-                <div className="p-3.5 bg-[#111111] rounded-xl border border-[#27272A] space-y-2">
-                  <div className="flex justify-between items-center text-[#A1A1AA]">
-                    <span>Opening Float:</span>
-                    <span className="font-mono font-bold text-[#F8FAFC]">{formatCurrency(currentShift.openingFloat)}</span>
-                  </div>
-                  <div className="flex justify-between items-center text-[#A1A1AA]">
-                    <span>Cash Collected Today:</span>
-                    <span className="font-mono font-bold text-emerald-400">
-                      +{formatCurrency(Math.max(0, currentShift.expectedCash - currentShift.openingFloat))}
-                    </span>
-                  </div>
-                  <div className="pt-2 border-t border-[#27272A] flex justify-between items-center font-bold">
-                    <span className="text-[#F8FAFC]">System Expected Drawer Total:</span>
-                    <span className="font-mono text-sm text-[#FACC15]">{formatCurrency(currentShift.expectedCash)}</span>
-                  </div>
-                </div>
-
-                <div className="space-y-1.5">
-                  <label className="text-xs font-mono text-[#A1A1AA] block">Physical Cash Counted in Drawer (₹)</label>
-                  <input
-                    type="number"
-                    min="0"
-                    step="10"
-                    value={countedCashInput || ""}
-                    onChange={(e) => setCountedCashInput(Number(e.target.value) || 0)}
-                    placeholder="Count physical cash notes"
-                    className="w-full px-3.5 py-2.5 bg-[#111111] border border-[#27272A] rounded-xl text-base font-mono font-bold text-[#F8FAFC] focus:outline-none focus:border-[#FACC15]"
-                  />
-                </div>
-
-                {/* Real-time Variance Badge */}
-                {(() => {
-                  const variance = countedCashInput - currentShift.expectedCash;
-                  return (
-                    <div
-                      className={`p-3 rounded-xl border flex items-center justify-between text-xs font-mono font-bold ${
-                        variance === 0
-                          ? "bg-emerald-500/10 border-emerald-500/30 text-emerald-400"
-                          : variance < 0
-                          ? "bg-rose-500/10 border-rose-500/30 text-rose-300"
-                          : "bg-blue-500/10 border-blue-500/30 text-blue-300"
-                      }`}
-                    >
-                      <span>Cash Variance:</span>
-                      <span>
-                        {variance === 0
-                          ? "✓ Exact Match (Balanced)"
-                          : variance < 0
-                          ? `Shortage: -${formatCurrency(Math.abs(variance))}`
-                          : `Overage: +${formatCurrency(variance)}`}
-                      </span>
-                    </div>
-                  );
-                })()}
-
-                <div className="space-y-1">
-                  <label className="text-[11px] font-mono text-[#71717A]">Closing / Handover Notes</label>
-                  <input
-                    type="text"
-                    value={shiftNotesInput}
-                    onChange={(e) => setShiftNotesInput(e.target.value)}
-                    placeholder="e.g. Evening drawer handover to next shift"
-                    className="w-full px-3 py-2 bg-[#111111] border border-[#27272A] rounded-xl text-xs text-[#F8FAFC] focus:outline-none focus:border-[#FACC15]"
-                  />
-                </div>
-
-                <button
-                  type="button"
-                  onClick={async () => {
-                    await closeRegisterShift(countedCashInput, shiftNotesInput);
-                    setShowShiftModal(false);
-                    setShiftNotesInput("");
-                  }}
-                  className="w-full py-3 bg-rose-600 hover:bg-rose-500 text-white font-bold text-xs rounded-xl shadow-lg shadow-rose-600/20 flex items-center justify-center gap-2 cursor-pointer transition-all"
-                >
-                  <CheckCircle2 className="w-4 h-4" />
-                  <span>Reconcile & Close Register Shift</span>
-                </button>
-              </div>
-            )}
-          </div>
-        </div>
-      )}
-
-      {/* ============================================================ */}
       {/* MODAL 6: MID-SERVICE IN-CHAIR ADD-ON (FEATURE 4) */}
       {/* ============================================================ */}
       {inChairAddonApt && (
         <div className="fixed inset-0 z-50 bg-black/85 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-[#151515] border border-[#27272A] text-[#F8FAFC] rounded-2xl max-w-md w-full p-6 shadow-2xl space-y-4 animate-in fade-in zoom-in-95 duration-200">
+          <div className="bg-[#151515] border border-[#27272A] text-[#F8FAFC] rounded-2xl max-w-md w-full max-h-[90vh] overflow-y-auto p-6 shadow-2xl space-y-4 animate-in fade-in zoom-in-95 duration-200">
             <div className="flex items-center justify-between pb-3 border-b border-[#27272A]">
               <div className="flex items-center gap-2.5">
                 <div className="w-8 h-8 rounded-xl bg-purple-500/15 border border-purple-500/30 text-purple-400 flex items-center justify-center">

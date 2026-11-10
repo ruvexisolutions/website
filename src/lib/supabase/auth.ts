@@ -24,6 +24,7 @@ export interface RuvexiAuthResult {
   };
   token?: string;
   requiresEmailVerification?: boolean;
+  isNewUser?: boolean;
   error?: string;
 }
 
@@ -426,6 +427,7 @@ export async function signInWithGoogle(): Promise<RuvexiAuthResult> {
               user: data.user,
               salon: data.salon,
               token: data.token,
+              isNewUser: Boolean(data.isNewUser),
             });
           } catch (err: any) {
             resolve({

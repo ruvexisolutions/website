@@ -21,6 +21,7 @@ import { ReportsView } from "./reports-view";
 import { SettingsView } from "./settings-view";
 import { SubscriptionView } from "./subscription-view";
 import { ZenotiEnterpriseModal } from "./zenoti-enterprise-modal";
+import { OwnerOnboardingModal } from "./owner-onboarding-modal";
 import { RoleSwitcher } from "./role-switcher";
 import { RolePermissionGuard } from "./role-permission-guard";
 import { canAccessTab, getRoleConfig, DashboardTab, UserRole } from "@/lib/role-permissions";
@@ -122,7 +123,39 @@ export function DemoShell({ initialTab = "frontdesk", initialSubTab }: DemoShell
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [selectedBranch, setSelectedBranch] = useState(salon.branch || "Flagship Studio - Bandra West");
   const [isZenotiModalOpen, setIsZenotiModalOpen] = useState(false);
+  const [showOwnerOnboarding, setShowOwnerOnboarding] = useState(false);
   const [currentTime, setCurrentTime] = useState<string>("");
+
+  // Trigger first-time onboarding form for newly signed-up / Google-registered owners
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    if (!user || !roleConfig.capabilities.canEditSalonSettings) {
+      setShowOwnerOnboarding(false);
+      return;
+    }
+
+    const onboardingDoneKey = salon?.id ? `Ruvexi_onboarded_${salon.id}` : "";
+    const alreadyOnboarded = onboardingDoneKey
+      ? localStorage.getItem(onboardingDoneKey) === "true"
+      : false;
+
+    if (alreadyOnboarded) {
+      setShowOwnerOnboarding(false);
+      return;
+    }
+
+    const flaggedNew = localStorage.getItem("Ruvexi_needs_onboarding") === "true";
+    const hasMissingCoreProfile =
+      Boolean(salon?.id && salon.id !== "sln_1") &&
+      (!salon?.phone ||
+        salon.phone === "+91 98000 00000" ||
+        !salon?.address ||
+        salon.address === "Suite 401, Crescent Galleria, Indiranagar");
+
+    if (flaggedNew || hasMissingCoreProfile) {
+      setShowOwnerOnboarding(true);
+    }
+  }, [user, salon?.id, salon?.phone, salon?.address, roleConfig.capabilities.canEditSalonSettings]);
 
   // Search & Notifications Popover States
   const [isSearchOpen, setIsSearchOpen] = useState(false);
@@ -473,75 +506,6 @@ export function DemoShell({ initialTab = "frontdesk", initialSubTab }: DemoShell
                 )}
               </button>
             </div>
-
-            {/* Active Salon Branch Card (when expanded) */}
-            {!isSidebarCollapsed && (
-              <div className="bg-[#151515] border border-[#27272A] rounded-xl p-2.5 space-y-2">
-                <div className="flex items-center justify-between">
-                  <span className="text-[10px] font-mono uppercase tracking-wider text-[#71717A]">
-                    Active Studio
-                  </span>
-                  <button
-                    onClick={() => setIsZenotiModalOpen(true)}
-                    className="text-[9px] font-mono uppercase text-[#FACC15] bg-[#FACC15]/10 hover:bg-[#FACC15]/20 px-1.5 py-0.5 rounded border border-[#FACC15]/20 cursor-pointer transition-colors"
-                    title="Switch or Add Studio Locations"
-                  >
-                    Switch Location
-                  </button>
-                </div>
-                <div className="flex items-center gap-2.5">
-                  {(salon.logoUrl || salon.logo) ? (
-                    <img
-                      src={salon.logoUrl || salon.logo}
-                      alt={salon.name}
-                      className="w-8 h-8 rounded-lg object-cover border border-[#FACC15]/40 shrink-0 bg-[#090909]"
-                    />
-                  ) : (
-                    <div className="w-8 h-8 rounded-lg bg-[#FACC15]/10 border border-[#FACC15]/30 flex items-center justify-center text-[#FACC15] font-bold text-xs shrink-0 font-serif">
-                      {salon.name ? salon.name.substring(0, 2).toUpperCase() : "BC"}
-                    </div>
-                  )}
-                  <div className="min-w-0 flex-1">
-                    <div className="font-semibold text-xs text-[#F8FAFC] truncate font-sans">
-                      {salon.name}
-                    </div>
-                    <div className="flex items-center gap-1 text-[11px] text-[#A1A1AA] font-light">
-                      <Building2 className="w-3 h-3 text-[#FACC15] shrink-0" />
-                      <span className="truncate">{salon.city || selectedBranch}</span>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {/* Quick POS Checkout CTA */}
-            <button
-              onClick={() => handleSelectTab("pos")}
-              className={`w-full py-2.5 bg-[#FACC15] hover:bg-[#EAB308] text-[#080808] font-bold text-xs uppercase tracking-wider rounded-xl shadow-md transition-all flex items-center justify-center gap-2 cursor-pointer focus:outline-none focus:ring-2 focus:ring-[#FACC15]/40 ${
-                isSidebarCollapsed ? "px-0" : "px-3"
-              }`}
-              title="Quick POS Checkout"
-            >
-              <Receipt className="w-4 h-4 shrink-0" />
-              {!isSidebarCollapsed && <span>Quick POS Bill</span>}
-            </button>
-
-            {/* Trial Status Pill (when expanded) */}
-            {!isSidebarCollapsed && salon.subscriptionStatus === "trial" && (
-              <div
-                onClick={() => handleSelectTab("subscription")}
-                className="cursor-pointer bg-[#FACC15]/10 border border-[#FACC15]/25 hover:border-[#FACC15] rounded-xl px-2.5 py-1.5 flex items-center justify-between transition-colors"
-                title="7-Day Free Trial Active. Click to view subscription options."
-              >
-                <div className="flex items-center gap-1.5">
-                  <span className="w-1.5 h-1.5 rounded-full bg-[#FACC15] animate-ping" />
-                  <span className="text-[11px] font-mono text-[#FACC15] font-semibold">
-                    7-Day Trial: {typeof salon.trialDaysLeft === "number" ? salon.trialDaysLeft : 7}d left
-                  </span>
-                </div>
-                <ChevronRight className="w-3 h-3 text-[#FACC15]" />
-              </div>
-            )}
           </div>
 
           {/* Middle Nav Items (Receptionist Operations) */}
@@ -605,8 +569,17 @@ export function DemoShell({ initialTab = "frontdesk", initialSubTab }: DemoShell
               } bg-[#151515] border border-[#27272A] rounded-xl shadow-sm`}
             >
               <div className="flex items-center gap-2 min-w-0">
-                <div className="w-7 h-7 rounded-lg bg-[#FACC15] text-[#080808] flex items-center justify-center text-xs font-black shrink-0">
-                  {user?.avatar || user?.name?.charAt(0) || "R"}
+                <div className="w-7 h-7 rounded-lg bg-[#FACC15] text-[#080808] flex items-center justify-center text-xs font-black shrink-0 overflow-hidden">
+                  {user?.avatar && (user.avatar.startsWith("http") || user.avatar.startsWith("/") || user.avatar.startsWith("data:")) ? (
+                    <img
+                      src={user.avatar}
+                      alt={user?.name || "User"}
+                      className="w-full h-full object-cover"
+                      referrerPolicy="no-referrer"
+                    />
+                  ) : (
+                    (user?.avatar || user?.name || "R").charAt(0).toUpperCase()
+                  )}
                 </div>
                 {!isSidebarCollapsed && (
                   <div className="min-w-0">
@@ -803,7 +776,13 @@ export function DemoShell({ initialTab = "frontdesk", initialSubTab }: DemoShell
                   />
                 )}
                 {activeTab === "owner" && <SalonOwnerView />}
-                {activeTab === "overview" && <OverviewView onNavigateTab={(tab) => handleSelectTab(tab as any)} />}
+                {activeTab === "overview" && (
+                  <OverviewView
+                    onNavigateTab={(tab) => handleSelectTab(tab as any)}
+                    onOpenSwitchLocation={() => setIsZenotiModalOpen(true)}
+                    activeBranch={selectedBranch}
+                  />
+                )}
                 {activeTab === "calendar" && <CalendarView onGoToPosBilling={handleGoToPosFromCalendar} />}
                 {activeTab === "pos" && <PosView />}
                 {activeTab === "customers" && (
@@ -828,8 +807,8 @@ export function DemoShell({ initialTab = "frontdesk", initialSubTab }: DemoShell
 
       {/* Global Command Search Modal (Ctrl+K) */}
       {isSearchOpen && (
-        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-md flex items-start justify-center pt-20 p-4">
-          <div className="w-full max-w-xl bg-[#151515] border border-[#27272A] rounded-2xl shadow-2xl overflow-hidden animate-in zoom-in-95 duration-150">
+        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-md flex items-start justify-center pt-12 sm:pt-20 p-4">
+          <div className="w-full max-w-xl max-h-[85vh] flex flex-col bg-[#151515] border border-[#27272A] rounded-2xl shadow-2xl overflow-hidden animate-in zoom-in-95 duration-150">
             <div className="p-3 border-b border-[#27272A] flex items-center gap-3">
               <Search className="w-5 h-5 text-[#FACC15]" />
               <input
@@ -977,6 +956,11 @@ export function DemoShell({ initialTab = "frontdesk", initialSubTab }: DemoShell
             </div>
           </div>
         </div>
+      )}
+
+      {/* First-Time Owner Studio Onboarding Form */}
+      {showOwnerOnboarding && (
+        <OwnerOnboardingModal onComplete={() => setShowOwnerOnboarding(false)} />
       )}
 
       {/* Zenoti Enterprise Multi-Center & Clinical Suite Modal */}

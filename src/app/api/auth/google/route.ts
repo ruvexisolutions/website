@@ -93,6 +93,7 @@ export async function POST(request: Request) {
         if (loginData?.token && loginData?.user && loginData?.salon) {
           return NextResponse.json({
             success: true,
+            isNewUser: false,
             user: { ...loginData.user, avatar: avatarUrl || loginData.user.avatar },
             salon: loginData.salon,
             token: loginData.token,
@@ -126,6 +127,7 @@ export async function POST(request: Request) {
         if (signupData?.token && signupData?.user && signupData?.salon) {
           return NextResponse.json({
             success: true,
+            isNewUser: true,
             user: { ...signupData.user, avatar: avatarUrl || signupData.user.avatar },
             salon: signupData.salon,
             token: signupData.token,
@@ -140,6 +142,7 @@ export async function POST(request: Request) {
     const cleanSlug = displayName.toLowerCase().replace(/[^a-z0-9]+/g, "-");
     return NextResponse.json({
       success: true,
+      isNewUser: true,
       user: {
         id: `usr_google_${googleUser.sub}`,
         name: displayName,
