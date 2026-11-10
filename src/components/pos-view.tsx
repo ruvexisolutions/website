@@ -94,6 +94,61 @@ export function PosView() {
   const gstAmount = Math.round(subtotal * 0.05); // 5% GST (CGST 2.5% + SGST 2.5%)
   const grandTotal = Math.max(0, subtotal - totalDiscount + gstAmount + tipAmount);
 
+  // Sync default customer once context hydrates
+  React.useEffect(() => {
+    if (!selectedCustomerId && !isWalkIn && customers.length > 0) {
+      setSelectedCustomerId(customers[0].id);
+    }
+  }, [customers, selectedCustomerId, isWalkIn]);
+
+  // Consume optional prefill from Calendar / Customer CRM
+  React.useEffect(() => {
+    if (typeof window === "undefined") return;
+    try {
+      const raw = sessionStorage.getItem("Ruvexi_pos_prefill");
+      if (!raw) return;
+      sessionStorage.removeItem("Ruvexi_pos_prefill");
+      const parsed = JSON.parse(raw) as {
+        customerName?: string;
+        serviceName?: string;
+        staffName?: string;
+      };
+      if (parsed.customerName) {
+        const foundCust = customers.find(
+          (c) => c.name.toLowerCase() === parsed.customerName?.toLowerCase()
+        );
+        if (foundCust) {
+          setIsWalkIn(false);
+          setSelectedCustomerId(foundCust.id);
+        } else {
+          setIsWalkIn(true);
+          setCustomCustomerName(parsed.customerName);
+        }
+      }
+      if (parsed.serviceName) {
+        const matchedSrv = services.find((s) =>
+          parsed.serviceName!.toLowerCase().includes(s.name.toLowerCase())
+        );
+        const matchedStaff = staff.find(
+          (st) => st.name.toLowerCase() === (parsed.staffName || "").toLowerCase()
+        );
+        if (matchedSrv) {
+          setCart([
+            {
+              id: matchedSrv.id,
+              name: matchedSrv.name,
+              price: matchedSrv.price,
+              quantity: 1,
+              type: "service",
+              staffId: matchedStaff?.id || staff[0]?.id,
+              staffName: matchedStaff?.name || parsed.staffName || staff[0]?.name,
+            },
+          ]);
+        }
+      }
+    } catch {}
+  }, [customers, services, staff]);
+
   // Sync selected method if one is disabled
   React.useEffect(() => {
     if (!isUpiAvailable && paymentMethod === "UPI") {
@@ -286,13 +341,18 @@ export function PosView() {
 
     try {
       const customerName = isWalkIn ? customCustomerName || "Walk-in Guest" : selectedCustomer?.name || "Guest";
-      const customerPhone = isWalkIn ? customCustomerPhone || "+91 90000 00000" : selectedCustomer?.phone || "+91 90000 00000";
+      const customerPhone = isWalkIn ? customCustomerPhone || "" : selectedCustomer?.phone || "";
 
-      const pointsEarned = Math.floor(grandTotal / 100);
+      const pointsEarned = Math.round(grandTotal * 0.05);
+      const redeemedPts = redeemLoyalty ? loyaltyDiscount : 0;
       const balancePoints = Math.max(
         0,
-        (selectedCustomer?.loyaltyPoints || 0) + pointsEarned - (redeemLoyalty ? loyaltyDiscount * 2 : 0)
+        (selectedCustomer?.loyaltyPoints || 0) + pointsEarned - redeemedPts
       );
+
+      const primaryCartStaff = cart.find((i) => i.staffId || i.staffName);
+      const resolvedStaffId = primaryCartStaff?.staffId || staff[0]?.id || "";
+      const resolvedStaffName = primaryCartStaff?.staffName || staff[0]?.name || "";
 
       const status = extraDetails.status || "paid";
       const amountReceived = extraDetails.amountReceived ?? (method === "CASH" ? cashTendered : grandTotal);
@@ -303,16 +363,24 @@ export function PosView() {
         customerId: isWalkIn ? "cst_walkin" : selectedCustomer?.id,
         customerName,
         customerPhone,
+        staffId: resolvedStaffId,
+        staffName: resolvedStaffName,
         items: cart,
         subtotal,
-        discount: totalDiscount,
+        discount: appliedDiscount,
+        discountAmount: appliedDiscount,
+        loyaltyPointsRedeemed: redeemedPts,
+        tipAmount,
+        taxPercent: salon.autoGst === false ? 0 : 5,
         gstAmount,
         total: grandTotal,
+        grandTotal,
         paymentMethod: method,
         status: status,
         amountReceived,
         changeGiven,
         paymentReference: txnRef,
+        transactionReference: txnRef,
         notes: txnRef ? `${method} Ref: ${txnRef}` : undefined,
         loyaltyPointsEarned: pointsEarned,
         loyaltyPointsBalance: balancePoints,
@@ -554,15 +622,23 @@ export function PosView() {
                   {filteredRetailProducts.map((prod) => (
                     <div
                       key={prod.id}
-                      onClick={() =>
+                      onClick={() => {
+                        if ((prod.currentStock || 0) <= 0) {
+                          showToast(`"${prod.name}" is out of stock. Restock in Inventory first.`, "error");
+                          return;
+                        }
                         addToCart({
                           id: prod.id,
                           name: `${prod.name} (${prod.brand})`,
                           price: prod.retailPrice || prod.costPrice * 1.5,
                           type: "product",
-                        })
-                      }
-                      className="bg-[#151515] border border-[#27272A] group p-4 rounded-xl hover:border-emerald-500/50 hover:bg-[#181818] transition-all cursor-pointer flex flex-col justify-between"
+                        });
+                      }}
+                      className={`bg-[#151515] border border-[#27272A] group p-4 rounded-xl transition-all flex flex-col justify-between ${
+                        (prod.currentStock || 0) <= 0
+                          ? "opacity-50 cursor-not-allowed"
+                          : "hover:border-emerald-500/50 hover:bg-[#181818] cursor-pointer"
+                      }`}
                     >
                       <div>
                         <div className="flex items-start justify-between gap-2">

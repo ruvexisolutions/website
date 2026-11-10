@@ -24,7 +24,7 @@ import {
 } from "lucide-react";
 
 export function InventoryView() {
-  const { inventory, updateStock, restockItem, addInventoryItem } = useRuvexi();
+  const { inventory, updateStock, restockItem, addInventoryItem, showToast } = useRuvexi();
 
   const [searchTerm, setSearchTerm] = useState("");
   const [categoryFilter, setCategoryFilter] = useState("All");
@@ -69,16 +69,22 @@ export function InventoryView() {
 
   const handleRestockSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (restockModalItem && restockQuantity > 0) {
-      restockItem(restockModalItem.id, restockQuantity);
-      setRestockModalItem(null);
-      setRestockQuantity(10);
+    if (!restockModalItem) return;
+    if (!restockQuantity || restockQuantity <= 0) {
+      showToast("Please enter a valid quantity greater than 0.", "error");
+      return;
     }
+    restockItem(restockModalItem.id, restockQuantity);
+    setRestockModalItem(null);
+    setRestockQuantity(10);
   };
 
   const handleAddNewItem = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newItemName.trim()) return;
+    if (!newItemName.trim()) {
+      showToast("Please enter the product title.", "error");
+      return;
+    }
 
     addInventoryItem({
       name: newItemName,
@@ -221,11 +227,10 @@ export function InventoryView() {
 
             <button
               onClick={() => setOnlyLowStock(!onlyLowStock)}
-              className={`px-3.5 py-2 text-xs font-bold rounded-xl border transition-all flex items-center gap-1.5 cursor-pointer ${
-                onlyLowStock
+              className={`px-3.5 py-2 text-xs font-bold rounded-xl border transition-all flex items-center gap-1.5 cursor-pointer ${onlyLowStock
                   ? "bg-rose-500/20 text-rose-400 border-rose-500/40 shadow-sm"
                   : "bg-[#151515] text-[#A1A1AA] border-[#27272A] hover:text-[#F8FAFC]"
-              }`}
+                }`}
             >
               <AlertTriangle className="w-3.5 h-3.5" />
               Low Stock Alert ({lowStockCount})
@@ -291,11 +296,10 @@ export function InventoryView() {
 
                       <td className="py-4 px-4">
                         <span
-                          className={`inline-block px-2.5 py-0.5 rounded-full text-[10px] font-mono font-bold uppercase tracking-wider ${
-                            item.usageType === "Retail Sale"
+                          className={`inline-block px-2.5 py-0.5 rounded-full text-[10px] font-mono font-bold uppercase tracking-wider ${item.usageType === "Retail Sale"
                               ? "bg-emerald-500/20 text-emerald-400 border border-emerald-500/30"
                               : "bg-[#181818] text-[#FACC15] border border-[#27272A]"
-                          }`}
+                            }`}
                         >
                           {item.usageType}
                         </span>
@@ -304,9 +308,8 @@ export function InventoryView() {
                       <td className="py-4 px-4">
                         <div className="flex items-center gap-2">
                           <span
-                            className={`text-sm font-mono font-bold ${
-                              isLow ? "text-rose-400" : "text-[#F8FAFC]"
-                            }`}
+                            className={`text-sm font-mono font-bold ${isLow ? "text-rose-400" : "text-[#F8FAFC]"
+                              }`}
                           >
                             {item.currentStock} {item.unit}
                           </span>
@@ -373,7 +376,7 @@ export function InventoryView() {
               </button>
             </div>
 
-            <form onSubmit={handleRestockSubmit} className="mt-4 space-y-3 text-xs">
+            <form onSubmit={handleRestockSubmit} noValidate className="mt-4 space-y-3 text-xs">
               <div>
                 <span className="text-[10px] text-[#71717A] font-mono uppercase tracking-wider">Item:</span>
                 <p className="font-bold text-[#F8FAFC] text-sm">{restockModalItem.name}</p>
@@ -425,7 +428,7 @@ export function InventoryView() {
               </button>
             </div>
 
-            <form onSubmit={handleAddNewItem} className="mt-4 space-y-3 text-xs">
+            <form onSubmit={handleAddNewItem} noValidate className="mt-4 space-y-3 text-xs">
               <div>
                 <label className="font-mono text-[11px] text-[#A1A1AA] block mb-1">Product Title</label>
                 <input

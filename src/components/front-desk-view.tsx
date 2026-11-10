@@ -55,6 +55,7 @@ export function FrontDeskView({ onNavigateTab, onGoToPosBilling }: FrontDeskView
     services,
     customers,
     addCustomer,
+    updateAppointment,
     updateAppointmentStatus,
     bookAppointment,
     createInvoice,
@@ -449,7 +450,7 @@ export function FrontDeskView({ onNavigateTab, onGoToPosBilling }: FrontDeskView
       return;
     }
     const firstWaiting = waitingVisits[0];
-    updateAppointmentStatus(firstWaiting.id, "In-Service");
+    updateAppointmentStatus(firstWaiting.id, "In-Service", chairNum);
     showToast(`${firstWaiting.customerName} seated at Chair ${chairNum}!`);
   };
 
@@ -477,9 +478,15 @@ export function FrontDeskView({ onNavigateTab, onGoToPosBilling }: FrontDeskView
       return acc + (match?.price || 1500);
     }, 0);
 
+    const combinedName = selectedServiceList.join(" + ");
+    updateAppointment(serviceModalApt.id, {
+      serviceName: combinedName,
+      price: totalCalc,
+    });
+
     const updatedApt = {
       ...serviceModalApt,
-      serviceName: selectedServiceList.join(" + "),
+      serviceName: combinedName,
       price: totalCalc,
     };
 
@@ -533,13 +540,19 @@ export function FrontDeskView({ onNavigateTab, onGoToPosBilling }: FrontDeskView
   const handleCompleteBillAndSendWhatsApp = () => {
     if (!billingApt) return;
 
+    const matchedService = services.find((s) => s.name === billingApt.serviceName);
+    const gstIncludedRate = salon.autoGst === false ? 0 : 5;
+    const computedIncludedGst = gstIncludedRate > 0 ? Math.round(finalBillAmount - finalBillAmount / 1.05) : 0;
+
     createInvoice({
       customerId: billingCustomer?.id,
       customerName: billingApt.customerName,
       customerPhone: billingApt.customerPhone,
+      staffId: billingApt.staffId,
+      staffName: billingApt.staffName,
       items: [
         {
-          id: "item_1",
+          id: matchedService?.id || billingApt.serviceId || "item_1",
           name: billingApt.serviceName,
           type: "service",
           price: finalBillAmount,
@@ -550,8 +563,11 @@ export function FrontDeskView({ onNavigateTab, onGoToPosBilling }: FrontDeskView
       ],
       subtotal: finalBillAmount,
       discount: 0,
-      gstAmount: Math.round(finalBillAmount * 0.05),
+      taxPercent: gstIncludedRate,
+      gstAmount: computedIncludedGst,
+      gstIncluded: true,
       total: finalBillAmount,
+      grandTotal: finalBillAmount,
       paymentMethod: payMethod,
       splitDetails:
         payMethod === "Split"
@@ -566,12 +582,16 @@ export function FrontDeskView({ onNavigateTab, onGoToPosBilling }: FrontDeskView
 
     updateAppointmentStatus(billingApt.id, "Completed");
 
-    const cleanPhone = billingApt.customerPhone.replace(/[^0-9]/g, "");
-    const feedbackUrl = `https://Ruvexi.io/feedback?name=${encodeURIComponent(
-      billingApt.customerName
-    )}&phone=${encodeURIComponent(cleanPhone)}&staff=${encodeURIComponent(
-      billingApt.staffName
-    )}&service=${encodeURIComponent(billingApt.serviceName)}`;
+    const rawDigits = (billingApt.customerPhone || "").replace(/[^0-9]/g, "");
+    const cleanPhone = rawDigits.length === 10 ? `91${rawDigits}` : rawDigits;
+    const origin = typeof window !== "undefined" ? window.location.origin : "https://ruvexi.netlify.app";
+    const feedbackUrl = `${origin}/feedback?salon=${encodeURIComponent(
+      salon.slug || ""
+    )}&name=${encodeURIComponent(billingApt.customerName)}&phone=${encodeURIComponent(
+      cleanPhone
+    )}&staff=${encodeURIComponent(billingApt.staffName)}&service=${encodeURIComponent(
+      billingApt.serviceName
+    )}`;
 
     const messageText = `Hi ${billingApt.customerName}! ✨ Thank you for visiting ${salon.name} today.
 
@@ -579,21 +599,21 @@ export function FrontDeskView({ onNavigateTab, onGoToPosBilling }: FrontDeskView
 💇 Stylist: ${billingApt.staffName}
 
 ⭐ How was your service by ${billingApt.staffName}?
-Tap here to rate in 10 seconds & unlock a 10% return voucher:
+Tap here to rate in 10 seconds:
 👉 ${feedbackUrl}
 
 We look forward to seeing you again soon! 💇‍♀️✨`;
 
     setWhatsappSentModal({
       customerName: billingApt.customerName,
-      phone: cleanPhone || "919845012890",
+      phone: cleanPhone,
       amount: finalBillAmount,
       services: billingApt.serviceName,
       messageText,
     });
 
     setBillingApt(null);
-    showToast(`Payment of ${formatCurrency(finalBillAmount)} recorded! Ready for WhatsApp message.`);
+    showToast(`Payment of ${formatCurrency(finalBillAmount)} recorded!`);
   };
 
   const maskPhone = (phone?: string) => {
@@ -1045,10 +1065,15 @@ We look forward to seeing you again soon! 💇‍♀️✨`;
                         {isDone && (
                           <button
                             onClick={() => {
-                              const cleanPhone = apt.customerPhone.replace(/[^0-9]/g, "");
+                              const rawDigits = (apt.customerPhone || "").replace(/[^0-9]/g, "");
+                              if (!rawDigits || rawDigits.length < 10) {
+                                showToast("No valid client WhatsApp number on this booking.", "info");
+                                return;
+                              }
+                              const cleanPhone = rawDigits.length === 10 ? `91${rawDigits}` : rawDigits;
                               const msg = `Hi ${apt.customerName}! ✨ Thank you for visiting ${salon.name}. We hope you loved your styling by ${apt.staffName}! See you again soon! 💇‍♀️`;
                               window.open(
-                                `https://wa.me/${cleanPhone || "919845012890"}?text=${encodeURIComponent(msg)}`,
+                                `https://wa.me/${cleanPhone}?text=${encodeURIComponent(msg)}`,
                                 "_blank"
                               );
                             }}
@@ -1467,7 +1492,7 @@ We look forward to seeing you again soon! 💇‍♀️✨`;
             )}
 
             {/* Step 2 & 3: Select Services & Appoint to Chair */}
-            <form onSubmit={handleAllotChairAndBegin} className="space-y-4 pt-1">
+            <form onSubmit={handleAllotChairAndBegin} noValidate className="space-y-4 pt-1">
               {/* Step 2: Multi-Select Services */}
               <div className="space-y-2">
                 <div className="flex items-center justify-between">
@@ -1759,10 +1784,12 @@ We look forward to seeing you again soon! 💇‍♀️✨`;
                   {salon.name} Counter QR • {formatCurrency(payMethod === "Split" ? upiAmount : finalBillAmount)}
                 </div>
                 <div className="text-[11px] text-[#A1A1AA] font-mono">
-                  UPI ID: {salon.upiId || `Ruvexi.${salon.slug || "terminal"}@axisbank`}
+                  {salon.upiId ? `UPI ID: ${salon.upiId}` : "UPI ID not configured — set in Settings → Payments"}
                 </div>
                 <p className="text-[11px] text-[#10B981]">
-                  Instant scan via Google Pay, PhonePe, Paytm, or BHIM.
+                  {salon.upiId
+                    ? "Instant scan via Google Pay, PhonePe, Paytm, or BHIM."
+                    : "Use Cash or configure your salon UPI VPA in Settings."}
                 </p>
               </div>
             </div>

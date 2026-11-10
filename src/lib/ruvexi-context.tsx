@@ -162,6 +162,7 @@ export interface Appointment {
   time: string; // formatted time e.g. "11:00 AM"
   durationMinutes: number;
   price: number;
+  chairNumber?: number;
   status: any;
   source?: string;
   notes?: string;
@@ -224,7 +225,7 @@ export interface Invoice {
   paymentMethod: "UPI" | "Card" | "Cash" | "Split";
   paymentBreakdown?: { cash?: number; upi?: number; card?: number };
   splitDetails?: { cash?: number; upi?: number; card?: number };
-  status: "paid" | "draft" | "refunded";
+  status: "paid" | "draft" | "refunded" | "pending" | "partially_paid";
   notes?: string;
   createdAt: string;
   date: string;
@@ -269,7 +270,8 @@ export type TabType =
   | "followups"
   | "reports"
   | "booking"
-  | "settings";
+  | "settings"
+  | "subscription";
 
 // ============================================================================
 // Context Interface
@@ -281,15 +283,16 @@ interface RuvexiContextType {
   salon: Salon;
   isAuthenticated: boolean;
   isBackendConnected: boolean;
-  login: (email: string, password: string) => Promise<{ success: boolean; error?: string }>;
+  login: (email: string, password: string) => Promise<{ success: boolean; user?: User; error?: string }>;
   signup: (
     userData: { name: string; email: string; phone: string; password?: string },
     salonData: { name: string; city: string; category: string; chairs: number; currency?: string; gstin?: string }
   ) => Promise<{ success: boolean; error?: string; requiresEmailVerification?: boolean }>;
   logout: () => void;
-  updateSalon: (data: Partial<Salon>) => void;
+  updateSalon: (data: Partial<Salon>) => Promise<{ success: boolean; error?: string }>;
   updateUser: (data: Partial<User>) => void;
   setSession: (user: User, salon: Salon, token?: string) => void;
+  refreshWorkspace: () => void;
 
   // Real Data Collections
   customers: Customer[];
@@ -320,8 +323,10 @@ interface RuvexiContextType {
   deleteInventoryItem: (id: string) => void;
 
   addAppointment: (data: any) => Appointment;
-  updateAppointmentStatus: (id: string, status: Appointment["status"]) => void;
+  updateAppointment: (id: string, data: Partial<Appointment>) => void;
+  updateAppointmentStatus: (id: string, status: Appointment["status"], chairNumber?: number) => void;
   deleteAppointment: (id: string) => void;
+  updateInvoiceLocally: (id: string, data: Partial<Invoice>) => void;
 
   createInvoice: (data: {
     customerId?: string;
@@ -369,7 +374,7 @@ interface RuvexiContextType {
   removeToast: (id: string) => void;
 
   // Compatibility Bridges for existing views
-  updateSalonProfile: (data: Partial<Salon>) => void;
+  updateSalonProfile: (data: Partial<Salon>) => Promise<{ success: boolean; error?: string }>;
   feedbacks: any[];
   addFeedback: (data: any) => void;
   bookAppointment: (data: any) => Appointment;
@@ -484,8 +489,22 @@ export function RuvexiProvider({ children }: { children: React.ReactNode }) {
         setIsBackendConnected(true);
 
         if (data.salon) {
-          setSalon(data.salon);
-          persist("Ruvexi_salon", data.salon);
+          setSalon((prev) => {
+            const customLogo =
+              prev?.logoUrl?.startsWith("data:") && (!data.salon.logoUrl || data.salon.logoUrl === "/logo.png")
+                ? { logoUrl: prev.logoUrl, logo: prev.logoUrl }
+                : {};
+            const preservedAppearance = {
+              ...(prev?.bannerPreset && !data.salon.bannerPreset ? { bannerPreset: prev.bannerPreset } : {}),
+              ...(prev?.bannerUrl && !data.salon.bannerUrl ? { bannerUrl: prev.bannerUrl } : {}),
+              ...(prev?.bannerGradient && !data.salon.bannerGradient ? { bannerGradient: prev.bannerGradient } : {}),
+              ...(prev?.accentColor && !data.salon.accentColor ? { accentColor: prev.accentColor } : {}),
+              ...(prev?.tagline && !data.salon.tagline ? { tagline: prev.tagline } : {}),
+            };
+            const merged = { ...prev, ...data.salon, ...customLogo, ...preservedAppearance };
+            persist("Ruvexi_salon", merged);
+            return merged;
+          });
         }
         if (Array.isArray(data.customers)) {
           setCustomers(data.customers);
@@ -640,28 +659,89 @@ export function RuvexiProvider({ children }: { children: React.ReactNode }) {
     setToasts((prev) => prev.filter((t) => t.id !== id));
   };
 
+  const notifySyncError = (actionLabel: string, err: any) => {
+    const msg = err?.message || "";
+    console.warn(`Sync notice ${actionLabel}:`, msg);
+    if (msg && !msg.toLowerCase().includes("failed to fetch") && !msg.toLowerCase().includes("network")) {
+      showToast(`${actionLabel}: ${msg}`, "error");
+    }
+  };
+
   // --------------------------------------------------------------------------
   // Authentication Actions (Supabase Complete Auth)
   // --------------------------------------------------------------------------
   const login = async (email: string, password: string = "") => {
-    const normalizedEmail = email.toLowerCase().trim();
-    if (!normalizedEmail) {
-      return { success: false, error: "Please enter your work email address." };
+    const normalizedIdentifier = email.toLowerCase().trim();
+    if (!normalizedIdentifier) {
+      return { success: false, error: "Please enter your work email address or mobile number." };
     }
     if (!password) {
       return { success: false, error: "Please enter your password." };
     }
 
     try {
-      // 1. Prioritize Supabase Auth
-      if (isSupabaseConfigured()) {
-        const supaRes = await signInWithSupabasePassword(normalizedEmail, password);
+      // 1. Authenticate against Ruvexi backend API first to acquire real FastAPI JWT & PostgreSQL tenant
+      try {
+        const res = await RuvexiApi.login({ email: normalizedIdentifier, password });
+        if (res && res.user) {
+          setUser(res.user);
+          persist("Ruvexi_user", res.user);
+          if (res.token) {
+            persist("Ruvexi_token", res.token);
+          }
+          if (res.salon) {
+            setSalon(res.salon);
+            persist("Ruvexi_salon", res.salon);
+          }
+          hydrateFromBackend();
+          showToast(`Welcome back to Ruvexi, ${res.user.name}!`);
+          return { success: true, user: res.user };
+        }
+      } catch (apiErr: any) {
+        if (!isSupabaseConfigured()) {
+          throw apiErr;
+        }
+        console.warn("[Backend Login Fallback -> Supabase]:", apiErr?.message);
+      }
+
+      // 2. Fallback to Supabase Auth if configured (e.g., Supabase-only account) and bridge workspace
+      if (isSupabaseConfigured() && normalizedIdentifier.includes("@")) {
+        const supaRes = await signInWithSupabasePassword(normalizedIdentifier, password);
         if (supaRes.success && supaRes.user) {
+          // Ensure user also exists on FastAPI PostgreSQL backend so CRUD works
+          try {
+            const bridgeSignup = await RuvexiApi.signup({
+              user: {
+                name: supaRes.user.name,
+                email: supaRes.user.email,
+                phone: supaRes.user.phone || "",
+                password,
+              },
+              salon: {
+                name: supaRes.salon?.name || `${supaRes.user.name}'s Atelier`,
+                city: supaRes.salon?.city || "Mumbai",
+                category: supaRes.salon?.category || "Hair Studio & Luxury Spa",
+                chairs: supaRes.salon?.chairs || 6,
+                currency: "₹",
+              },
+            });
+            if (bridgeSignup?.token && bridgeSignup?.user && bridgeSignup?.salon) {
+              setUser(bridgeSignup.user);
+              setSalon(bridgeSignup.salon);
+              persist("Ruvexi_user", bridgeSignup.user);
+              persist("Ruvexi_salon", bridgeSignup.salon);
+              persist("Ruvexi_token", bridgeSignup.token);
+              hydrateFromBackend();
+              showToast(`Welcome back to Ruvexi, ${bridgeSignup.user.name}!`);
+              return { success: true, user: bridgeSignup.user };
+            }
+          } catch {
+            // Fall back to Supabase session if backend bridge skipped
+          }
+
           setUser(supaRes.user);
           persist("Ruvexi_user", supaRes.user);
-          if (supaRes.token) {
-            persist("Ruvexi_token", supaRes.token);
-          }
+          if (supaRes.token) persist("Ruvexi_token", supaRes.token);
           if (supaRes.salon) {
             setSalon((prev) => ({ ...prev, ...supaRes.salon }));
             persist("Ruvexi_salon", { ...salon, ...supaRes.salon });
@@ -670,26 +750,11 @@ export function RuvexiProvider({ children }: { children: React.ReactNode }) {
           return { success: true, user: supaRes.user };
         }
         if (supaRes.error) {
-          console.warn("[Supabase Auth] Attempt failed, trying Railway unified API:", supaRes.error);
+          return { success: false, error: supaRes.error };
         }
       }
 
-      // 2. Standalone API fallback
-      const res = await RuvexiApi.login({ email: normalizedEmail, password });
-      if (res && res.user) {
-        setUser(res.user);
-        persist("Ruvexi_user", res.user);
-        if (res.token) {
-          persist("Ruvexi_token", res.token);
-        }
-        if (res.salon) {
-          setSalon(res.salon);
-          persist("Ruvexi_salon", res.salon);
-        }
-        showToast(`Welcome back to Ruvexi, ${res.user.name}!`);
-        return { success: true, user: res.user };
-      }
-      return { success: false, error: "Authentication failed. Please verify credentials." };
+      return { success: false, error: "Invalid email/phone or password." };
     } catch (err: any) {
       console.warn("Auth failed:", err.message);
       return { success: false, error: err.message || "Invalid email or password." };
@@ -708,9 +773,15 @@ export function RuvexiProvider({ children }: { children: React.ReactNode }) {
     }
 
     try {
-      // 1. Supabase Auth signup
+      // 1. Always create salon & manager on FastAPI PostgreSQL backend first for valid JWT & CRUD
+      const res = await RuvexiApi.signup({
+        user: userData,
+        salon: salonData,
+      });
+
+      // Optionally mirror into Supabase Auth when configured (non-blocking if backend succeeded)
       if (isSupabaseConfigured()) {
-        const supaRes = await signUpWithSupabase({
+        signUpWithSupabase({
           email: userData.email,
           password: userData.password,
           name: userData.name,
@@ -719,36 +790,9 @@ export function RuvexiProvider({ children }: { children: React.ReactNode }) {
           city: salonData.city,
           category: salonData.category,
           chairs: salonData.chairs,
-        });
-
-        if (supaRes.requiresEmailVerification) {
-          return { success: true, requiresEmailVerification: true };
-        }
-
-        if (supaRes.success && supaRes.user) {
-          setUser(supaRes.user);
-          persist("Ruvexi_user", supaRes.user);
-          if (supaRes.salon) {
-            setSalon((prev) => ({ ...prev, ...supaRes.salon }));
-            persist("Ruvexi_salon", { ...salon, ...supaRes.salon });
-          }
-          if (supaRes.token) {
-            persist("Ruvexi_token", supaRes.token);
-          }
-          showToast(`Welcome to Ruvexi! Your workspace for "${salonData.name}" is ready.`);
-          return { success: true };
-        }
-
-        if (supaRes.error) {
-          console.warn("[Supabase Signup] Attempt failed, trying Railway unified API:", supaRes.error);
-        }
+        }).catch(() => {});
       }
 
-      // 2. Standalone API fallback
-      const res = await RuvexiApi.signup({
-        user: userData,
-        salon: salonData,
-      });
       if (res && res.user && res.salon) {
         setUser(res.user);
         setSalon(res.salon);
@@ -757,6 +801,7 @@ export function RuvexiProvider({ children }: { children: React.ReactNode }) {
         if (res.token) {
           persist("Ruvexi_token", res.token);
         }
+        hydrateFromBackend();
         showToast(`Welcome to Ruvexi! Your workspace for "${res.salon.name}" is ready.`);
         return { success: true };
       }
@@ -777,19 +822,30 @@ export function RuvexiProvider({ children }: { children: React.ReactNode }) {
     showToast("Signed out successfully from Ruvexi.", "info");
   };
 
-  const updateSalon = (data: Partial<Salon>) => {
+  const updateSalon = async (data: Partial<Salon>): Promise<{ success: boolean; error?: string }> => {
     setSalon((prev) => {
       const updated = { ...prev, ...data };
       persist("Ruvexi_salon", updated);
       return updated;
     });
     const backendPayload: Partial<Salon> = { ...data };
-    if (typeof backendPayload.logoUrl === "string" && backendPayload.logoUrl.length > 500) {
-      delete backendPayload.logoUrl;
-      delete backendPayload.logo;
+    try {
+      const res = await RuvexiApi.updateSalon(backendPayload);
+      if (res && res.id) {
+        setSalon((prev) => {
+          const synced = { ...prev, ...res };
+          persist("Ruvexi_salon", synced);
+          return synced;
+        });
+      }
+      showToast("Salon settings updated successfully.");
+      return { success: true };
+    } catch (err: any) {
+      const msg = err?.message || "Failed to sync salon settings with server.";
+      console.warn("Backend sync notice:", msg);
+      showToast(msg, "error");
+      return { success: false, error: msg };
     }
-    RuvexiApi.updateSalon(backendPayload).catch((err) => console.warn("Backend sync notice:", err.message));
-    showToast("Salon settings updated successfully.");
   };
 
   const updateUser = (data: Partial<User>) => {
@@ -826,8 +882,9 @@ export function RuvexiProvider({ children }: { children: React.ReactNode }) {
   // Customer CRUD
   // --------------------------------------------------------------------------
   const addCustomer = (data: any): Customer => {
+    const tempId = "cst_" + Date.now();
     const newCustomer: Customer = {
-      id: "cst_" + Date.now(),
+      id: tempId,
       salonId: salon.id,
       name: data.name,
       phone: data.phone,
@@ -851,7 +908,27 @@ export function RuvexiProvider({ children }: { children: React.ReactNode }) {
       return updated;
     });
 
-    RuvexiApi.createCustomer(newCustomer).catch((err) => console.warn("Sync notice createCustomer:", err.message));
+    RuvexiApi.createCustomer(newCustomer)
+      .then((saved) => {
+        if (saved?.id) {
+          setCustomers((prev) => {
+            const updated = prev.map((c) => (c.id === tempId ? { ...c, ...saved } : c));
+            persist("Ruvexi_customers", updated);
+            return updated;
+          });
+        }
+      })
+      .catch((err) => {
+        const msg = err?.message || "";
+        if (!msg.toLowerCase().includes("failed to fetch") && !msg.toLowerCase().includes("network")) {
+          setCustomers((prev) => {
+            const updated = prev.filter((c) => c.id !== tempId);
+            persist("Ruvexi_customers", updated);
+            return updated;
+          });
+        }
+        notifySyncError("Customer save", err);
+      });
     showToast(`Added customer ${newCustomer.name} to CRM`);
     return newCustomer;
   };
@@ -862,7 +939,7 @@ export function RuvexiProvider({ children }: { children: React.ReactNode }) {
       persist("Ruvexi_customers", updated);
       return updated;
     });
-    RuvexiApi.updateCustomer(id, data).catch((err) => console.warn("Sync notice updateCustomer:", err.message));
+    RuvexiApi.updateCustomer(id, data).catch((err) => notifySyncError("Customer update", err));
     showToast("Customer record updated.");
   };
 
@@ -872,7 +949,7 @@ export function RuvexiProvider({ children }: { children: React.ReactNode }) {
       persist("Ruvexi_customers", updated);
       return updated;
     });
-    RuvexiApi.deleteCustomer(id).catch((err) => console.warn("Sync notice deleteCustomer:", err.message));
+    RuvexiApi.deleteCustomer(id).catch((err) => notifySyncError("Customer delete", err));
     showToast("Customer profile deleted from database.", "info");
   };
 
@@ -880,8 +957,9 @@ export function RuvexiProvider({ children }: { children: React.ReactNode }) {
   // Service CRUD
   // --------------------------------------------------------------------------
   const addService = (data: any): Service => {
+    const tempId = "srv_" + Date.now();
     const newService: Service = {
-      id: "srv_" + Date.now(),
+      id: tempId,
       salonId: salon.id,
       name: data.name,
       category: data.category || "General",
@@ -898,7 +976,27 @@ export function RuvexiProvider({ children }: { children: React.ReactNode }) {
       persist("Ruvexi_services", updated);
       return updated;
     });
-    RuvexiApi.createService(newService).catch((err) => console.warn("Sync notice createService:", err.message));
+    RuvexiApi.createService(newService)
+      .then((saved) => {
+        if (saved?.id) {
+          setServices((prev) => {
+            const updated = prev.map((s) => (s.id === tempId ? { ...s, ...saved } : s));
+            persist("Ruvexi_services", updated);
+            return updated;
+          });
+        }
+      })
+      .catch((err) => {
+        const msg = err?.message || "";
+        if (!msg.toLowerCase().includes("failed to fetch") && !msg.toLowerCase().includes("network")) {
+          setServices((prev) => {
+            const updated = prev.filter((s) => s.id !== tempId);
+            persist("Ruvexi_services", updated);
+            return updated;
+          });
+        }
+        notifySyncError("Service save", err);
+      });
     showToast(`Service "${newService.name}" published to menu.`);
     return newService;
   };
@@ -909,7 +1007,7 @@ export function RuvexiProvider({ children }: { children: React.ReactNode }) {
       persist("Ruvexi_services", updated);
       return updated;
     });
-    RuvexiApi.updateService(id, data).catch((err) => console.warn("Sync notice updateService:", err.message));
+    RuvexiApi.updateService(id, data).catch((err) => notifySyncError("Service update", err));
     showToast("Service details saved.");
   };
 
@@ -919,7 +1017,7 @@ export function RuvexiProvider({ children }: { children: React.ReactNode }) {
       persist("Ruvexi_services", updated);
       return updated;
     });
-    RuvexiApi.deleteService(id).catch((err) => console.warn("Sync notice deleteService:", err.message));
+    RuvexiApi.deleteService(id).catch((err) => notifySyncError("Service delete", err));
     showToast("Service archived from menu.", "info");
   };
 
@@ -927,8 +1025,9 @@ export function RuvexiProvider({ children }: { children: React.ReactNode }) {
   // Staff CRUD & Attendance
   // --------------------------------------------------------------------------
   const addStaff = (data: any): Staff => {
+    const tempId = "stf_" + Date.now();
     const newStaff: Staff = {
-      id: "stf_" + Date.now(),
+      id: tempId,
       salonId: salon.id,
       name: data.name,
       phone: data.phone || "",
@@ -953,7 +1052,27 @@ export function RuvexiProvider({ children }: { children: React.ReactNode }) {
       persist("Ruvexi_staff", updated);
       return updated;
     });
-    RuvexiApi.createStaff(newStaff).catch((err) => console.warn("Sync notice createStaff:", err.message));
+    RuvexiApi.createStaff(newStaff)
+      .then((saved) => {
+        if (saved?.id) {
+          setStaff((prev) => {
+            const updated = prev.map((s) => (s.id === tempId ? { ...s, ...saved } : s));
+            persist("Ruvexi_staff", updated);
+            return updated;
+          });
+        }
+      })
+      .catch((err) => {
+        const msg = err?.message || "";
+        if (!msg.toLowerCase().includes("failed to fetch") && !msg.toLowerCase().includes("network")) {
+          setStaff((prev) => {
+            const updated = prev.filter((s) => s.id !== tempId);
+            persist("Ruvexi_staff", updated);
+            return updated;
+          });
+        }
+        notifySyncError("Staff save", err);
+      });
     showToast(`Added team member ${newStaff.name}`);
     return newStaff;
   };
@@ -964,7 +1083,7 @@ export function RuvexiProvider({ children }: { children: React.ReactNode }) {
       persist("Ruvexi_staff", updated);
       return updated;
     });
-    RuvexiApi.updateStaff(id, data).catch((err) => console.warn("Sync notice updateStaff:", err.message));
+    RuvexiApi.updateStaff(id, data).catch((err) => notifySyncError("Staff update", err));
     showToast("Staff profile updated.");
   };
 
@@ -974,7 +1093,7 @@ export function RuvexiProvider({ children }: { children: React.ReactNode }) {
       persist("Ruvexi_staff", updated);
       return updated;
     });
-    RuvexiApi.deleteStaff(id).catch((err) => console.warn("Sync notice deleteStaff:", err.message));
+    RuvexiApi.deleteStaff(id).catch((err) => notifySyncError("Staff delete", err));
     showToast("Staff member removed from roster.", "info");
   };
 
@@ -990,6 +1109,7 @@ export function RuvexiProvider({ children }: { children: React.ReactNode }) {
           return {
             ...s,
             isClockedIn: nextState,
+            status: (nextState ? "clocked_in" : "clocked_out") as Staff["status"],
             clockedInAt: nextState
               ? new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
               : undefined,
@@ -1000,15 +1120,16 @@ export function RuvexiProvider({ children }: { children: React.ReactNode }) {
       persist("Ruvexi_staff", updated);
       return updated;
     });
-    RuvexiApi.toggleClock(staffId).catch((err) => console.warn("Sync notice toggleClock:", err.message));
+    RuvexiApi.toggleClock(staffId).catch((err) => notifySyncError("Clock toggle", err));
   };
 
   // --------------------------------------------------------------------------
   // Inventory Management
   // --------------------------------------------------------------------------
   const addInventoryItem = (data: any): InventoryItem => {
+    const tempId = "inv_" + Date.now();
     const newItem: InventoryItem = {
-      id: "inv_" + Date.now(),
+      id: tempId,
       salonId: salon.id,
       name: data.name,
       category: data.category || "General",
@@ -1027,7 +1148,27 @@ export function RuvexiProvider({ children }: { children: React.ReactNode }) {
       persist("Ruvexi_inventory", updated);
       return updated;
     });
-    RuvexiApi.createInventory(newItem).catch((err) => console.warn("Sync notice createInventory:", err.message));
+    RuvexiApi.createInventory(newItem)
+      .then((saved) => {
+        if (saved?.id) {
+          setInventory((prev) => {
+            const updated = prev.map((item) => (item.id === tempId ? { ...item, ...saved } : item));
+            persist("Ruvexi_inventory", updated);
+            return updated;
+          });
+        }
+      })
+      .catch((err) => {
+        const msg = err?.message || "";
+        if (!msg.toLowerCase().includes("failed to fetch") && !msg.toLowerCase().includes("network")) {
+          setInventory((prev) => {
+            const updated = prev.filter((item) => item.id !== tempId);
+            persist("Ruvexi_inventory", updated);
+            return updated;
+          });
+        }
+        notifySyncError("Inventory save", err);
+      });
     showToast(`Added product "${newItem.name}" to inventory.`);
     return newItem;
   };
@@ -1038,24 +1179,29 @@ export function RuvexiProvider({ children }: { children: React.ReactNode }) {
       persist("Ruvexi_inventory", updated);
       return updated;
     });
-    RuvexiApi.updateInventory(id, data).catch((err) => console.warn("Sync notice updateInventory:", err.message));
+    RuvexiApi.updateInventory(id, data).catch((err) => notifySyncError("Inventory update", err));
     showToast("Inventory item updated.");
   };
 
   const adjustStock = (id: string, change: number, reason = "Stock Adjustment") => {
+    const todayIso = new Date().toISOString().split("T")[0];
     setInventory((prev) => {
       const updated = prev.map((item) => {
         if (item.id === id) {
           const newQty = Math.max(0, item.currentStock + change);
           showToast(`Adjusted ${item.name} stock (${change > 0 ? "+" + change : change}) - ${reason}`);
-          return { ...item, currentStock: newQty };
+          return {
+            ...item,
+            currentStock: newQty,
+            ...(change > 0 ? { lastRestocked: todayIso } : {}),
+          };
         }
         return item;
       });
       persist("Ruvexi_inventory", updated);
       return updated;
     });
-    RuvexiApi.adjustStock(id, change, reason).catch((err) => console.warn("Sync notice adjustStock:", err.message));
+    RuvexiApi.adjustStock(id, change, reason).catch((err) => notifySyncError("Stock adjustment", err));
   };
 
   const deleteInventoryItem = (id: string) => {
@@ -1064,7 +1210,7 @@ export function RuvexiProvider({ children }: { children: React.ReactNode }) {
       persist("Ruvexi_inventory", updated);
       return updated;
     });
-    RuvexiApi.deleteInventory(id).catch((err) => console.warn("Sync notice deleteInventory:", err.message));
+    RuvexiApi.deleteInventory(id).catch((err) => notifySyncError("Inventory delete", err));
     showToast("Product deleted from inventory.", "info");
   };
 
@@ -1072,8 +1218,9 @@ export function RuvexiProvider({ children }: { children: React.ReactNode }) {
   // Appointments Management
   // --------------------------------------------------------------------------
   const addAppointment = (data: any): Appointment => {
+    const tempId = "apt_" + Date.now();
     const newApt: Appointment = {
-      id: "apt_" + Date.now(),
+      id: tempId,
       salonId: salon.id,
       customerId: data.customerId || "cst_walkin",
       customerName: data.customerName || "Walk-in Guest",
@@ -1097,19 +1244,60 @@ export function RuvexiProvider({ children }: { children: React.ReactNode }) {
       persist("Ruvexi_appointments", updated);
       return updated;
     });
-    RuvexiApi.createAppointment(newApt).catch((err) => console.warn("Sync notice createAppointment:", err.message));
+    RuvexiApi.createAppointment(newApt)
+      .then((saved) => {
+        if (saved?.id) {
+          setAppointments((prev) => {
+            const updated = prev.map((a) => (a.id === tempId ? { ...a, ...saved } : a));
+            persist("Ruvexi_appointments", updated);
+            return updated;
+          });
+        }
+      })
+      .catch((err) => {
+        const msg = err?.message || "";
+        if (!msg.toLowerCase().includes("failed to fetch") && !msg.toLowerCase().includes("network")) {
+          setAppointments((prev) => {
+            const updated = prev.filter((a) => a.id !== tempId);
+            persist("Ruvexi_appointments", updated);
+            return updated;
+          });
+        }
+        notifySyncError("Appointment save", err);
+      });
     showToast(`Booked appointment for ${newApt.customerName} at ${newApt.startTime}`);
     return newApt;
   };
 
-  const updateAppointmentStatus = (id: string, status: Appointment["status"]) => {
+  const updateAppointment = (id: string, data: Partial<Appointment>) => {
     setAppointments((prev) => {
-      const updated = prev.map((a) => (a.id === id ? { ...a, status } : a));
+      const updated = prev.map((a) => (a.id === id ? { ...a, ...data } : a));
       persist("Ruvexi_appointments", updated);
       return updated;
     });
-    RuvexiApi.updateAppointmentStatus(id, status).catch((err) => console.warn("Sync notice updateAppointmentStatus:", err.message));
+    RuvexiApi.updateAppointment(id, data).catch((err) => notifySyncError("Appointment update", err));
+  };
+
+  const updateAppointmentStatus = (id: string, status: Appointment["status"], chairNumber?: number) => {
+    setAppointments((prev) => {
+      const updated = prev.map((a) =>
+        a.id === id
+          ? { ...a, status, ...(chairNumber !== undefined ? { chairNumber } : {}) }
+          : a
+      );
+      persist("Ruvexi_appointments", updated);
+      return updated;
+    });
+    RuvexiApi.updateAppointmentStatus(id, status, chairNumber).catch((err) => notifySyncError("Appointment status", err));
     showToast(`Appointment status changed to "${status.toUpperCase()}"`);
+  };
+
+  const updateInvoiceLocally = (id: string, data: Partial<Invoice>) => {
+    setInvoices((prev) => {
+      const updated = prev.map((inv) => (inv.id === id ? { ...inv, ...data } : inv));
+      persist("Ruvexi_invoices", updated);
+      return updated;
+    });
   };
 
   const deleteAppointment = (id: string) => {
@@ -1118,7 +1306,7 @@ export function RuvexiProvider({ children }: { children: React.ReactNode }) {
       persist("Ruvexi_appointments", updated);
       return updated;
     });
-    RuvexiApi.deleteAppointment(id).catch((err) => console.warn("Sync notice deleteAppointment:", err.message));
+    RuvexiApi.deleteAppointment(id).catch((err) => notifySyncError("Appointment delete", err));
     showToast("Appointment removed.", "info");
   };
 
@@ -1152,17 +1340,20 @@ export function RuvexiProvider({ children }: { children: React.ReactNode }) {
     const grandTotalVal = data.grandTotal ?? data.total ?? data.subtotal;
     const seq = 100 + invoices.length + 1;
     const invNumber = `BC-INV-${new Date().getFullYear()}-${seq.toString().padStart(4, "0")}`;
+    const tempId = "inv_" + Date.now();
+    const resolvedStatus = (data.status || data.paymentStatus || "paid") as Invoice["status"];
+    const pointsRedeemed = Number(data.loyaltyPointsRedeemed || data.pointsRedeemed || 0);
 
     const newInvoice: Invoice = {
       ...data,
-      id: "inv_" + Date.now(),
+      id: tempId,
       invoiceNumber: invNumber,
       salonId: salon.id,
       customerId: data.customerId || "cst_walkin",
       discountPercent: data.discountPercent ?? 0,
       discountAmount: data.discountAmount ?? data.discount ?? 0,
       discount: data.discount ?? data.discountAmount ?? 0,
-      taxPercent: data.taxPercent ?? 5,
+      taxPercent: data.taxPercent ?? (salon.autoGst === false ? 0 : 5),
       cgst: data.cgst ?? Math.round((data.gstAmount ?? data.taxAmount ?? 0) / 2),
       sgst: data.sgst ?? Math.round((data.gstAmount ?? data.taxAmount ?? 0) / 2),
       taxAmount: data.taxAmount ?? data.gstAmount ?? 0,
@@ -1170,7 +1361,7 @@ export function RuvexiProvider({ children }: { children: React.ReactNode }) {
       grandTotal: grandTotalVal,
       total: grandTotalVal,
       paymentMethod: data.paymentMethod as any,
-      status: "paid",
+      status: resolvedStatus,
       createdAt: new Date().toISOString(),
       date: data.date || new Date().toISOString().split("T")[0],
     };
@@ -1182,24 +1373,45 @@ export function RuvexiProvider({ children }: { children: React.ReactNode }) {
       return updated;
     });
 
-    // 2. Transmit to backend database (FastAPI will update customer visits/spend & deduct product stock)
-    RuvexiApi.createInvoice(newInvoice).catch((err) => console.warn("Sync notice createInvoice:", err.message));
+    // 2. Transmit to backend database & sync generated UUID + server-calculated totals
+    RuvexiApi.createInvoice(newInvoice)
+      .then((savedInv) => {
+        if (savedInv?.id) {
+          setInvoices((prev) => {
+            const updated = prev.map((inv) => (inv.id === tempId ? { ...inv, ...savedInv } : inv));
+            persist("Ruvexi_invoices", updated);
+            return updated;
+          });
+        }
+      })
+      .catch((err) => {
+        const msg = err?.message || "";
+        if (!msg.toLowerCase().includes("failed to fetch") && !msg.toLowerCase().includes("network")) {
+          setInvoices((prev) => {
+            const updated = prev.filter((inv) => inv.id !== tempId);
+            persist("Ruvexi_invoices", updated);
+            return updated;
+          });
+        }
+        notifySyncError("Invoice save", err);
+      });
 
-    // 3. Optimistically update local customer metrics & prepaid wallet
-    if (data.customerId) {
+    // 3. Optimistically update local customer metrics, loyalty points & prepaid wallet (only when paid)
+    if (data.customerId && resolvedStatus === "paid") {
       setCustomers((prev) => {
         const isWallet = String(data.paymentMethod).toUpperCase() === "WALLET";
         const updated = prev.map((c) => {
           if (c.id === data.customerId) {
             const addedPoints = Math.round(grandTotalVal * 0.05);
             const currentWallet = c.walletBalance || 0;
+            const currentPoints = c.loyaltyPoints || 0;
             return {
               ...c,
               totalVisits: (c.totalVisits || 0) + 1,
               visitsCount: (c.visitsCount || c.totalVisits || 0) + 1,
               totalSpend: (c.totalSpend || 0) + grandTotalVal,
               totalSpent: (c.totalSpent || c.totalSpend || 0) + grandTotalVal,
-              loyaltyPoints: (c.loyaltyPoints || 0) + addedPoints,
+              loyaltyPoints: Math.max(0, currentPoints - pointsRedeemed) + addedPoints,
               walletBalance: isWallet ? Math.max(0, currentWallet - grandTotalVal) : currentWallet,
               lastVisitDate: new Date().toISOString().split("T")[0],
             };
@@ -1211,76 +1423,83 @@ export function RuvexiProvider({ children }: { children: React.ReactNode }) {
       });
     }
 
-    // 4. Auto-deduct inventory for retail products & service consumable materials
-    data.items.forEach((item) => {
-      // 4a. Retail product sale
-      if (item.type === "product" && item.id) {
-        setInventory((prev) => {
-          const updated = prev.map((inv) =>
-            inv.id === item.id
-              ? { ...inv, currentStock: Math.max(0, inv.currentStock - item.quantity) }
-              : inv
-          );
-          persist("Ruvexi_inventory", updated);
-          return updated;
-        });
-      }
-      // 4b. Service consumable material deduction (Backbar stock monitor)
-      else if (item.type !== "product") {
-        const srv = services.find((s) => s.id === item.id || s.name === item.name);
-        if (srv?.materialItemId) {
-          const qty = Math.max(1, srv.materialQuantity || 1);
+    // 4. Auto-deduct inventory for retail products & service consumable materials when paid
+    if (resolvedStatus === "paid") {
+      data.items.forEach((item) => {
+        if (item.type === "product" && item.id) {
           setInventory((prev) => {
             const updated = prev.map((inv) =>
-              inv.id === srv.materialItemId
-                ? { ...inv, currentStock: Math.max(0, inv.currentStock - qty) }
+              inv.id === item.id
+                ? { ...inv, currentStock: Math.max(0, inv.currentStock - item.quantity) }
                 : inv
             );
             persist("Ruvexi_inventory", updated);
             return updated;
           });
-        }
-      }
-    });
-
-    // 5. Credit staff commission
-    if (data.staffId) {
-      setStaff((prev) => {
-        const updated = prev.map((st) => {
-          if (st.id === data.staffId) {
-            const comm = (data.subtotal * (st.commissionRate || 15)) / 100;
-            return {
-              ...st,
-              todayEarnings: (st.todayEarnings || 0) + comm,
-              totalServicesCompleted: (st.totalServicesCompleted || 0) + 1,
-            };
+        } else if (item.type !== "product") {
+          const srv = services.find((s) => s.id === item.id || s.name === item.name);
+          if (srv?.materialItemId) {
+            const qty = Math.max(1, srv.materialQuantity || 1);
+            setInventory((prev) => {
+              const updated = prev.map((inv) =>
+                inv.id === srv.materialItemId
+                  ? { ...inv, currentStock: Math.max(0, inv.currentStock - qty) }
+                  : inv
+              );
+              persist("Ruvexi_inventory", updated);
+              return updated;
+            });
           }
-          return st;
+        }
+      });
+
+      // 5. Credit staff revenue & commission
+      const staffIdToCredit = data.staffId || data.items.find((i) => i.staffId)?.staffId;
+      if (staffIdToCredit) {
+        setStaff((prev) => {
+          const updated = prev.map((st) => {
+            if (st.id === staffIdToCredit) {
+              const comm = Math.round(((data.subtotal * (st.commissionRate || 15)) / 100) * 100) / 100;
+              return {
+                ...st,
+                todayRevenue: (st.todayRevenue || 0) + grandTotalVal,
+                todayCommission: (st.todayCommission || 0) + comm,
+                todayEarnings: (st.todayEarnings || 0) + comm,
+                todayServicesCount: (st.todayServicesCount || 0) + 1,
+                totalServicesCompleted: (st.totalServicesCompleted || 0) + 1,
+              };
+            }
+            return st;
+          });
+          persist("Ruvexi_staff", updated);
+          return updated;
         });
-        persist("Ruvexi_staff", updated);
-        return updated;
-      });
+      }
+
+      // 6. Update cash register shift expected cash if cash was received
+      const cashPortion =
+        String(data.paymentMethod).toUpperCase() === "CASH"
+          ? grandTotalVal
+          : Number(data.splitDetails?.cash || data.paymentBreakdown?.cash || 0);
+
+      if (cashPortion > 0) {
+        setCurrentShift((prev) => {
+          if (!prev) return prev;
+          const updated = {
+            ...prev,
+            expectedCash: prev.expectedCash + cashPortion,
+          };
+          persist("Ruvexi_current_shift", updated);
+          return updated;
+        });
+      }
     }
 
-    // 6. Update cash register shift expected cash if cash was received
-    const cashPortion =
-      String(data.paymentMethod).toUpperCase() === "CASH"
-        ? grandTotalVal
-        : Number(data.splitDetails?.cash || data.paymentBreakdown?.cash || 0);
-
-    if (cashPortion > 0) {
-      setCurrentShift((prev) => {
-        if (!prev) return prev;
-        const updated = {
-          ...prev,
-          expectedCash: prev.expectedCash + cashPortion,
-        };
-        persist("Ruvexi_current_shift", updated);
-        return updated;
-      });
-    }
-
-    showToast(`Invoice ${invNumber} generated for ${data.customerName}! Payment mode: ${data.paymentMethod}`);
+    showToast(
+      resolvedStatus === "pending"
+        ? `Pending bill ${invNumber} saved for ${data.customerName}.`
+        : `Invoice ${invNumber} generated for ${data.customerName}! Payment mode: ${data.paymentMethod}`
+    );
     return newInvoice;
   };
 
@@ -1345,15 +1564,13 @@ export function RuvexiProvider({ children }: { children: React.ReactNode }) {
       window.open(waUrl, "_blank");
     }
     showToast(`WhatsApp reminder dispatched to ${apt.customerName}!`, "info");
-    RuvexiApi.request("/whatsapp/send-reminder", {
-      method: "POST",
-      body: JSON.stringify({
-        to_phone: cleanPhone,
-        customer_name: apt.customerName,
-        service_name: apt.serviceName,
-        staff_name: apt.staffName,
-        date_time: `${apt.date} at ${apt.time}`,
-      }),
+    RuvexiApi.sendWhatsAppReminder({
+      customerPhone: cleanPhone,
+      customerName: apt.customerName,
+      serviceName: apt.serviceName,
+      staffName: apt.staffName,
+      dateTime: `${apt.date} at ${apt.time}`,
+      appointmentId: apt.id,
     }).catch(() => {});
     return { success: true };
   };
@@ -1399,6 +1616,7 @@ export function RuvexiProvider({ children }: { children: React.ReactNode }) {
     appointmentId: string,
     item: { name: string; price: number; durationMinutes?: number; staffName?: string }
   ) => {
+    let payloadToSync: { serviceName: string; price: number; durationMinutes: number } | null = null;
     setAppointments((prev) => {
       const updated = prev.map((apt) => {
         if (apt.id === appointmentId) {
@@ -1409,6 +1627,11 @@ export function RuvexiProvider({ children }: { children: React.ReactNode }) {
           const combinedNames = newServices.map((s) => s.name).join(" + ");
           const combinedPrice = newServices.reduce((acc, s) => acc + (s.price || 0), 0);
           const combinedDuration = newServices.reduce((acc, s) => acc + (s.durationMinutes || 30), 0);
+          payloadToSync = {
+            serviceName: combinedNames,
+            price: combinedPrice,
+            durationMinutes: combinedDuration,
+          };
           return {
             ...apt,
             serviceName: combinedNames,
@@ -1422,16 +1645,19 @@ export function RuvexiProvider({ children }: { children: React.ReactNode }) {
       persist("Ruvexi_appointments", updated);
       return updated;
     });
+    if (payloadToSync) {
+      RuvexiApi.updateAppointment(appointmentId, payloadToSync).catch((err) =>
+        notifySyncError("In-chair service add-on", err)
+      );
+    }
     showToast(`Added "${item.name}" to in-chair visit!`, "success");
   };
 
   const sendChairReadyWhatsApp = async (apt: Appointment) => {
     const rawPhone = (apt.customerPhone || "").replace(/[^0-9]/g, "");
     const cleanPhone = rawPhone.length === 10 ? `91${rawPhone}` : rawPhone;
-    const text = encodeURIComponent(
-      `Hi ${apt.customerName}! ✨ Good news from ${salon.name}: Your chair with stylist ${apt.staffName} is now ready for your ${apt.serviceName} session.\n\nPlease head over to the styling floor. We're ready for you!`
-    );
-    const waUrl = `https://wa.me/${cleanPhone}?text=${text}`;
+    const plainText = `Hi ${apt.customerName}! ✨ Good news from ${salon.name}: Your chair with stylist ${apt.staffName} is now ready for your ${apt.serviceName} session.\n\nPlease head over to the styling floor. We're ready for you!`;
+    const waUrl = `https://wa.me/${cleanPhone}?text=${encodeURIComponent(plainText)}`;
     if (typeof window !== "undefined") {
       window.open(waUrl, "_blank");
     }
@@ -1445,9 +1671,9 @@ export function RuvexiProvider({ children }: { children: React.ReactNode }) {
     showToast(`Chair Ready buzz sent to ${apt.customerName}!`, "success");
     RuvexiApi
       .sendWhatsAppCampaign({
-        campaignName: "Chair Ready Buzz",
-        targetPhone: cleanPhone,
-        message: text,
+        customerPhone: cleanPhone,
+        customerName: apt.customerName,
+        message: plainText,
       })
       .catch(() => {});
     return { success: true };
@@ -1457,17 +1683,18 @@ export function RuvexiProvider({ children }: { children: React.ReactNode }) {
   // Marketing & Retention Follow-Ups
   // --------------------------------------------------------------------------
   const addFollowUp = (data: any): FollowUp => {
+    const tempId = "flw_" + Date.now();
     const newFlw: FollowUp = {
-      id: "flw_" + Date.now(),
+      id: tempId,
       salonId: salon.id,
       customerId: data.customerId || "cst_1",
       customerName: data.customerName || "Valued Client",
       customerPhone: data.customerPhone || "",
-      serviceName: data.serviceName || "Treatment",
-      triggerReason: data.triggerReason || "Retention Check-In",
+      serviceName: data.serviceName || data.serviceTrigger || "Treatment",
+      triggerReason: data.triggerReason || data.serviceTrigger || "Retention Check-In",
       suggestedMessage: data.suggestedMessage || "",
-      status: data.status || "pending",
-      dueDate: data.dueDate || new Date().toISOString().split("T")[0],
+      status: (String(data.status || "pending").toLowerCase() === "sent" ? "sent" : "pending") as FollowUp["status"],
+      dueDate: data.dueDate || data.scheduledFor || new Date().toISOString().split("T")[0],
       createdAt: new Date().toISOString(),
       ...data,
     };
@@ -1476,7 +1703,17 @@ export function RuvexiProvider({ children }: { children: React.ReactNode }) {
       persist("Ruvexi_followups", updated);
       return updated;
     });
-    RuvexiApi.createFollowUp(newFlw).catch((err) => console.warn("Sync notice createFollowUp:", err.message));
+    RuvexiApi.createFollowUp(newFlw)
+      .then((saved) => {
+        if (saved?.id) {
+          setFollowUps((prev) => {
+            const updated = prev.map((f) => (f.id === tempId ? { ...f, ...saved } : f));
+            persist("Ruvexi_followups", updated);
+            return updated;
+          });
+        }
+      })
+      .catch((err) => notifySyncError("Follow-up save", err));
     return newFlw;
   };
 
@@ -1486,7 +1723,7 @@ export function RuvexiProvider({ children }: { children: React.ReactNode }) {
       persist("Ruvexi_followups", updated);
       return updated;
     });
-    RuvexiApi.markFollowUpSent(id).catch((err) => console.warn("Sync notice markFollowUpSent:", err.message));
+    RuvexiApi.markFollowUpSent(id).catch((err) => notifySyncError("Follow-up update", err));
     showToast("Follow-up marked as sent.");
   };
 
@@ -1508,7 +1745,7 @@ export function RuvexiProvider({ children }: { children: React.ReactNode }) {
       persist("Ruvexi_feedbacks", updated);
       return updated;
     });
-    RuvexiApi.createFeedback(newFb).catch((err) => console.warn("Sync notice createFeedback:", err.message));
+    RuvexiApi.createFeedback(newFb).catch((err) => notifySyncError("Feedback save", err));
     showToast("Feedback recorded. Thank you!");
   };
 
@@ -1552,8 +1789,11 @@ export function RuvexiProvider({ children }: { children: React.ReactNode }) {
         deleteInventoryItem,
 
         addAppointment,
+        updateAppointment,
         updateAppointmentStatus,
         deleteAppointment,
+        updateInvoiceLocally,
+        refreshWorkspace: hydrateFromBackend,
 
         createInvoice,
         topUpCustomerWallet,

@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
+import { useRuvexi } from "@/lib/ruvexi-context";
 import { CustomerProfile, Invoice } from "@/lib/types";
 import { formatCurrency } from "@/lib/utils";
 import {
@@ -37,6 +38,7 @@ export function ClientFormulaModal({
   onClose,
   onUpdateFormula,
 }: ClientFormulaModalProps) {
+  const { salon } = useRuvexi();
   const [formulaText, setFormulaText] = useState(customer.formulaNotes || "");
   const [savedSuccess, setSavedSuccess] = useState(false);
   const [copiedWhatsApp, setCopiedWhatsApp] = useState(false);
@@ -58,7 +60,7 @@ export function ClientFormulaModal({
 
   const handleSendWhatsAppReminder = () => {
     const text = encodeURIComponent(
-      `Hello ${customer.name}! ✨ From Luxe Haven Salon: Your stylist ${customer.preferredStaff} was reviewing your hair profile and wanted to check in. Your ${customer.lastService} is ready for a refresher! Would you like to reserve your favorite chair this week?`
+      `Hello ${customer.name}! ✨ From ${salon?.name || "our salon"}: Your stylist ${customer.preferredStaff || "team"} was reviewing your hair profile and wanted to check in. Would you like to reserve your preferred chair this week?`
     );
     const phoneClean = customer.phone.replace(/[^0-9]/g, "");
     window.open(`https://wa.me/${phoneClean}?text=${text}`, "_blank");
@@ -175,7 +177,7 @@ export function ClientFormulaModal({
                   </span>
                 </div>
                 <p className="text-emerald-400/80 mt-1">
-                  Tested on {customer.patchTestDate || "2026-09-15"} • Safe for chemical color, developer & peels.
+                  {customer.patchTestDate ? `Tested on ${customer.patchTestDate}` : "Patch test pending or not recorded."}
                 </p>
               </div>
             </div>
@@ -185,9 +187,9 @@ export function ClientFormulaModal({
                 <AlertTriangle className="w-5 h-5" />
               </div>
               <div className="text-xs">
-                <h4 className="font-bold text-amber-300">Allergies & Sensitivities</h4>
+                <h4 className="font-bold text-amber-300">Allergies &amp; Sensitivities</h4>
                 <p className="text-amber-400/80 mt-1">
-                  {customer.allergies || "No chemical allergies recorded. Sensitive scalp noticed."}
+                  {customer.allergies || "No chemical allergies recorded."}
                 </p>
               </div>
             </div>

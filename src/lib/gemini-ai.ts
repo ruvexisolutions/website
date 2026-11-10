@@ -7,9 +7,16 @@ export async function generateGeminiAI(
   systemInstruction?: string
 ): Promise<{ text?: string; error?: string }> {
   try {
+    const headers: Record<string, string> = { "Content-Type": "application/json" };
+    if (typeof window !== "undefined") {
+      try {
+        const token = localStorage.getItem("Ruvexi_token");
+        if (token) headers["Authorization"] = `Bearer ${token}`;
+      } catch {}
+    }
     const res = await fetch("/api/gemini", {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers,
       body: JSON.stringify({ prompt, systemInstruction }),
     });
 

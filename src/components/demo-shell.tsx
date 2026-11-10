@@ -236,10 +236,16 @@ export function DemoShell({ initialTab = "frontdesk", initialSubTab }: DemoShell
   const totalNotifications = lowStockItems.length + (pendingFollowUps > 0 ? 1 : 0);
 
   const handleGoToPosFromCalendar = (
-    _customerName: string,
-    _serviceName: string,
-    _staffName: string
+    customerName: string,
+    serviceName: string,
+    staffName: string
   ) => {
+    try {
+      sessionStorage.setItem(
+        "Ruvexi_pos_prefill",
+        JSON.stringify({ customerName, serviceName, staffName })
+      );
+    } catch {}
     handleSelectTab("pos");
   };
 
@@ -267,6 +273,13 @@ export function DemoShell({ initialTab = "frontdesk", initialSubTab }: DemoShell
               icon: BarChart3,
               badge: "P&L",
               badgeColor: "bg-emerald-500/15 text-emerald-400 border-emerald-500/30",
+            },
+            {
+              id: "owner" as TabType,
+              label: "AI Owner Co-Pilot",
+              icon: Crown,
+              badge: "AI",
+              badgeColor: "bg-[#FACC15]/15 text-[#FACC15] border-[#FACC15]/30",
             },
           ],
         },

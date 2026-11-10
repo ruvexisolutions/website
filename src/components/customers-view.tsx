@@ -35,7 +35,7 @@ interface CustomersViewProps {
 }
 
 export function CustomersView({ onGoToPos, onGoToBooking }: CustomersViewProps) {
-  const { customers, invoices, addCustomer, updateCustomer } = useRuvexi();
+  const { customers, invoices, addCustomer, updateCustomer, showToast } = useRuvexi();
 
   const [searchQuery, setSearchQuery] = useState("");
   const [tierFilter, setTierFilter] = useState<string>("All");
@@ -98,10 +98,18 @@ export function CustomersView({ onGoToPos, onGoToBooking }: CustomersViewProps) 
 
   const handleAddSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    if (!newName.trim()) {
+      showToast("Please enter the customer's full name.", "error");
+      return;
+    }
+    if (!newPhone.trim() || newPhone.replace(/\D/g, "").length < 7) {
+      showToast("Please enter a valid phone number.", "error");
+      return;
+    }
     addCustomer({
-      name: newName,
-      phone: newPhone,
-      email: newEmail || `${newName.toLowerCase().replace(/\s+/g, ".")}@example.com`,
+      name: newName.trim(),
+      phone: newPhone.trim(),
+      email: newEmail.trim() || `${newName.trim().toLowerCase().replace(/\s+/g, ".")}@example.com`,
       gender: newGender,
       lastService: "Consultation & Bespoke Styling",
       tags: ["New Client", "First Visit"],
@@ -207,7 +215,13 @@ export function CustomersView({ onGoToPos, onGoToBooking }: CustomersViewProps) 
             Patch Test Safety Rate
           </span>
           <span className="text-lg font-mono font-bold text-emerald-400 mt-1 block">
-            100% Certified
+            {customers.length
+              ? `${Math.round(
+                  (customers.filter((c) => (c.patchTestStatus || "Valid") !== "Expired").length /
+                    customers.length) *
+                    100
+                )}% Verified`
+              : "No clients yet"}
           </span>
         </div>
       </div>
@@ -385,34 +399,39 @@ export function CustomersView({ onGoToPos, onGoToBooking }: CustomersViewProps) 
                         <span>Amount</span>
                       </div>
                       <div className="space-y-2">
-                        <div className="flex items-start justify-between gap-2">
-                          <div>
-                            <div className="font-medium text-[#F8FAFC] text-[11px]">
-                              {cust.lastService || "Consultation & Bespoke Styling"}
-                            </div>
-                            <div className="text-[10px] text-[#71717A] font-mono">
-                              {cust.lastVisitDate || "14 Oct 2026"} · Stylist: {cust.preferredStaff || "Priya Sharma"}
-                            </div>
-                          </div>
-                          <span className="font-mono text-[#FACC15] text-[11px] font-semibold">
-                            {formatCurrency(Math.round(cust.totalSpent / Math.max(1, cust.visitsCount)))}
-                          </span>
-                        </div>
-                        {cust.visitsCount > 1 && (
-                          <div className="flex items-start justify-between gap-2 pt-1.5 border-t border-white/[0.04]">
-                            <div>
-                              <div className="font-medium text-[#A1A1AA] text-[11px]">
-                                Organic Botanical Hair Spa & Blowout
+                        {(() => {
+                          const custInvoices = invoices.filter(
+                            (inv) =>
+                              inv.customerId === cust.id ||
+                              (cust.phone && inv.customerPhone === cust.phone) ||
+                              inv.customerName.toLowerCase() === cust.name.toLowerCase()
+                          );
+                          if (custInvoices.length === 0) {
+                            return (
+                              <div className="text-[11px] text-[#71717A] py-1">
+                                No billed invoices yet for {cust.name}.
                               </div>
-                              <div className="text-[10px] text-[#71717A] font-mono">
-                                12 Sep 2026 · Stylist: Rahul Verma
+                            );
+                          }
+                          return custInvoices.slice(0, 4).map((inv) => (
+                            <div
+                              key={inv.id}
+                              className="flex items-start justify-between gap-2 pt-1 first:pt-0 border-t first:border-t-0 border-white/[0.04]"
+                            >
+                              <div>
+                                <div className="font-medium text-[#F8FAFC] text-[11px]">
+                                  {(inv.items || []).map((i: any) => i.name).join(" + ") || inv.invoiceNumber}
+                                </div>
+                                <div className="text-[10px] text-[#71717A] font-mono">
+                                  {inv.date || inv.createdAt?.slice(0, 10) || "Recent"} • {inv.paymentMethod}
+                                </div>
                               </div>
+                              <span className="font-mono text-[#FACC15] text-[11px] font-semibold">
+                                {formatCurrency(inv.grandTotal || inv.total || 0)}
+                              </span>
                             </div>
-                            <span className="font-mono text-[#A1A1AA] text-[11px]">
-                              ₹2,200
-                            </span>
-                          </div>
-                        )}
+                          ));
+                        })()}
                       </div>
                     </div>
                   )}
@@ -486,7 +505,7 @@ export function CustomersView({ onGoToPos, onGoToBooking }: CustomersViewProps) 
               </button>
             </div>
 
-            <form onSubmit={handleAddSubmit} className="mt-4 space-y-3 text-xs">
+            <form onSubmit={handleAddSubmit} noValidate className="mt-4 space-y-3 text-xs">
               <div>
                 <label className="font-mono text-[11px] text-[#A1A1AA] block mb-1">Full Client Name *</label>
                 <input

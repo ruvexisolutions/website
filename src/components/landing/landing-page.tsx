@@ -314,7 +314,7 @@ export function LandingPage() {
                 onClick={() => setMobileMenuOpen(false)}
                 className="w-full py-2.5 bg-[#FACC15] text-[#09090b] font-bold text-xs uppercase tracking-wider rounded text-center shadow-md"
               >
-                Begin 14-Day Free Trial
+                Begin 7-Day Free Trial
               </Link>
             </div>
           </div>
@@ -882,9 +882,9 @@ export function LandingPage() {
                           <span>15% SAVINGS</span>
                         </div>
                         <div className="pt-1 flex items-center justify-between text-[10px] text-slate-400 font-mono">
-                          <span className="text-amber-300 underline cursor-pointer">
+                          <Link href="/book" className="text-amber-300 underline hover:text-amber-200">
                             Reserve Preferred Station →
-                          </span>
+                          </Link>
                           <span>10:30</span>
                         </div>
                       </div>
@@ -1344,7 +1344,7 @@ export function LandingPage() {
                 </div>
               </div>
               <Link
-                href="/signup"
+                href="/support"
                 className="w-full py-2.5 border border-white/20 text-slate-200 hover:bg-white/5 font-medium text-xs uppercase tracking-wider rounded text-center block transition-all"
               >
                 Contact Concierge
@@ -1503,7 +1503,7 @@ export function LandingPage() {
             Elevate your studio operations.
           </h2>
           <p className="max-w-xl mx-auto text-sm text-slate-400 font-light leading-relaxed">
-            Fourteen days complimentary access. Zero commission lock-ins. Seamless data migration from existing spreadsheets or aggregators.
+            Seven days complimentary trial access. Zero commission lock-ins. Seamless data migration from existing spreadsheets or aggregators.
           </p>
 
           <div className="flex flex-wrap items-center justify-center gap-4 pt-4">
@@ -1511,7 +1511,7 @@ export function LandingPage() {
               href="/signup"
               className="px-8 py-3.5 bg-slate-100 hover:bg-white text-slate-950 font-medium text-xs uppercase tracking-wider rounded transition-all shadow-xl"
             >
-              Start 14-Day Free Trial
+              Start 7-Day Free Trial
             </Link>
             <Link
               href="/dashboard"
@@ -1586,7 +1586,7 @@ export function LandingPage() {
           {/* Bottom Copyright & Legal Links */}
           <div className="pt-8 border-t border-white/[0.08] flex flex-col sm:flex-row items-center justify-between gap-4 text-[11px] font-mono text-slate-400">
             <div>
-              © {new Date().getFullYear()} Ruvexi Technologies Inc. Built for independent salons across India.
+              © {new Date().getFullYear()} RUVEXI Solutions. Built for independent salons across India.
             </div>
             <div className="flex items-center gap-6">
               <Link href="/login" className="hover:text-white transition-colors">Staff Login</Link>

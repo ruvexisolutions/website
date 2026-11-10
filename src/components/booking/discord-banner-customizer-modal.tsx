@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import React, { useState, useRef, useEffect } from "react";
 import {
@@ -78,7 +78,7 @@ export function DiscordBannerCustomizerModal({
   // Image upload ref
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // Keep in sync when modal opens
+  // Sync draft state ONLY when opening the modal (never overwrite draft on parent re-renders)
   useEffect(() => {
     if (isOpen) {
       setSelectedPreset(salon.bannerPreset || "discord-blurple");
@@ -88,7 +88,8 @@ export function DiscordBannerCustomizerModal({
       setBrandName(salon.name || "Ruvexi Premier Atelier");
       setTagline(salon.tagline || "Bespoke Styling, Organic Hair Therapy & Modern Skin Wellness");
     }
-  }, [isOpen, salon]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isOpen]);
 
   if (!isOpen) return null;
 
@@ -177,9 +178,6 @@ export function DiscordBannerCustomizerModal({
                 <h3 className="text-base sm:text-lg font-bold text-white tracking-tight">
                   Customize Salon Brand &amp; Banner
                 </h3>
-                <span className="px-2 py-0.5 rounded-full text-[10px] font-mono uppercase tracking-wider font-bold bg-[#5865F2] text-white flex items-center gap-1 shadow-sm">
-                  <Sparkles className="w-2.5 h-2.5" /> Discord Nitro Style
-                </span>
               </div>
               <p className="text-xs text-[#949BA4]">
                 Choose curated Discord themes, custom gradients, or brand artwork for your respected salon booking page.
@@ -202,7 +200,7 @@ export function DiscordBannerCustomizerModal({
           <div className="space-y-2">
             <div className="flex items-center justify-between text-xs font-mono uppercase tracking-wider text-[#949BA4]">
               <span className="flex items-center gap-1.5 font-bold text-slate-300">
-                <Eye className="w-3.5 h-3.5 text-[#5865F2]" /> Live Discord-Style Preview
+                <Eye className="w-3.5 h-3.5 text-[#FACC15]" /> Live Booking Page Header Preview
               </span>
               <span className="text-[11px] text-[#949BA4]">Real-time Client Booking View</span>
             </div>
@@ -299,6 +297,7 @@ export function DiscordBannerCustomizerModal({
           {/* Navigation Tabs for Customization */}
           <div className="flex items-center gap-1.5 border-b border-[#27272A] pb-2 text-xs font-mono overflow-x-auto">
             <button
+              type="button"
               onClick={() => setActiveTab("presets")}
               className={`px-4 py-2 rounded-xl font-bold flex items-center gap-2 transition-all cursor-pointer shrink-0 ${
                 activeTab === "presets"
@@ -307,10 +306,11 @@ export function DiscordBannerCustomizerModal({
               }`}
             >
               <Sparkles className="w-3.5 h-3.5" />
-              <span>Discord Nitro Themes ({DISCORD_BANNER_PRESETS.length})</span>
+              <span>Curated Themes ({DISCORD_BANNER_PRESETS.length})</span>
             </button>
 
             <button
+              type="button"
               onClick={() => setActiveTab("gradient")}
               className={`px-4 py-2 rounded-xl font-bold flex items-center gap-2 transition-all cursor-pointer shrink-0 ${
                 activeTab === "gradient"
@@ -323,6 +323,7 @@ export function DiscordBannerCustomizerModal({
             </button>
 
             <button
+              type="button"
               onClick={() => setActiveTab("image")}
               className={`px-4 py-2 rounded-xl font-bold flex items-center gap-2 transition-all cursor-pointer shrink-0 ${
                 activeTab === "image"
@@ -335,6 +336,7 @@ export function DiscordBannerCustomizerModal({
             </button>
 
             <button
+              type="button"
               onClick={() => setActiveTab("brand")}
               className={`px-4 py-2 rounded-xl font-bold flex items-center gap-2 transition-all cursor-pointer shrink-0 ${
                 activeTab === "brand"
@@ -377,12 +379,6 @@ export function DiscordBannerCustomizerModal({
                           backgroundPosition: "center",
                         }}
                       >
-                        {preset.isNitroStyle && (
-                          <div className="absolute top-1.5 left-1.5 px-1.5 py-0.5 rounded bg-black/60 backdrop-blur-md text-[9px] font-mono text-[#FACC15] flex items-center gap-1 font-bold">
-                            <Sparkles className="w-2.5 h-2.5" /> Nitro
-                          </div>
-                        )}
-
                         {isSelected && (
                           <div className="absolute inset-0 bg-[#5865F2]/30 backdrop-blur-[1px] flex items-center justify-center">
                             <div className="w-7 h-7 rounded-full bg-[#5865F2] text-white flex items-center justify-center shadow-lg">
@@ -427,7 +423,7 @@ export function DiscordBannerCustomizerModal({
           {activeTab === "gradient" && (
             <div className="space-y-5 bg-[#18191C] p-5 rounded-2xl border border-[#27272A]">
               <div>
-                <h4 className="text-sm font-bold text-white">Discord Gradient Studio</h4>
+                <h4 className="text-sm font-bold text-white">Custom Gradient Studio</h4>
                 <p className="text-xs text-[#949BA4] mt-0.5">
                   Mix your salon brand colors with smooth angle transitions and mesh effects.
                 </p>
@@ -726,7 +722,7 @@ export function DiscordBannerCustomizerModal({
             onClick={handleResetDefault}
             className="text-xs font-mono text-[#949BA4] hover:text-white flex items-center gap-1.5 transition-colors cursor-pointer"
           >
-            <RefreshCw className="w-3 h-3" /> Reset to Discord Default
+            <RefreshCw className="w-3 h-3" /> Reset to Default Theme
           </button>
 
           <div className="flex items-center gap-3 w-full sm:w-auto">

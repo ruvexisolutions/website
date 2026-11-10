@@ -55,15 +55,15 @@ export function mapSupabaseUserToRuvexi(supabaseUser: SupabaseAuthUser, session?
     name: salonName,
     slug: salonName.toLowerCase().replace(/[^a-z0-9]+/g, "-"),
     branch: metadata.branch || "Flagship Studio",
-    city: metadata.city || "Bengaluru",
+    city: metadata.city || "",
     category: metadata.category || "Hair Studio & Luxury Spa",
     chairs: metadata.chairs || 6,
     currency: metadata.currency || "₹",
-    gstin: metadata.gstin || "27AABCB1234F1Z8",
+    gstin: metadata.gstin || "",
     autoGst: true,
-    phone: phone || "+91 98450 11223",
-    email: email || "contact@Ruvexi.io",
-    address: metadata.address || "100ft Road, Indiranagar",
+    phone: phone || "",
+    email: email || "",
+    address: metadata.address || "",
     timing: "10:00 AM - 09:00 PM (All Days)",
     rating: 0,
     reviewCount: 0,
@@ -346,9 +346,25 @@ export async function verifySupabaseEmailOtp(email: string, token: string): Prom
   }
 }
 
-const GOOGLE_CLIENT_ID =
-  process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID ||
-  "688082902607-cuotmpb605mn5i7jkjv6ojql16bkmdml.apps.googleusercontent.com";
+const ENV_GOOGLE_CLIENT_ID = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID || "";
+let cachedGoogleClientId = ENV_GOOGLE_CLIENT_ID;
+
+async function resolveGoogleClientId(): Promise<string> {
+  if (cachedGoogleClientId) return cachedGoogleClientId;
+  try {
+    const apiBase =
+      process.env.NEXT_PUBLIC_API_URL || "https://web-production-7d450.up.railway.app/api/v1";
+    const res = await fetch(`${apiBase}/auth/public-config`, { cache: "no-store" });
+    if (res.ok) {
+      const data = await res.json();
+      if (data?.googleClientId) {
+        cachedGoogleClientId = String(data.googleClientId).trim();
+        return cachedGoogleClientId;
+      }
+    }
+  } catch {}
+  return "";
+}
 
 function loadGoogleGsiScript(): Promise<void> {
   return new Promise((resolve, reject) => {
@@ -361,17 +377,31 @@ function loadGoogleGsiScript(): Promise<void> {
       resolve();
       return;
     }
-    const existing = document.querySelector('script[src="https://accounts.google.com/gsi/client"]');
+    const existing = document.querySelector('script[src="https://accounts.google.com/gsi/client"]') as HTMLScriptElement | null;
     if (existing) {
-      existing.addEventListener("load", () => resolve());
-      existing.addEventListener("error", () => reject(new Error("Failed to load Google Sign-In SDK.")));
+      if ((existing as any).dataset?.loaded === "true") {
+        resolve();
+        return;
+      }
+      const timeout = setTimeout(() => reject(new Error("Google Sign-In SDK timed out.")), 8000);
+      existing.addEventListener("load", () => {
+        clearTimeout(timeout);
+        resolve();
+      });
+      existing.addEventListener("error", () => {
+        clearTimeout(timeout);
+        reject(new Error("Failed to load Google Sign-In SDK."));
+      });
       return;
     }
     const script = document.createElement("script");
     script.src = "https://accounts.google.com/gsi/client";
     script.async = true;
     script.defer = true;
-    script.onload = () => resolve();
+    script.onload = () => {
+      script.dataset.loaded = "true";
+      resolve();
+    };
     script.onerror = () => reject(new Error("Failed to load Google Sign-In SDK."));
     document.head.appendChild(script);
   });
@@ -386,6 +416,11 @@ export async function signInWithGoogle(): Promise<RuvexiAuthResult> {
   }
 
   try {
+    const clientId = await resolveGoogleClientId();
+    if (!clientId) {
+      return { success: false, error: "Google Sign-In is not configured on backend environment." };
+    }
+
     await loadGoogleGsiScript();
     const w = window as any;
 
@@ -395,7 +430,7 @@ export async function signInWithGoogle(): Promise<RuvexiAuthResult> {
 
     return await new Promise<RuvexiAuthResult>((resolve) => {
       const tokenClient = w.google.accounts.oauth2.initTokenClient({
-        client_id: GOOGLE_CLIENT_ID,
+        client_id: clientId,
         scope: "openid email profile",
         callback: async (tokenResponse: any) => {
           if (tokenResponse?.error || !tokenResponse?.access_token) {
@@ -473,12 +508,12 @@ export async function requestSupabasePasswordReset(email: string): Promise<{ suc
   const configured = isSupabaseConfigured();
 
   if (!configured) {
-    return { success: true };
+    return { success: false, error: "Supabase Auth is not configured." };
   }
 
   try {
     const redirectTo = typeof window !== "undefined"
-      ? `${window.location.origin}/reset-password`
+      ? `${window.location.origin}/auth/callback?next=/reset-password`
       : undefined;
 
     const { error } = await supabase.auth.resetPasswordForEmail(email.trim().toLowerCase(), {
@@ -503,7 +538,7 @@ export async function updateSupabasePassword(newPassword: string): Promise<{ suc
   const configured = isSupabaseConfigured();
 
   if (!configured) {
-    return { success: true };
+    return { success: false, error: "Supabase Auth is not configured." };
   }
 
   try {

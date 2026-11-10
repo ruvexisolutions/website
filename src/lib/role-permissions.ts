@@ -1,6 +1,7 @@
 export type UserRole =
   | "SALON_RECEPTIONIST"
   | "SALON_MANAGER"
+  | "MASTER_ADMIN"
   | "receptionist"
   | "manager"
   | "owner"
@@ -138,10 +139,11 @@ export const ROLE_CONFIGS: Record<"SALON_RECEPTIONIST" | "SALON_MANAGER", RoleCo
 
 export function normalizeRole(role?: string): "SALON_RECEPTIONIST" | "SALON_MANAGER" {
   const r = (role || "").trim().toUpperCase();
-  if (r === "SALON_RECEPTIONIST" || r === "RECEPTIONIST") {
-    return "SALON_RECEPTIONIST";
+  if (r === "SALON_MANAGER" || r === "OWNER" || r === "MANAGER" || r === "ADMIN" || r === "MASTER_ADMIN") {
+    return "SALON_MANAGER";
   }
-  return "SALON_MANAGER";
+  // Fail closed to least privilege (Receptionist) when role is missing or unrecognized
+  return "SALON_RECEPTIONIST";
 }
 
 export function getRoleConfig(role?: string): RoleConfig {

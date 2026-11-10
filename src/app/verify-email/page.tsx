@@ -9,31 +9,37 @@ import { Mail, CheckCircle2, RefreshCw, ArrowLeft, AlertCircle } from "lucide-re
 
 function VerifyEmailContent() {
   const searchParams = useSearchParams();
-  const email = searchParams.get("email") || "your email address";
+  const email = searchParams.get("email") || "";
   const [isResending, setIsResending] = useState(false);
   const [resentMessage, setResentMessage] = useState("");
+  const [resendError, setResendError] = useState("");
 
   const handleResend = async () => {
     setIsResending(true);
     setResentMessage("");
+    setResendError("");
 
     try {
-      if (isSupabaseConfigured() && email && email.includes("@")) {
-        const supabase = createClient();
-        const { error } = await supabase.auth.resend({
-          type: "signup",
-          email: email.trim().toLowerCase(),
-        });
-        if (error) {
-          setResentMessage(`Supabase: ${error.message}`);
-          return;
-        }
-      } else {
-        await new Promise((resolve) => setTimeout(resolve, 800));
+      if (!email || !email.includes("@")) {
+        setResendError("No email address provided in URL. Return to sign up or login to try again.");
+        return;
+      }
+      if (!isSupabaseConfigured()) {
+        setResendError("Email verification resend requires Supabase Auth to be configured.");
+        return;
+      }
+      const supabase = createClient();
+      const { error } = await supabase.auth.resend({
+        type: "signup",
+        email: email.trim().toLowerCase(),
+      });
+      if (error) {
+        setResendError(error.message);
+        return;
       }
       setResentMessage("Verification link sent! Please check your inbox and spam folder.");
-    } catch {
-      setResentMessage("Unable to resend email right now. Please try again shortly.");
+    } catch (err: any) {
+      setResendError(err?.message || "Unable to resend email right now. Please try again shortly.");
     } finally {
       setIsResending(false);
     }
@@ -51,9 +57,19 @@ function VerifyEmailContent() {
         </h2>
         <p className="text-sm text-[#A1A1AA] leading-relaxed max-w-sm mx-auto">
           Check your inbox for the verification link sent to{" "}
-          <span className="text-[#F8FAFC] font-medium break-all">{email}</span>.
+          <span className="text-[#F8FAFC] font-medium break-all">{email || "your email address"}</span>.
         </p>
       </div>
+
+      {resendError && (
+        <div
+          role="alert"
+          className="mb-5 p-3 rounded-lg bg-rose-500/10 border border-rose-500/30 text-xs text-rose-300 flex items-center justify-center gap-2"
+        >
+          <AlertCircle className="w-4 h-4 shrink-0" />
+          <span>{resendError}</span>
+        </div>
+      )}
 
       {resentMessage && (
         <div

@@ -204,10 +204,15 @@ export const RuvexiApi = {
       method: "POST",
       body: JSON.stringify(data),
     }),
-  updateAppointmentStatus: (id: string, status: string) =>
+  updateAppointment: (id: string, data: any) =>
+    request<any>(`/appointments/${id}`, {
+      method: "PUT",
+      body: JSON.stringify(data),
+    }),
+  updateAppointmentStatus: (id: string, status: string, chairNumber?: number) =>
     request<any>(`/appointments/${id}/status`, {
       method: "PUT",
-      body: JSON.stringify({ status }),
+      body: JSON.stringify(chairNumber !== undefined ? { status, chairNumber } : { status }),
     }),
   deleteAppointment: (id: string) =>
     request<{ success: boolean; id: string }>(`/appointments/${id}`, {
@@ -379,6 +384,49 @@ export const RuvexiApi = {
     }),
   closeRegisterShift: (data: { countedCash: number; notes?: string }) =>
     request<any>("/register/close", {
+      method: "POST",
+      body: JSON.stringify(data),
+    }),
+
+  // Reports Summary
+  getReportsSummary: (range: string = "month") =>
+    request<any>(`/reports/summary?range=${encodeURIComponent(range)}`),
+
+  // Public Booking & Feedback (Unauthenticated)
+  getPublicSalons: () => request<{ salons: any[] }>("/public/salons"),
+  getPublicSalon: (salonSlug: string, date?: string) =>
+    request<{ salon: any; services: any[]; staff: any[]; bookedSlots: any[] }>(
+      `/public/salons/${encodeURIComponent(salonSlug)}${date ? `?date=${encodeURIComponent(date)}` : ""}`
+    ),
+  createPublicBooking: (salonSlug: string, data: any) =>
+    request<{ success: boolean; bookingCode: string; appointment: any; salon: any }>(
+      `/public/salons/${encodeURIComponent(salonSlug)}/book`,
+      {
+        method: "POST",
+        body: JSON.stringify(data),
+      }
+    ),
+  submitPublicFeedback: (salonSlug: string, data: any) =>
+    request<{ success: boolean; feedback: any }>(
+      `/public/salons/${encodeURIComponent(salonSlug)}/feedback`,
+      {
+        method: "POST",
+        body: JSON.stringify(data),
+      }
+    ),
+
+  // Master Admin (MASTER_ADMIN Role Only)
+  adminGetSalons: () => request<{ salons: any[] }>("/admin/salons"),
+  adminMarkSalonPaid: (salonId: string, plan?: string) =>
+    request<any>(`/admin/salons/${encodeURIComponent(salonId)}/mark-paid`, {
+      method: "POST",
+      body: JSON.stringify({ plan }),
+    }),
+  adminSetSalonStatus: (
+    salonId: string,
+    data: { status: "active" | "trial" | "expired" | "suspended"; plan?: string; trialDays?: number }
+  ) =>
+    request<any>(`/admin/salons/${encodeURIComponent(salonId)}/set-status`, {
       method: "POST",
       body: JSON.stringify(data),
     }),

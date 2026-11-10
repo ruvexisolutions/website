@@ -103,8 +103,8 @@ export function WhatsAppSettingsView() {
         qualityRating: sWa.qualityRating || "GREEN",
         webhookVerified: Boolean(sWa.isWebhookVerified),
         webhookUrl: typeof window !== "undefined" ? `${window.location.origin}/api/v1/whatsapp/webhook` : "/api/v1/whatsapp/webhook",
-        webhookVerifyToken: "Ruvexi_meta_webhook_2026",
-        templatesStatus: sWa.templatesStatus || "APPROVED (4 Active)",
+        webhookVerifyToken: "",
+        templatesStatus: sWa.templatesStatus || (sWa.isConnected ? "Pending Template Sync" : "Not Connected"),
         lastTestedAt: sWa.lastTestedAt,
         errorMessage: sWa.errorMessage,
         canConfigure: salon.subscriptionStatus !== "trial",
@@ -619,12 +619,13 @@ export function WhatsAppSettingsView() {
                 <span className="text-[#71717A] text-[11px] block">Webhook Verification Token</span>
                 <div className="flex items-center justify-between gap-2">
                   <span className="text-[#FACC15] truncate">
-                    {statusData?.webhookVerifyToken || "Ruvexi_meta_webhook_2026"}
+                    {statusData?.webhookVerifyToken || "Set WHATSAPP_WEBHOOK_VERIFY_TOKEN in Railway"}
                   </span>
                   <button
                     type="button"
-                    onClick={() => copyToClipboard(statusData?.webhookVerifyToken || "Ruvexi_meta_webhook_2026", "verifyToken")}
-                    className="text-[#71717A] hover:text-[#F8FAFC] cursor-pointer shrink-0"
+                    disabled={!statusData?.webhookVerifyToken}
+                    onClick={() => copyToClipboard(statusData?.webhookVerifyToken || "", "verifyToken")}
+                    className="text-[#71717A] hover:text-[#F8FAFC] cursor-pointer shrink-0 disabled:opacity-40"
                   >
                     {copiedField === "verifyToken" ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
                   </button>

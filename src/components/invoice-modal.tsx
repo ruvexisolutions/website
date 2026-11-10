@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import React, { useRef, useState, useEffect } from "react";
 import { formatCurrency } from "@/lib/utils";
@@ -35,7 +35,7 @@ interface InvoiceModalProps {
 }
 
 export function InvoiceModal({ invoice: initialInvoice, salon, onClose, onPaymentConfirmed }: InvoiceModalProps) {
-  const { bookAppointment, showToast, sendWhatsAppBill } = useRuvexi();
+  const { bookAppointment, showToast, sendWhatsAppBill, updateInvoiceLocally } = useRuvexi();
   const [invoice, setInvoice] = useState<any>(initialInvoice);
   const [copied, setCopied] = useState(false);
   const [copiedUpi, setCopiedUpi] = useState(false);
@@ -131,6 +131,7 @@ export function InvoiceModal({ invoice: initialInvoice, salon, onClose, onPaymen
       });
       if (res && res.invoice) {
         setInvoice(res.invoice);
+        updateInvoiceLocally?.(invoice.id, res.invoice);
         if (onPaymentConfirmed) {
           onPaymentConfirmed(res.invoice);
         }

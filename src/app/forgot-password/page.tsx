@@ -45,10 +45,10 @@ export default function ForgotPasswordPage() {
         setIsSubmitted(true);
       }
     } catch (err: any) {
-      if (err.message && err.message.includes("Network")) {
+      if (err?.message && err.message.includes("Network")) {
         setError("Unable to reach the server. Please check your connection.");
       } else {
-        setIsSubmitted(true);
+        setError(err?.message || "Unable to send password reset email right now. Please try again.");
       }
     } finally {
       setIsLoading(false);

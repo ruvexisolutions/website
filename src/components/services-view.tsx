@@ -25,7 +25,7 @@ import {
 } from "lucide-react";
 
 export function ServicesView() {
-  const { services, inventory, addService, updateService } = useRuvexi();
+  const { services, inventory, addService, updateService, showToast } = useRuvexi();
 
   const [activeCategory, setActiveCategory] = useState<string>("All");
   const [searchQuery, setSearchQuery] = useState<string>("");
@@ -66,11 +66,19 @@ export function ServicesView() {
 
   const handleAddSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    if (!newName.trim()) {
+      showToast("Please enter the treatment name.", "error");
+      return;
+    }
+    if (!newPrice || newPrice <= 0) {
+      showToast("Please enter a valid treatment price.", "error");
+      return;
+    }
     addService({
-      name: newName,
+      name: newName.trim(),
       category: newCategory,
-      durationMinutes: newDuration,
-      price: newPrice,
+      durationMinutes: Number(newDuration) || 45,
+      price: Number(newPrice),
       description: newDescription,
       materialUsed: newMaterialUsed,
       materialItemId: newMaterialItemId || undefined,
@@ -349,7 +357,7 @@ export function ServicesView() {
               </button>
             </div>
 
-            <form onSubmit={handleAddSubmit} className="mt-4 space-y-3 text-xs">
+            <form onSubmit={handleAddSubmit} noValidate className="mt-4 space-y-3 text-xs">
               <div>
                 <label className="font-mono text-[11px] text-[#A1A1AA] block mb-1">Treatment Name *</label>
                 <input

@@ -45,6 +45,23 @@ export default function LoginPage() {
 
   const [isLoading, setIsLoading] = useState(false);
   const [isGoogleLoading, setIsGoogleLoading] = useState(false);
+  const otpTimerRef = React.useRef<ReturnType<typeof setInterval> | null>(null);
+
+  React.useEffect(() => {
+    try {
+      const remembered = localStorage.getItem("Ruvexi_remember_email");
+      if (remembered) {
+        setReceptionistEmail(remembered);
+      }
+    } catch {}
+    return () => {
+      if (otpTimerRef.current) clearInterval(otpTimerRef.current);
+    };
+  }, []);
+
+  const isEmailOrMobile = (val: string) =>
+    /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(val) || val.replace(/\D/g, "").length >= 10;
+
   const [errors, setErrors] = useState<{
     managerEmail?: string;
     managerPassword?: string;
@@ -59,8 +76,8 @@ export default function LoginPage() {
     e.preventDefault();
     setErrors({});
     const normalized = managerEmail.toLowerCase().trim();
-    if (!normalized || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalized)) {
-      setErrors({ managerEmail: "Please enter a valid work email address" });
+    if (!normalized || !isEmailOrMobile(normalized)) {
+      setErrors({ managerEmail: "Please enter a valid work email or 10-digit mobile number" });
       return;
     }
     if (!managerPassword) {
@@ -72,8 +89,15 @@ export default function LoginPage() {
     try {
       const res = await login(normalized, managerPassword);
       if (res.success) {
-        showToast("Signed in to Manager Console!", "success");
-        router.push("/overview");
+        const userRole = String(res.user?.role || "").toUpperCase();
+        showToast("Signed in to Ruvexi!", "success");
+        if (userRole === "MASTER_ADMIN") {
+          router.push("/admin");
+        } else if (userRole === "SALON_RECEPTIONIST" || userRole === "RECEPTIONIST") {
+          router.push("/front-desk");
+        } else {
+          router.push("/overview");
+        }
         return;
       }
       setErrors({ general: res.error || "Authentication failed. Please verify credentials." });
@@ -101,6 +125,17 @@ export default function LoginPage() {
         if (supaRes.success) {
           setOtpSent(true);
           showToast(supaRes.message, "info");
+          setOtpCooldown(30);
+          if (otpTimerRef.current) clearInterval(otpTimerRef.current);
+          otpTimerRef.current = setInterval(() => {
+            setOtpCooldown((prev) => {
+              if (prev <= 1) {
+                if (otpTimerRef.current) clearInterval(otpTimerRef.current);
+                return 0;
+              }
+              return prev - 1;
+            });
+          }, 1000);
         } else {
           setErrors({ general: supaRes.error || "Failed to dispatch verification email. Please check credentials or sign in with password." });
         }
@@ -111,16 +146,6 @@ export default function LoginPage() {
       setErrors({ general: err.message || "Unable to send login code. Please sign in with password." });
     } finally {
       setIsLoading(false);
-      setOtpCooldown(30);
-      const timer = setInterval(() => {
-        setOtpCooldown((prev) => {
-          if (prev <= 1) {
-            clearInterval(timer);
-            return 0;
-          }
-          return prev - 1;
-        });
-      }, 1000);
     }
   };
 
@@ -161,8 +186,8 @@ export default function LoginPage() {
     e.preventDefault();
     setErrors({});
     const normalized = receptionistEmail.toLowerCase().trim();
-    if (!normalized || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalized)) {
-      setErrors({ receptionistEmail: "Please enter a valid work email address" });
+    if (!normalized || !isEmailOrMobile(normalized)) {
+      setErrors({ receptionistEmail: "Please enter a valid work email or 10-digit mobile number" });
       return;
     }
     if (!receptionistPassword) {
@@ -176,9 +201,16 @@ export default function LoginPage() {
       if (res.success) {
         if (rememberMe) {
           localStorage.setItem("Ruvexi_remember_email", normalized);
+        } else {
+          localStorage.removeItem("Ruvexi_remember_email");
         }
-        showToast("Signed in to Front Desk!", "success");
-        router.push("/front-desk");
+        const userRole = String(res.user?.role || "").toUpperCase();
+        showToast("Signed in to Ruvexi!", "success");
+        if (userRole === "SALON_MANAGER" || userRole === "OWNER" || userRole === "MANAGER") {
+          router.push("/overview");
+        } else {
+          router.push("/front-desk");
+        }
         return;
       }
       setErrors({ general: res.error || "Invalid receptionist credentials." });

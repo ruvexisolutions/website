@@ -350,8 +350,10 @@ export function CrmFollowupsView() {
     );
   }, [customers, composerSearch]);
 
-  const pendingCount = followUps.filter((f) => f.status === "Pending").length;
-  const sentCount = followUps.filter((f) => f.status === "Sent" || f.status === "Delivered").length;
+  const pendingCount = followUps.filter((f) => String(f.status || "").toLowerCase() === "pending").length;
+  const sentCount = followUps.filter((f) =>
+    ["sent", "delivered"].includes(String(f.status || "").toLowerCase())
+  ).length;
 
   const handleSelectCampaign = (campaign: any) => {
     setSelectedFollowUp(campaign);
@@ -1034,22 +1036,33 @@ export function CrmFollowupsView() {
 
                 <button
                   onClick={handleSendCampaign}
-                  disabled={selectedFollowUp?.status === "Sent" || isSendingViaMeta || !selectedFollowUp}
+                  disabled={
+                    String(selectedFollowUp?.status || "").toLowerCase() === "sent" ||
+                    isSendingViaMeta ||
+                    !selectedFollowUp
+                  }
                   className="w-full py-3 px-4 bg-[#FACC15] hover:bg-[#EAB308] disabled:opacity-50 text-[#080808] font-bold text-xs rounded-xl shadow-lg shadow-[#FACC15]/10 flex items-center justify-center gap-2 transition-all cursor-pointer"
                 >
                   <Send className="w-4 h-4" />
                   <span>
                     {isSendingViaMeta
                       ? "Dispatching via Meta Cloud API..."
-                      : selectedFollowUp?.status === "Sent"
+                      : String(selectedFollowUp?.status || "").toLowerCase() === "sent"
                       ? "Already Dispatched via WhatsApp"
                       : "Dispatch via Meta WhatsApp Cloud API"}
                   </span>
                 </button>
 
                 {metaDeliveryStatus && (
-                  <div className="p-2.5 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 text-[11px] font-mono font-bold flex items-center justify-center gap-2 animate-in fade-in">
-                    <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+                  <div
+                    className={`p-2.5 rounded-xl border text-[11px] font-mono font-bold flex items-center justify-center gap-2 animate-in fade-in ${
+                      metaDeliveryStatus.toLowerCase().includes("delivered") ||
+                      metaDeliveryStatus.toLowerCase().includes("dispatched")
+                        ? "bg-emerald-500/10 border-emerald-500/30 text-emerald-400"
+                        : "bg-rose-500/10 border-rose-500/30 text-rose-300"
+                    }`}
+                  >
+                    <CheckCircle2 className="w-3.5 h-3.5 shrink-0" />
                     <span>{metaDeliveryStatus}</span>
                   </div>
                 )}

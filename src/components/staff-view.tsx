@@ -36,7 +36,7 @@ import {
 } from "lucide-react";
 
 export function StaffView() {
-  const { user, salon, staff, toggleStaffStatus, updateStaffCommission, addStaffMember, showToast } = useRuvexi();
+  const { user, salon, staff, feedbacks, toggleStaffStatus, updateStaff, updateStaffCommission, addStaffMember, showToast } = useRuvexi();
   const isOwner = user?.role === "owner" || user?.role === "admin" || user?.role === "SALON_MANAGER";
 
   const [showAddModal, setShowAddModal] = useState(false);
@@ -88,7 +88,7 @@ export function StaffView() {
 
   // Form State for new staff
   const [name, setName] = useState("");
-  const [role, setRole] = useState("Master Hair Stylist");
+  const [role, setRole] = useState("Senior Hair Stylist");
   const [specialties, setSpecialties] = useState("Balayage, Keratin Therapy");
   const [phone, setPhone] = useState("+91 98");
   const [commissionRate, setCommissionRate] = useState(15);
@@ -104,13 +104,20 @@ export function StaffView() {
 
   const handleAddStaff = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!name.trim()) return;
+    if (!name.trim()) {
+      showToast("Please enter staff member's full name.", "error");
+      return;
+    }
+    if (!phone.trim() || phone.replace(/\D/g, "").length < 7) {
+      showToast("Please enter a valid contact phone number.", "error");
+      return;
+    }
 
     addStaffMember({
-      name,
+      name: name.trim(),
       role,
-      specialty: specialties.split(",").map((s) => s.trim()),
-      phone,
+      specialty: specialties.split(",").map((s) => s.trim()).filter(Boolean),
+      phone: phone.trim(),
       avatar,
       commissionRate,
       status: "clocked_in",
@@ -157,13 +164,8 @@ export function StaffView() {
 
   const handleReallotBranch = async (staffId: string, newBranchId: string) => {
     try {
-      await RuvexiApi.updateStaff(staffId, { branchId: newBranchId });
+      updateStaff(staffId, { branchId: newBranchId });
       const branchObj = branches.find((b) => b.id === newBranchId);
-      // Optimistically update local staff record
-      const member = staff.find((s) => s.id === staffId);
-      if (member) {
-        member.branchId = newBranchId;
-      }
       showToast(`Staff allotted to ${branchObj?.name || "new branch studio"}!`, "success");
       setReallotStaffId(null);
     } catch (err: any) {
@@ -306,8 +308,14 @@ export function StaffView() {
               <Star className="w-4 h-4 fill-[#FACC15]" />
             </span>
           </div>
-          <div className="text-2xl font-mono font-bold text-[#F8FAFC] mt-2">4.88 ★</div>
-          <p className="text-[11px] text-[#71717A] mt-1 font-mono">100% verified customer feedbacks</p>
+          <div className="text-2xl font-mono font-bold text-[#F8FAFC] mt-2">
+            {feedbacks.length
+              ? `${(feedbacks.reduce((sum, f) => sum + Number(f.rating || f.serviceRating || 5), 0) / feedbacks.length).toFixed(2)} ★`
+              : "—"}
+          </div>
+          <p className="text-[11px] text-[#71717A] mt-1 font-mono">
+            {feedbacks.length ? `Across ${feedbacks.length} client reviews` : "No client reviews yet"}
+          </p>
         </div>
       </div>
 
@@ -503,7 +511,7 @@ export function StaffView() {
               </button>
             </div>
 
-            <form onSubmit={handleAddStaff} className="mt-4 space-y-3.5 text-xs">
+            <form onSubmit={handleAddStaff} noValidate className="mt-4 space-y-3.5 text-xs">
               <div>
                 <label className="font-mono text-[11px] text-[#A1A1AA] block mb-1">Full Name</label>
                 <input
@@ -613,7 +621,7 @@ export function StaffView() {
             </div>
 
             {!generatedLink ? (
-              <form onSubmit={handleGenerateInvite} className="mt-4 space-y-4 text-xs">
+              <form onSubmit={handleGenerateInvite} noValidate className="mt-4 space-y-4 text-xs">
                 <div className="p-3 bg-[#151515] border border-[#27272A] rounded-xl text-[#A1A1AA] text-[11px] leading-relaxed">
                   Generate a single-use registration link. Upon opening, the receptionist will set their secure password and immediately gain front desk access locked exclusively to <strong className="text-[#FACC15]">{salon?.name}</strong>.
                 </div>
@@ -753,7 +761,7 @@ export function StaffView() {
               </button>
             </div>
 
-            <form onSubmit={handleCreateBranch} className="mt-4 space-y-3.5 text-xs">
+            <form onSubmit={handleCreateBranch} noValidate className="mt-4 space-y-3.5 text-xs">
               <div>
                 <label className="font-mono text-[11px] text-[#A1A1AA] block mb-1">Branch Studio Name</label>
                 <input
@@ -876,7 +884,7 @@ export function StaffView() {
                 </button>
                 <button
                   type="button"
-                  onClick={() => handleReallotBranch(reallotStaffId, targetBranchId)}
+                  onClick={() => handleReallotBranch(reallotStaffId, targetBranchId || branches[0]?.id || "brn_flagship")}
                   className="flex-1 py-2 bg-[#FACC15] hover:bg-[#EAB308] text-[#080808] font-bold rounded-xl shadow-md cursor-pointer"
                 >
                   Confirm Allotment

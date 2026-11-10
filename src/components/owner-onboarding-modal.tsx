@@ -38,8 +38,8 @@ export function OwnerOnboardingModal({ onComplete }: OwnerOnboardingModalProps) 
 
   const initialAddress =
     salon?.address &&
-    salon.address !== "Suite 401, Crescent Galleria, Indiranagar" &&
-    salon.address !== "Suite 401, Crescent Galleria, Indiranagar, Bengaluru"
+      salon.address !== "Suite 401, Crescent Galleria, Indiranagar" &&
+      salon.address !== "Suite 401, Crescent Galleria, Indiranagar, Bengaluru"
       ? salon.address
       : "";
 
@@ -47,8 +47,8 @@ export function OwnerOnboardingModal({ onComplete }: OwnerOnboardingModalProps) 
 
   const initialLogo =
     salon?.logoUrl &&
-    salon.logoUrl !== "/logo.png" &&
-    salon.logoUrl !== "/images/ruvexi-logo.png"
+      salon.logoUrl !== "/logo.png" &&
+      salon.logoUrl !== "/images/ruvexi-logo.png"
       ? salon.logoUrl
       : "";
 
@@ -132,7 +132,7 @@ export function OwnerOnboardingModal({ onComplete }: OwnerOnboardingModalProps) 
       const cleanEmail = businessEmail.trim().toLowerCase();
       const chairCount = Math.max(1, Math.min(100, Number(chairs)));
 
-      updateSalonProfile({
+      const saveResult = await updateSalonProfile({
         name: cleanName,
         chairs: chairCount,
         phone: cleanPhone,
@@ -142,6 +142,11 @@ export function OwnerOnboardingModal({ onComplete }: OwnerOnboardingModalProps) 
         branch: `${cleanCity} Studio`,
         ...(logoUrl ? { logoUrl, logo: logoUrl } : {}),
       });
+
+      if (saveResult && !saveResult.success) {
+        setError(saveResult.error || "Failed to save studio details to server. Please retry.");
+        return;
+      }
 
       if (typeof window !== "undefined") {
         if (salon?.id) {
@@ -187,7 +192,7 @@ export function OwnerOnboardingModal({ onComplete }: OwnerOnboardingModalProps) 
           </div>
         )}
 
-        <form onSubmit={handleSubmit} className="space-y-4 text-xs">
+        <form onSubmit={handleSubmit} noValidate className="space-y-4 text-xs">
           {/* Salon Name & Logo Row */}
           <div className="p-4 bg-[#151515] border border-[#27272A] rounded-2xl space-y-4">
             <div className="flex flex-col sm:flex-row sm:items-center gap-4">
@@ -313,11 +318,10 @@ export function OwnerOnboardingModal({ onComplete }: OwnerOnboardingModalProps) 
                     key={preset}
                     type="button"
                     onClick={() => setChairs(preset)}
-                    className={`px-3 py-1.5 rounded-lg text-[11px] font-mono font-bold border transition-all cursor-pointer ${
-                      chairs === preset
+                    className={`px-3 py-1.5 rounded-lg text-[11px] font-mono font-bold border transition-all cursor-pointer ${chairs === preset
                         ? "bg-[#FACC15] text-[#080808] border-[#FACC15]"
                         : "bg-[#101010] text-[#A1A1AA] border-[#27272A] hover:border-[#FACC15]/50 hover:text-[#F8FAFC]"
-                    }`}
+                      }`}
                   >
                     {preset} Chairs
                   </button>

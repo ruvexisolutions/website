@@ -1,6 +1,7 @@
-﻿"use client";
+"use client";
 
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
+import QRCode from "qrcode";
 import { useRuvexi } from "@/lib/ruvexi-context";
 import { RuvexiApi } from "@/lib/api-client";
 import {
@@ -17,12 +18,48 @@ import {
   Receipt,
   MessageSquare,
   BarChart3,
+  Copy,
+  X,
+  QrCode,
+  Send,
 } from "lucide-react";
 
 export function SubscriptionView() {
-  const { salon, updateSalon, showToast } = useRuvexi();
+  const { user, salon, updateSalon, showToast } = useRuvexi();
   const [isUpgrading, setIsUpgrading] = useState(false);
   const [selectedPlan, setSelectedPlan] = useState<"pro" | "enterprise">("pro");
+  const [razorpayConfigured, setRazorpayConfigured] = useState<boolean>(true);
+  const [conciergeWhatsapp, setConciergeWhatsapp] = useState<string>("");
+  const [conciergeUpiId, setConciergeUpiId] = useState<string>("");
+  const [manualModalPlan, setManualModalPlan] = useState<"pro" | "enterprise" | null>(null);
+  const [manualUtr, setManualUtr] = useState<string>("");
+  const [manualQrUrl, setManualQrUrl] = useState<string>("");
+
+  useEffect(() => {
+    RuvexiApi.getSubscriptionStatus()
+      .then((res) => {
+        if (typeof res?.razorpayConfigured === "boolean") {
+          setRazorpayConfigured(res.razorpayConfigured);
+        }
+        if (res?.conciergeWhatsapp) setConciergeWhatsapp(res.conciergeWhatsapp);
+        if (res?.conciergeUpiId) setConciergeUpiId(res.conciergeUpiId);
+      })
+      .catch(() => {});
+  }, []);
+
+  useEffect(() => {
+    if (!manualModalPlan || !conciergeUpiId) {
+      setManualQrUrl("");
+      return;
+    }
+    const amt = manualModalPlan === "enterprise" ? 8999 : 3499;
+    const uri = `upi://pay?pa=${encodeURIComponent(conciergeUpiId)}&pn=${encodeURIComponent(
+      "RUVEXI Solutions"
+    )}&am=${amt.toFixed(2)}&cu=INR&tn=${encodeURIComponent(`SUB-${salon.id.slice(-8)}`)}`;
+    QRCode.toDataURL(uri, { width: 200, margin: 1 })
+      .then(setManualQrUrl)
+      .catch(() => setManualQrUrl(""));
+  }, [manualModalPlan, conciergeUpiId, salon.id]);
 
   const trialDaysLeft = typeof salon.trialDaysLeft === "number" ? salon.trialDaysLeft : 7;
   const isTrialActive = salon.isTrialActive !== false && salon.subscriptionStatus === "trial";
@@ -43,6 +80,12 @@ export function SubscriptionView() {
   };
 
   const handleRazorpaySubscription = async (plan: "pro" | "enterprise") => {
+    if (!razorpayConfigured) {
+      setSelectedPlan(plan);
+      setManualModalPlan(plan);
+      return;
+    }
+
     setIsUpgrading(true);
     try {
       // 1. Create dedicated SaaS platform subscription order
@@ -79,7 +122,7 @@ export function SubscriptionView() {
               updateSalon({
                 subscriptionStatus: "active",
                 subscriptionPlan: plan,
-                isTrialActive: true,
+                isTrialActive: false,
               });
               showToast(`Payment successful! Ruvexi ${plan.toUpperCase()} subscription is now active.`, "success");
             } catch (err: any) {
@@ -96,31 +139,42 @@ export function SubscriptionView() {
         const rzp = new (window as any).Razorpay(options);
         rzp.open();
       } else {
-        // Fallback / Sandbox activation if live Razorpay keys are pending in backend .env
-        const verifyRes = await RuvexiApi.verifySubscriptionPayment({
-          razorpay_order_id: orderData.order_id,
-          razorpay_payment_id: `pay_mock_${Date.now()}`,
-          razorpay_signature: "mock_signature_sandbox",
-          plan: plan,
-        });
-
-        updateSalon({
-          subscriptionStatus: "active",
-          subscriptionPlan: plan,
-          isTrialActive: true,
-        });
-        showToast(
-          orderData.notice
-            ? `${orderData.notice} — Activated ${plan.toUpperCase()} successfully!`
-            : `Successfully activated Ruvexi ${plan.toUpperCase()}! Full salon features unlocked.`,
-          "success"
-        );
+        setManualModalPlan(plan);
       }
     } catch (err: any) {
-      showToast(err.message || "Subscription upgrade failed. Please try again.", "error");
+      if (String(err?.message || "").toLowerCase().includes("not configured")) {
+        setRazorpayConfigured(false);
+        setManualModalPlan(plan);
+      } else {
+        showToast(err.message || "Subscription upgrade failed. Please try again.", "error");
+      }
     } finally {
       setIsUpgrading(false);
     }
+  };
+
+  const handleSendManualRequest = () => {
+    if (!manualModalPlan) return;
+    const price = manualModalPlan === "enterprise" ? "₹8,999/mo" : "₹3,499/mo";
+    const digits = (conciergeWhatsapp || "").replace(/[^0-9]/g, "");
+    const cleanTarget = digits.length === 10 ? `91${digits}` : digits;
+    const msg =
+      `Hello RUVEXI Team,\n` +
+      `Please activate my paid salon subscription:\n` +
+      `• Salon Name: ${salon.name}\n` +
+      `• Salon ID: ${salon.id}\n` +
+      `• Owner Email: ${user?.email || salon.email || ""}\n` +
+      `• Plan Requested: ${manualModalPlan.toUpperCase()} (${price})\n` +
+      (manualUtr.trim() ? `• Payment UTR / Ref: ${manualUtr.trim()}\n` : "") +
+      `\nThank you!`;
+
+    window.open(
+      cleanTarget
+        ? `https://wa.me/${cleanTarget}?text=${encodeURIComponent(msg)}`
+        : `https://wa.me/?text=${encodeURIComponent(msg)}`,
+      "_blank"
+    );
+    showToast("Activation request opened in WhatsApp!", "success");
   };
 
   return (
@@ -167,7 +221,11 @@ export function SubscriptionView() {
                 {isPaidActive ? "PRO UNLIMITED" : `${trialDaysLeft} Days Active`}
               </div>
               <div className="text-[11px] text-[#A1A1AA]">
-                {isPaidActive ? "Renewal: Next billing cycle" : "Trial ends in 7 days UTC"}
+                {isPaidActive
+                  ? "Plan: Paid Active"
+                  : salon.trialEndsAt
+                    ? `Ends ${new Date(salon.trialEndsAt).toLocaleDateString("en-IN", { day: "2-digit", month: "short" })}`
+                    : `${trialDaysLeft} days remaining`}
               </div>
             </div>
           </div>
@@ -361,7 +419,7 @@ export function SubscriptionView() {
               ) : (
                 <>
                   <CreditCard className="w-4 h-4" />
-                  <span>Activate Pro with Razorpay</span>
+                  <span>{razorpayConfigured ? "Activate Pro with Razorpay" : "Activate Pro (Manual / UPI)"}</span>
                   <ArrowRight className="w-4 h-4" />
                 </>
               )}
@@ -428,7 +486,7 @@ export function SubscriptionView() {
               ) : (
                 <>
                   <CreditCard className="w-4 h-4 text-purple-400" />
-                  <span>Activate Enterprise with Razorpay</span>
+                  <span>{razorpayConfigured ? "Activate Enterprise with Razorpay" : "Activate Enterprise (Manual / UPI)"}</span>
                   <ArrowRight className="w-4 h-4" />
                 </>
               )}
@@ -436,6 +494,98 @@ export function SubscriptionView() {
           </div>
         </div>
       </div>
+
+      {/* Manual Plan Activation Modal (when Razorpay automated billing isn't active) */}
+      {manualModalPlan && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/85 backdrop-blur-md p-4">
+          <div className="w-full max-w-md bg-[#101010] border border-[#27272A] rounded-2xl p-6 space-y-5 shadow-2xl">
+            <div className="flex items-start justify-between gap-3 border-b border-[#27272A] pb-4">
+              <div>
+                <span className="text-[10px] font-mono uppercase tracking-widest text-[#FACC15]">
+                  Direct Salon Plan Activation
+                </span>
+                <h3 className="text-lg font-serif font-bold text-white mt-0.5">
+                  Activate {manualModalPlan === "enterprise" ? "Enterprise (₹8,999/mo)" : "Pro (₹3,499/mo)"}
+                </h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => setManualModalPlan(null)}
+                className="p-1.5 rounded-lg bg-[#18181B] text-[#A1A1AA] hover:text-white cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            {conciergeUpiId && (
+              <div className="p-4 rounded-xl bg-[#151515] border border-[#27272A] flex items-center gap-4">
+                {manualQrUrl ? (
+                  <img src={manualQrUrl} alt="Platform UPI QR" className="w-20 h-20 rounded-lg bg-white p-1 shrink-0" />
+                ) : (
+                  <div className="w-20 h-20 rounded-lg bg-[#18181B] flex items-center justify-center shrink-0">
+                    <QrCode className="w-8 h-8 text-[#FACC15]" />
+                  </div>
+                )}
+                <div className="space-y-1 min-w-0">
+                  <div className="text-[11px] font-mono uppercase text-[#A1A1AA]">Pay via UPI</div>
+                  <div className="text-xs font-mono font-bold text-white truncate">{conciergeUpiId}</div>
+                  <div className="text-[11px] text-[#71717A]">
+                    Amount: <span className="text-[#FACC15] font-mono font-bold">{manualModalPlan === "enterprise" ? "₹8,999" : "₹3,499"}</span>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            <div className="p-3.5 rounded-xl bg-[#151515] border border-[#27272A] space-y-2 text-xs">
+              <div className="flex items-center justify-between">
+                <span className="text-[#71717A]">Salon Name:</span>
+                <span className="font-semibold text-white">{salon.name}</span>
+              </div>
+              <div className="flex items-center justify-between gap-2">
+                <span className="text-[#71717A]">Salon ID:</span>
+                <button
+                  type="button"
+                  onClick={() => {
+                    navigator.clipboard?.writeText(salon.id);
+                    showToast("Salon ID copied!", "success");
+                  }}
+                  className="font-mono text-[#FACC15] inline-flex items-center gap-1 hover:underline cursor-pointer"
+                >
+                  <span>{salon.id}</span>
+                  <Copy className="w-3 h-3" />
+                </button>
+              </div>
+            </div>
+
+            <div className="space-y-1.5">
+              <label className="text-[11px] font-mono uppercase text-[#A1A1AA] block">
+                UPI UTR / Payment Reference (Optional)
+              </label>
+              <input
+                type="text"
+                value={manualUtr}
+                onChange={(e) => setManualUtr(e.target.value)}
+                placeholder="e.g. 429108551234"
+                className="w-full px-3.5 py-2.5 bg-[#0B0B0B] border border-[#27272A] rounded-xl text-xs font-mono text-white focus:outline-none focus:border-[#FACC15]"
+              />
+            </div>
+
+            <div className="flex flex-col gap-2">
+              <button
+                type="button"
+                onClick={handleSendManualRequest}
+                className="w-full py-3 rounded-xl bg-[#25D366] hover:bg-[#20ba59] text-[#080808] font-bold text-xs uppercase tracking-wider flex items-center justify-center gap-2 cursor-pointer"
+              >
+                <Send className="w-4 h-4" />
+                <span>Send Activation Request on WhatsApp</span>
+              </button>
+              <p className="text-[11px] text-center text-[#71717A]">
+                Once verified, your plan is activated immediately across all terminals.
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

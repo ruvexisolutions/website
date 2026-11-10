@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import React from "react";
 import { useRuvexi } from "@/lib/ruvexi-context";
@@ -37,7 +37,7 @@ export function RolePermissionGuard({ tab, tabLabel, onNavigateToAllowedTab }: R
               Access Restricted: {tabLabel}
             </h2>
             <p className="text-xs sm:text-sm text-[#A1A1AA] max-w-md mx-auto leading-relaxed">
-              This module contains administrative business settings restricted to{" "}
+              Access to <span className="text-white font-medium">{tabLabel}</span> is restricted to{" "}
               <span className="text-amber-300 font-semibold">{requiredRole}</span> accounts.
             </p>
           </div>

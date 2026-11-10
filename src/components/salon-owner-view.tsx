@@ -2,6 +2,7 @@
 
 import React, { useState, useRef, useEffect } from "react";
 import { useRuvexi } from "@/lib/ruvexi-context";
+import { RuvexiApi } from "@/lib/api-client";
 import { formatCurrency } from "@/lib/utils";
 import {
   askSalonCopilot,
@@ -62,109 +63,111 @@ export function SalonOwnerView() {
   // Time toggle: This Week vs This Month
   const [timeRange, setTimeRange] = useState<"week" | "month">("month");
   const isMonth = timeRange === "month";
-  const multiplier = isMonth ? 4 : 1;
+  const [reportData, setReportData] = useState<any>(null);
 
-  // Aggregate totals
-  const totalMonthRevenue = invoices.reduce((acc, inv) => acc + inv.total, 0) * (isMonth ? 18 : 4.5);
-  const totalAppointmentsCount = appointments.length * (isMonth ? 22 : 5);
-  const repeatClientPercentage = 68; // 68% repeat clients
-  const avgBillSize = Math.round(totalMonthRevenue / (totalAppointmentsCount || 1));
+  useEffect(() => {
+    let active = true;
+    RuvexiApi.getReportsSummary(timeRange)
+      .then((res) => {
+        if (active && res?.metrics) setReportData(res);
+      })
+      .catch(() => {});
+    return () => {
+      active = false;
+    };
+  }, [timeRange, invoices.length]);
 
-  // Staff performance detailed data
-  const workerAnalytics = staff.map((s, idx) => {
-    const servicesGiven = ((s.todayServicesCount || s.totalServicesCompleted || 2) * 5 + idx * 3) * multiplier;
-    const customersHandled = Math.round(servicesGiven * 0.85);
-    const revenueGenerated = ((s.todayRevenue || s.todayEarnings || 3000) * 5 + idx * 4500) * multiplier;
-    const commissionEarned = Math.round((revenueGenerated * s.commissionRate) / 100);
-    const topService = s.specialty?.[0] || s.role || "Signature Haircut";
+  const paidInvoices = invoices.filter((inv) => String(inv.status || "").toLowerCase() === "paid");
+  const localRevenue = paidInvoices.reduce((acc, inv) => acc + (inv.grandTotal || inv.total || 0), 0);
+  const repeatCustomersCount = customers.filter((c) => Number(c.totalVisits || c.visitsCount || 0) > 1).length;
+  const repeatClientPercentage = reportData?.metrics?.repeatClientPercentage ?? (customers.length ? Math.round((repeatCustomersCount / customers.length) * 100) : 0);
+
+  const totalMonthRevenue = reportData?.metrics?.grossRevenue ?? localRevenue;
+  const totalAppointmentsCount = reportData?.metrics?.appointmentsCount ?? appointments.length;
+  const avgBillSize = Math.round(
+    reportData?.metrics?.averageTicketSize ??
+      (paidInvoices.length ? localRevenue / paidInvoices.length : 0)
+  );
+
+  // Staff performance from server summary or real state
+  const workerAnalytics = staff.map((s) => {
+    const serverPerf = reportData?.staffPerformance?.find(
+      (sp: any) => sp.staffId === s.id || sp.staffName === s.name
+    );
+    const servicesGiven = serverPerf ? Number(serverPerf.servicesCount || 0) : Number(s.todayServicesCount || 0);
+    const revenueGenerated = serverPerf ? Number(serverPerf.revenue || 0) : Number(s.todayRevenue || 0);
+    const commissionEarned = serverPerf
+      ? Number(serverPerf.commissionEarned || 0)
+      : Math.round((revenueGenerated * (s.commissionRate || 15)) / 100);
+    const topService = s.specialty?.[0] || s.role || "Signature Service";
 
     return {
       ...s,
       servicesGiven,
-      customersHandled,
+      customersHandled: servicesGiven,
       revenueGenerated,
       commissionEarned,
       topService,
     };
   });
 
-  // Best services
-  const bestServices = [
-    {
-      id: "srv_b1",
-      name: "Keratin Protein Smoothing Therapy",
-      category: "Hair Treatment",
-      bookings: isMonth ? 84 : 21,
-      revenue: (isMonth ? 84 : 21) * 4500,
-      rating: 4.9,
-      trend: "+28% vs last " + (isMonth ? "month" : "week"),
-      tag: "Top Earner",
-    },
-    {
-      id: "srv_b2",
-      name: "Creative Balayage & Color Gloss",
-      category: "Color Bar",
-      bookings: isMonth ? 62 : 15,
-      revenue: (isMonth ? 62 : 15) * 5500,
-      rating: 4.9,
-      trend: "+19% demand",
-      tag: "High Margin",
-    },
-    {
-      id: "srv_b3",
-      name: "Luxury Hair Spa & Scalp Detox",
-      category: "Hair Therapy",
-      bookings: isMonth ? 110 : 28,
-      revenue: (isMonth ? 110 : 28) * 2200,
-      rating: 4.8,
-      trend: "+14% repeat visits",
-      tag: "Client Favorite",
-    },
-    {
-      id: "srv_b4",
-      name: "Master Haircut & Blowdry Finish",
-      category: "Hair Styling",
-      bookings: isMonth ? 142 : 36,
-      revenue: (isMonth ? 142 : 36) * 1500,
-      rating: 4.9,
-      trend: "+22% volume",
-      tag: "Most Booked",
-    },
-  ];
+  // Derive top & slow services from real server breakdown or invoice history
+  const localServiceCounts: Record<string, { bookings: number; revenue: number }> = {};
+  paidInvoices.forEach((inv) => {
+    (inv.items || []).forEach((itm: any) => {
+      if (itm.type === "product") return;
+      const key = itm.name || "Salon Service";
+      const prev = localServiceCounts[key] || { bookings: 0, revenue: 0 };
+      localServiceCounts[key] = {
+        bookings: prev.bookings + Number(itm.quantity || 1),
+        revenue: prev.revenue + Number(itm.price || 0) * Number(itm.quantity || 1),
+      };
+    });
+  });
 
-  // Slow services
-  const slowServices = [
-    {
-      id: "srv_w1",
-      name: "Classic Beard Trim & Towel Wrap",
-      category: "Men Grooming",
-      bookings: isMonth ? 8 : 2,
-      revenue: (isMonth ? 8 : 2) * 600,
-      rating: 4.5,
-      issue: "Low stand-alone bookings",
-      ownerTip: "Bundle as 'Haircut + Beard' package to lift sales.",
-    },
-    {
-      id: "srv_w2",
-      name: "Express Nail Buff & Polish",
-      category: "Nail Bar",
-      bookings: isMonth ? 6 : 1,
-      revenue: (isMonth ? 6 : 1) * 800,
-      rating: 4.4,
-      issue: "Clients prefer full gel extensions",
-      ownerTip: "Replace with Deluxe Spa Gel Pedicure.",
-    },
-    {
-      id: "srv_w3",
-      name: "Standard Face Bleach & Cleansing",
-      category: "Skin Care",
-      bookings: isMonth ? 5 : 1,
-      revenue: (isMonth ? 5 : 1) * 950,
-      rating: 4.2,
-      issue: "Clients upgrade directly to Hydra-Facial",
-      ownerTip: "Phase out or offer as complimentary add-on for VIPs.",
-    },
-  ];
+  const realServiceRank = reportData?.serviceBreakdown?.topServices?.length
+    ? reportData.serviceBreakdown.topServices
+    : Object.entries(localServiceCounts)
+        .map(([name, val]) => ({ name, ...val }))
+        .sort((a, b) => b.revenue - a.revenue);
+
+  const bestServices = (realServiceRank.length
+    ? realServiceRank.slice(0, 4)
+    : services.slice(0, 4).map((s) => ({ name: s.name, category: s.category, bookings: 0, revenue: 0 }))
+  ).map((s: any, i: number) => ({
+    id: `srv_b_${i}`,
+    name: s.name,
+    category: s.category || "Salon Service",
+    bookings: s.bookings || 0,
+    revenue: s.revenue || 0,
+    rating: salon.rating || 4.9,
+    trend: s.bookings > 0 ? `${s.bookings} billed` : "Available in menu",
+    tag: i === 0 ? "Top Earner" : "Active",
+  }));
+
+  const slowServicesRaw = reportData?.serviceBreakdown?.slowServices?.length
+    ? reportData.serviceBreakdown.slowServices
+    : realServiceRank.length > 3
+      ? [...realServiceRank].reverse().slice(0, 3)
+      : [];
+
+  const slowServices = slowServicesRaw.map((s: any, i: number) => ({
+    id: `srv_w_${i}`,
+    name: s.name,
+    category: s.category || "Salon Service",
+    bookings: s.bookings || 0,
+    revenue: s.revenue || 0,
+    rating: 4.5,
+    issue: `${s.bookings || 0} bookings in selected period`,
+    ownerTip: "Feature in WhatsApp offers or bundle with top treatments.",
+  }));
+
+  const totalFeedbackCount = reportData?.feedbackSummary?.count ?? feedbacks.length;
+  const computedAvgRating =
+    reportData?.feedbackSummary?.averageRating ||
+    (feedbacks.length
+      ? Math.round((feedbacks.reduce((sum, f) => sum + Number(f.rating || f.serviceRating || 5), 0) / feedbacks.length) * 10) / 10
+      : 0);
 
   const lowStockItems = inventory.filter((i) => i.currentStock <= i.minThreshold);
 
@@ -188,7 +191,7 @@ export function SalonOwnerView() {
   const handleGenerateCopilotInsights = async () => {
     setIsGeneratingInsights(true);
     try {
-      const topSrvNames = bestServices.map((b) => b.name);
+      const topSrvNames = bestServices.map((b: any) => b.name);
       const res = await generateSalonCopilotInsights({
         revenue: totalMonthRevenue,
         invoicesCount: totalAppointmentsCount,
@@ -247,7 +250,7 @@ export function SalonOwnerView() {
         .join("; ");
       const topServicesStr = bestServices
         .slice(0, 3)
-        .map((b) => `${b.name} (${formatCurrency(b.revenue)})`)
+        .map((b: any) => `${b.name} (${formatCurrency(b.revenue)})`)
         .join(", ");
       const lowStockStr =
         lowStockItems.length > 0
@@ -341,7 +344,7 @@ export function SalonOwnerView() {
       q.includes("improve") ||
       q.includes("review")
     ) {
-      aiResponse = `⭐ **Customer Feedback Numbers:** \n• **Overall Salon Rating:** 4.9★ across ${feedbacks.length + 180} reviews.\n• **Staff Friendliness:** 98% positive (clients love the polite attitude & complimentary espresso/tea).\n• **Top Praise:** 86% praised stylist skill & zero waiting.\n• **Room for Improvement:** Only 10% noted slight wait times during peak Saturday 4 PM rush.`;
+      aiResponse = `⭐ **Customer Feedback Numbers:** \n• **Overall Salon Rating:** ${computedAvgRating > 0 ? `${computedAvgRating}★` : "No ratings yet"} across ${totalFeedbackCount} verified reviews.`;
       quickAction = { label: "View Feedback Board", actionType: "staff" };
     } else if (
       q.includes("tuesday") ||
@@ -350,16 +353,16 @@ export function SalonOwnerView() {
       q.includes("increase sales") ||
       q.includes("more clients")
     ) {
-      aiResponse = `💡 **Midweek Boost Strategy:** Chair occupancy drops by ~32% on Tuesdays and Wednesdays. \n\n🎯 **Recommendation:** Send an automated WhatsApp broadcast offering a *"Midweek Pamper Pass"* (Haircut + Free Scalp Detox Massage) to fill empty daytime slots.`;
+      aiResponse = `💡 **Midweek Boost Strategy:** Send a targeted WhatsApp offer (*"Midweek Pamper Pass"*) to rebooking clients via your WhatsApp Templates hub to lift Tuesday–Wednesday chair occupancy.`;
       quickAction = { label: "Draft Tuesday Offer", actionType: "promo" };
     } else if (q.includes("revenue") || q.includes("sales") || q.includes("money") || q.includes("earnings")) {
-      aiResponse = `💰 **Revenue Summary:** Your salon is pacing at **${formatCurrency(
+      aiResponse = `💰 **Revenue Summary (${timeRange}):** Your salon recorded **${formatCurrency(
         totalMonthRevenue
-      )}** this month across **${totalAppointmentsCount} appointments**, with an average ticket size of **${formatCurrency(
+      )}** across **${totalAppointmentsCount} appointments**, with an average ticket size of **${formatCurrency(
         avgBillSize
-      )}** per client (+24.5% vs last month).`;
+      )}** per settled bill.`;
     } else {
-      aiResponse = `📊 **Salon Insights:** Luxe Haven is operating at healthy metrics with ${staff.length} active stylists, ${repeatClientPercentage}% repeat clientele, and strong weekend chair occupancy. For specific data, feel free to ask about staff sales, best/worst services, or stock warnings!`;
+      aiResponse = `📊 **${salon.name} Insights:** ${staff.length} active staff members, ${repeatClientPercentage}% repeat clientele, and ${lowStockItems.length} low-stock alerts. Ask about staff sales, top treatments, or inventory alerts.`;
     }
 
     const aiMsg: ChatMessage = {
@@ -439,7 +442,7 @@ export function SalonOwnerView() {
           </div>
           <div className="flex items-center gap-1.5 mt-2 text-xs font-mono font-bold text-emerald-400">
             <ArrowUpRight className="w-3.5 h-3.5" />
-            <span>+24.5% vs previous {timeRange}</span>
+            <span>{paidInvoices.length} Paid Bills ({timeRange})</span>
           </div>
         </div>
 
@@ -834,7 +837,7 @@ export function SalonOwnerView() {
           </div>
 
           <div className="space-y-3">
-            {bestServices.map((bs, index) => (
+            {bestServices.map((bs: any, index: number) => (
               <div
                 key={bs.id}
                 className="p-3.5 rounded-xl bg-[#151515] border border-[#27272A] hover:border-emerald-500/40 transition-all flex items-center justify-between gap-3"
@@ -888,7 +891,7 @@ export function SalonOwnerView() {
           </div>
 
           <div className="space-y-3">
-            {slowServices.map((ss, index) => (
+            {slowServices.map((ss: any, index: number) => (
               <div
                 key={ss.id}
                 className="p-3.5 rounded-xl bg-[#151515] border border-[#27272A] hover:border-[#FACC15]/40 transition-all space-y-2"
@@ -933,7 +936,16 @@ export function SalonOwnerView() {
           </div>
 
           <button
-            onClick={() => showToast("Stock report and supplier purchase order created!")}
+            type="button"
+            onClick={() => {
+              const itemsToOrder = lowStockItems.length ? lowStockItems : inventory.slice(0, 5);
+              const lines = itemsToOrder
+                .map((i) => `• ${i.name} (Current: ${i.currentStock} ${i.unit || "units"})`)
+                .join("\n");
+              const msg = `Hello Supplier,\nPlease send a restock quote for *${salon.name}*:\n${lines || "• Standard salon supplies"}`;
+              window.open(`https://wa.me/?text=${encodeURIComponent(msg)}`, "_blank");
+              showToast("WhatsApp stock reorder draft opened!");
+            }}
             className="px-4 py-2 bg-[#FACC15] hover:bg-[#EAB308] text-[#080808] font-bold text-xs rounded-xl shadow-xs transition-all flex items-center gap-1.5 self-start sm:self-auto cursor-pointer"
           >
             <Send className="w-3.5 h-3.5" />
@@ -1019,7 +1031,7 @@ export function SalonOwnerView() {
           <div className="flex items-center gap-2">
             <span className="text-xs font-mono text-[#71717A]">Total Reviews:</span>
             <span className="px-3 py-1 rounded-full bg-[#181818] border border-[#27272A] text-[#FACC15] font-mono font-bold text-xs">
-              {feedbacks.length + 180} Verified
+              {totalFeedbackCount} Verified
             </span>
           </div>
         </div>
@@ -1032,15 +1044,22 @@ export function SalonOwnerView() {
             </span>
             <div className="flex items-center gap-2">
               <span className="text-2xl sm:text-3xl font-mono font-bold text-[#F8FAFC]">
-                4.9
+                {computedAvgRating > 0 ? computedAvgRating.toFixed(1) : "—"}
               </span>
               <div className="flex text-[#FACC15]">
                 {[1, 2, 3, 4, 5].map((s) => (
-                  <Star key={s} className="w-4 h-4 fill-[#FACC15]" />
+                  <Star
+                    key={s}
+                    className={`w-4 h-4 ${
+                      s <= Math.round(computedAvgRating) ? "fill-[#FACC15]" : "text-[#27272A]"
+                    }`}
+                  />
                 ))}
               </div>
             </div>
-            <p className="text-[11px] text-[#71717A] font-mono">96% of clients gave 5 stars</p>
+            <p className="text-[11px] text-[#71717A] font-mono">
+              {totalFeedbackCount > 0 ? `From ${totalFeedbackCount} submitted reviews` : "Awaiting first client review"}
+            </p>
           </div>
 
           <div className="p-4 rounded-xl bg-[#151515] border border-[#27272A] space-y-1">
@@ -1111,7 +1130,7 @@ export function SalonOwnerView() {
                       99% Friendly
                     </td>
                     <td className="py-3 px-4 text-[#A1A1AA] font-mono">
-                      {Math.round(w.customersHandled * 0.7)} reviews
+                      {feedbacks.filter((f) => f.staffName === w.name).length} reviews
                     </td>
                     <td className="py-3 px-4">
                       <span className="px-2 py-0.5 rounded-full bg-[#181818] border border-[#27272A] text-[#A1A1AA] text-[10px] font-mono">
@@ -1221,13 +1240,19 @@ export function SalonOwnerView() {
                   <div className="flex items-center justify-between text-[10px] text-[#71717A] pt-1 border-t border-[#27272A] font-mono">
                     <span>{fb.date}</span>
                     <button
+                      type="button"
                       onClick={async () => {
-                        const cleanPhone = fb.customerPhone.replace(/[^0-9]/g, "");
-                        let replyMsg = `Hi ${fb.customerName}! ✨ Thank you so much for your kind feedback and for visiting ${salon.name}. We really appreciate your support and can't wait to see you again! 💖`;
+                        const rawDigits = String(fb.customerPhone || "").replace(/[^0-9]/g, "");
+                        if (!rawDigits || rawDigits.length < 10) {
+                          showToast("No WhatsApp phone number recorded on this feedback entry.", "info");
+                          return;
+                        }
+                        const cleanPhone = rawDigits.length === 10 ? `91${rawDigits}` : rawDigits;
+                        let replyMsg = `Hi ${fb.customerName}! ✨ Thank you so much for your feedback and for visiting ${salon.name}. We appreciate your support and look forward to welcoming you back! 💖`;
                         try {
                           const aiRes = await generateReviewReply(
                             fb.customerName,
-                            fb.serviceRating,
+                            fb.serviceRating || fb.rating || 5,
                             fb.comment || "Great service"
                           );
                           if (aiRes.reply) replyMsg = aiRes.reply;

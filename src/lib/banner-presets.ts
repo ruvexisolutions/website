@@ -1,11 +1,11 @@
-﻿// ============================================================================
+// ============================================================================
 // Ruvexi - Discord-Style Salon Banners & Respected Salon Presets
 // ============================================================================
 
 export interface BannerPreset {
   id: string;
   name: string;
-  category: "Discord Nitro" | "Luxury Atmosphere" | "Neon & Cyber" | "Gradients & Mesh";
+  category: "Signature Studio" | "Luxury Atmosphere" | "Neon & Cyber" | "Gradients & Mesh";
   background: string;
   accentColor: string;
   description: string;
@@ -16,11 +16,11 @@ export interface BannerPreset {
 export const DISCORD_BANNER_PRESETS: BannerPreset[] = [
   {
     id: "discord-blurple",
-    name: "Discord Blurple Nitro",
-    category: "Discord Nitro",
+    name: "Cosmic Blurple Atelier",
+    category: "Signature Studio",
     background: "linear-gradient(135deg, #1e1f38 0%, #5865F2 45%, #7289da 70%, #eb459e 100%)",
     accentColor: "#5865F2",
-    description: "Iconic Discord Nitro signature palette with cosmic purple glow and neon violet highlights",
+    description: "Deep cosmic violet-indigo glow with radiant magenta highlights",
     isNitroStyle: true,
   },
   {
@@ -53,7 +53,7 @@ export const DISCORD_BANNER_PRESETS: BannerPreset[] = [
   {
     id: "cosmic-stardust",
     name: "Cosmic Stardust & Nebula",
-    category: "Discord Nitro",
+    category: "Signature Studio",
     background: "radial-gradient(circle at 20% 30%, #3b0764 0%, #1e1035 40%, #09090b 80%), linear-gradient(135deg, #4c1d95 0%, #8b5cf6 50%, #d946ef 100%)",
     accentColor: "#A855F7",
     description: "Deep interstellar stardust with radiant ultraviolet nebula streaks",
@@ -89,7 +89,7 @@ export const DISCORD_BANNER_PRESETS: BannerPreset[] = [
   {
     id: "tokyo-sakura",
     name: "Tokyo Midnight Sakura",
-    category: "Discord Nitro",
+    category: "Signature Studio",
     background: "linear-gradient(135deg, #090c1f 0%, #1e1b4b 35%, #3730a3 65%, #c026d3 88%, #f472b6 100%)",
     accentColor: "#C026D3",
     description: "Shinjuku midnight rain illuminated by cherry blossom neon lanterns",

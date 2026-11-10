@@ -1,9 +1,10 @@
-﻿"use client";
+"use client";
 
-import React, { useState, Suspense } from "react";
+import React, { useState, useEffect, Suspense } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { useRuvexi } from "@/lib/ruvexi-context";
+import { RuvexiApi } from "@/lib/api-client";
 import {
   Star,
   Sparkles,
@@ -24,12 +25,25 @@ import {
 
 function FeedbackFormContent() {
   const searchParams = useSearchParams();
-  const { salon, staff, addFeedback, showToast } = useRuvexi();
+  const { salon, addFeedback, showToast } = useRuvexi();
 
-  const customerName = searchParams.get("name") || "Ananya Sharma";
-  const customerPhone = searchParams.get("phone") || "+91 98450 12890";
-  const staffName = searchParams.get("staff") || "Priya Sharma";
-  const serviceName = searchParams.get("service") || "Keratin Therapy & Haircut";
+  const salonSlug = searchParams.get("salon") || "";
+  const [publicSalon, setPublicSalon] = useState<any>(null);
+
+  useEffect(() => {
+    if (!salonSlug) return;
+    RuvexiApi.getPublicSalon(salonSlug)
+      .then((res) => {
+        if (res?.salon) setPublicSalon(res.salon);
+      })
+      .catch(() => {});
+  }, [salonSlug]);
+
+  const activeSalon = publicSalon || salon;
+  const [customerName, setCustomerName] = useState(searchParams.get("name") || "");
+  const [customerPhone, setCustomerPhone] = useState(searchParams.get("phone") || "");
+  const [staffName, setStaffName] = useState(searchParams.get("staff") || "");
+  const [serviceName, setServiceName] = useState(searchParams.get("service") || "");
 
   // Form State
   const [serviceRating, setServiceRating] = useState<number>(5);
@@ -41,6 +55,7 @@ function FeedbackFormContent() {
   ]);
   const [comment, setComment] = useState("");
   const [isSubmitted, setIsSubmitted] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const availableTags = [
     "Loved the service",
@@ -61,20 +76,37 @@ function FeedbackFormContent() {
     }
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    addFeedback({
-      customerName,
-      customerPhone,
-      staffName,
-      serviceName,
+    const cleanName = customerName.trim() || "Valued Guest";
+    const payload = {
+      customerName: cleanName,
+      customerPhone: customerPhone.trim(),
+      staffName: staffName.trim() || "Salon Team",
+      serviceName: serviceName.trim() || "Salon Visit",
+      rating: serviceRating,
       serviceRating,
       friendlinessRating,
       ambienceRating,
+      tags: selectedTags,
       improvementTags: selectedTags,
       comment: comment.trim() || undefined,
-    });
-    setIsSubmitted(true);
+    };
+
+    const targetSlug = salonSlug || activeSalon?.slug;
+    setIsSubmitting(true);
+    try {
+      if (targetSlug) {
+        await RuvexiApi.submitPublicFeedback(targetSlug, payload);
+      } else {
+        addFeedback(payload);
+      }
+      setIsSubmitted(true);
+    } catch (err: any) {
+      showToast(err?.message || "Could not submit feedback right now.", "error");
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -83,11 +115,11 @@ function FeedbackFormContent() {
         {/* Salon Brand Header */}
         <div className="text-center space-y-2">
           <div className="w-14 h-14 rounded-2xl bg-slate-950 text-white font-black text-xl flex items-center justify-center mx-auto shadow-md">
-            R
+            {(activeSalon?.name || "R").charAt(0).toUpperCase()}
           </div>
           <div>
             <h1 className="text-lg sm:text-xl font-extrabold text-slate-950 tracking-tight">
-              {salon.name}
+              {activeSalon?.name || "Ruvexi Partner Salon"}
             </h1>
             <p className="text-xs text-slate-500 font-medium">
               Client Feedback • Powered by Ruvexi Solutions
@@ -101,25 +133,46 @@ function FeedbackFormContent() {
             onSubmit={handleSubmit}
             className="bg-white border border-slate-200/90 rounded-3xl p-6 shadow-xl space-y-6 animate-in fade-in zoom-in-95 duration-200"
           >
-            {/* Greeting Badge */}
-            <div className="p-3.5 rounded-2xl bg-indigo-50/70 border border-indigo-100 flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-indigo-600 text-white flex items-center justify-center shrink-0">
-                <Scissors className="w-5 h-5" />
-              </div>
-              <div className="min-w-0">
-                <div className="font-extrabold text-xs text-slate-950 truncate">
-                  Welcome, {customerName}
+            {/* Greeting & Optional Guest Info */}
+            <div className="space-y-3">
+              <div className="p-3.5 rounded-2xl bg-indigo-50/70 border border-indigo-100 flex items-center gap-3">
+                <div className="p-2 rounded-xl bg-white text-indigo-600 shadow-xs">
+                  <Sparkles className="w-4 h-4" />
                 </div>
-                <div className="text-[11px] text-slate-600 truncate">
-                  Service by <strong>{staffName}</strong> • {serviceName}
+                <div className="text-xs">
+                  <span className="font-bold text-slate-900 block">
+                    Hi {customerName.trim() || "there"}!
+                  </span>
+                  <span className="text-slate-600">
+                    Share how your visit went{serviceName ? ` for ${serviceName}` : ""}.
+                  </span>
                 </div>
               </div>
+
+              {!searchParams.get("name") && (
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                  <input
+                    type="text"
+                    placeholder="Your Name"
+                    value={customerName}
+                    onChange={(e) => setCustomerName(e.target.value)}
+                    className="px-3 py-2 rounded-xl border border-slate-200 text-xs bg-slate-50 text-slate-900 focus:outline-none focus:border-slate-900"
+                  />
+                  <input
+                    type="tel"
+                    placeholder="WhatsApp / Mobile"
+                    value={customerPhone}
+                    onChange={(e) => setCustomerPhone(e.target.value)}
+                    className="px-3 py-2 rounded-xl border border-slate-200 text-xs bg-slate-50 text-slate-900 focus:outline-none focus:border-slate-900"
+                  />
+                </div>
+              )}
             </div>
 
             {/* Question 1: Stylist Service Quality */}
             <div className="space-y-2 text-center">
               <label className="text-xs font-extrabold text-slate-900 block">
-                1. How was your service by {staffName}?
+                1. How was your service{staffName ? ` by ${staffName}` : ""}?
               </label>
               <div className="flex items-center justify-center gap-2">
                 {[1, 2, 3, 4, 5].map((star) => (
@@ -241,36 +294,29 @@ function FeedbackFormContent() {
 
             <div className="space-y-1">
               <h2 className="text-lg sm:text-xl font-black text-slate-950">
-                Thank You, {customerName}
+                Thank You{customerName.trim() ? `, ${customerName.trim()}` : "!"}
               </h2>
               <p className="text-xs text-slate-600">
-                Your feedback has been delivered directly to the salon owner and {staffName}.
+                Your feedback has been delivered directly to {activeSalon?.name || "the salon team"}
+                {staffName ? ` and ${staffName}` : ""}.
               </p>
-            </div>
-
-            {/* Reward Card */}
-            <div className="p-4 rounded-2xl bg-amber-50 border border-amber-200 text-left space-y-2">
-              <div className="flex items-center gap-1.5 text-amber-900 font-extrabold text-xs">
-                <Gift className="w-4 h-4 text-amber-600" />
-                <span>Special Return Client Voucher</span>
-              </div>
-              <p className="text-xs text-amber-800">
-                Get <strong>10% OFF</strong> on your next visit! Simply show this code on WhatsApp or counter:
-              </p>
-              <div className="px-3 py-2 rounded-xl bg-white border border-amber-300 font-mono font-black text-center text-sm text-amber-950 tracking-wider">
-                LUXE-RETURN-10
-              </div>
             </div>
 
             {/* Optional Google Review CTA */}
             {serviceRating >= 4 && (
               <div className="p-3.5 rounded-2xl bg-slate-50 border border-slate-200 text-xs text-slate-700 space-y-2">
                 <p className="font-semibold text-[11px]">
-                  Loved your service? Tap below to help us with a quick Google review!
+                  Loved your service? Tap below to leave us a Google review!
                 </p>
                 <button
+                  type="button"
                   onClick={() =>
-                    window.open("https://maps.google.com/?q=Luxe+Haven+Salon", "_blank")
+                    window.open(
+                      `https://www.google.com/search?q=${encodeURIComponent(
+                        `${activeSalon?.name || "Ruvexi"} ${activeSalon?.city || ""} reviews`.trim()
+                      )}`,
+                      "_blank"
+                    )
                   }
                   className="w-full py-2 bg-white hover:bg-slate-100 text-slate-900 border border-slate-300 font-bold text-xs rounded-xl shadow-2xs transition-all flex items-center justify-center gap-1.5"
                 >
@@ -282,10 +328,10 @@ function FeedbackFormContent() {
 
             <div className="pt-2">
               <Link
-                href="/front-desk"
-                className="text-xs font-bold text-slate-500 hover:text-slate-900"
+                href={activeSalon?.slug ? `/book/${activeSalon.slug}` : "/book"}
+                className="text-xs font-bold text-slate-600 hover:text-slate-950"
               >
-                ← Back to Salon Terminal
+                Book Your Next Visit →
               </Link>
             </div>
           </div>

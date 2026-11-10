@@ -37,11 +37,13 @@ interface CalendarViewProps {
 
 export function CalendarView({ onGoToPosBilling }: CalendarViewProps) {
   const {
+    salon,
     appointments,
     staff,
     services,
     customers,
     invoices,
+    addCustomer,
     updateCustomer,
     updateAppointmentStatus,
     bookAppointment,
@@ -64,10 +66,22 @@ export function CalendarView({ onGoToPosBilling }: CalendarViewProps) {
   // New appointment form state
   const [custName, setCustName] = useState("");
   const [custPhone, setCustPhone] = useState("+91 98");
-  const [serviceName, setServiceName] = useState(services[0]?.name || "Keratin Treatment");
-  const [staffName, setStaffName] = useState(staff[0]?.name || "Priya Sharma");
+  const [serviceName, setServiceName] = useState(services[0]?.name || "");
+  const [staffName, setStaffName] = useState(staff[0]?.name || "");
   const [timeSlot, setTimeSlot] = useState("02:00 PM");
   const [bookingNotes, setBookingNotes] = useState("");
+
+  React.useEffect(() => {
+    if (services.length > 0 && !services.some((s) => s.name === serviceName)) {
+      setServiceName(services[0].name);
+    }
+  }, [services, serviceName]);
+
+  React.useEffect(() => {
+    if (staff.length > 0 && !staff.some((st) => st.name === staffName)) {
+      setStaffName(staff[0].name);
+    }
+  }, [staff, staffName]);
 
   // Date Navigation State
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
@@ -108,8 +122,23 @@ export function CalendarView({ onGoToPosBilling }: CalendarViewProps) {
     "07:00 PM",
   ];
 
-  // Filtering appointments
+  const selectedDateIso = selectedDate.toISOString().split("T")[0];
+  const todayIso = new Date().toISOString().split("T")[0];
+
+  const getHour24 = (rawTime?: string) => {
+    const raw = String(rawTime || "").trim().toUpperCase();
+    const m = raw.match(/^(\d{1,2}):(\d{2})(?:\s*(AM|PM))?$/);
+    if (!m) return -1;
+    let h = parseInt(m[1], 10);
+    const mer = m[3];
+    if (mer === "PM" && h < 12) h += 12;
+    if (mer === "AM" && h === 12) h = 0;
+    return h;
+  };
+
+  // Filtering appointments (including selected date in Day / Card modes)
   const filteredAppointments = appointments.filter((apt) => {
+    const matchesDate = viewMode === "week" || !apt.date || apt.date === selectedDateIso;
     const matchesStaff = selectedStaffFilter === "All" || apt.staffName === selectedStaffFilter;
     const matchesStatus = selectedStatusFilter === "All" || apt.status === selectedStatusFilter;
     const matchesSearch =
@@ -122,7 +151,7 @@ export function CalendarView({ onGoToPosBilling }: CalendarViewProps) {
     const matchesCategory =
       selectedCategoryFilter === "All" || (srv && srv.category === selectedCategoryFilter);
 
-    return matchesStaff && matchesStatus && matchesSearch && matchesCategory;
+    return matchesDate && matchesStaff && matchesStatus && matchesSearch && matchesCategory;
   });
 
   // Double Booking Prevention
@@ -134,18 +163,23 @@ export function CalendarView({ onGoToPosBilling }: CalendarViewProps) {
       setBookingConflictError("Please provide a valid client name.");
       return;
     }
+    if (!custPhone.trim() || custPhone.replace(/\D/g, "").length < 7) {
+      setBookingConflictError("Please enter a valid WhatsApp contact phone number.");
+      return;
+    }
 
-    // Check if staff already has an active appointment in the selected hour slot
-    const hasConflict = appointments.some(
-      (a) =>
-        a.staffName === staffName &&
-        a.time === timeSlot &&
-        a.status !== "Cancelled"
-    );
+    const slotHour24 = getHour24(timeSlot);
+    const hasConflict = appointments.some((a) => {
+      const aDate = a.date || todayIso;
+      if (aDate !== selectedDateIso) return false;
+      if (a.staffName !== staffName) return false;
+      if (String(a.status || "").toLowerCase() === "cancelled") return false;
+      return getHour24(a.time || a.startTime) === slotHour24;
+    });
 
     if (hasConflict) {
       setBookingConflictError(
-        `Double-booking conflict: ${staffName} is already occupied at ${timeSlot}. Please choose a different stylist or time slot.`
+        `Double-booking conflict: ${staffName} is already occupied at ${timeSlot} on ${selectedDateIso}. Please choose a different stylist or time slot.`
       );
       return;
     }
@@ -159,7 +193,9 @@ export function CalendarView({ onGoToPosBilling }: CalendarViewProps) {
       serviceName,
       staffName,
       staffId: st?.id || staff[0]?.id || "staff_house",
+      date: selectedDateIso,
       time: timeSlot,
+      startTime: timeSlot,
       durationMinutes: srv?.durationMinutes || 60,
       price: srv?.price || 2000,
       source: "Front Desk Booking",
@@ -180,35 +216,34 @@ export function CalendarView({ onGoToPosBilling }: CalendarViewProps) {
     if (found) {
       setActiveFormulaCustomer(found as any);
     } else {
+      const matchingApt = appointments.find(
+        (a) => a.customerName.toLowerCase() === customerName.toLowerCase()
+      );
       setActiveFormulaCustomer({
         id: "temp_" + Date.now(),
         name: customerName,
-        phone: "+91 98000 00000",
-        email: "guest@luxehaven.in",
+        phone: matchingApt?.customerPhone || "",
+        email: "",
         gender: "Female",
         visitsCount: 1,
-        totalSpent: 3000,
-        loyaltyPoints: 50,
-        lastVisitDate: "Today",
-        lastService: "Salon Treatment",
-        preferredStaff: staff[0]?.name || "House",
-        tags: ["First Visit", "Formula Card Pending"],
-        notes: "First time consultation at Luxe Haven.",
-        formulaNotes: "Patch test pending. Consultation in progress.",
+        totalSpent: matchingApt?.price || 0,
+        loyaltyPoints: 0,
+        lastVisitDate: matchingApt?.date || todayIso,
+        lastService: matchingApt?.serviceName || "Salon Treatment",
+        preferredStaff: matchingApt?.staffName || staff[0]?.name || "",
+        tags: ["First Visit"],
+        notes: `Client consultation at ${salon?.name || "studio"}.`,
+        formulaNotes: "",
         patchTestStatus: "Valid",
       });
     }
   };
 
   const getAppointmentForSlotAndStaff = (slotTime: string, stName: string) => {
-    const slotHourPrefix = slotTime.split(":")[0];
-    const slotPeriod = slotTime.slice(-2);
-
+    const slotH = getHour24(slotTime);
     return filteredAppointments.find((apt) => {
       if (apt.staffName !== stName) return false;
-      const aptHourPrefix = apt.time.split(":")[0];
-      const aptPeriod = apt.time.slice(-2);
-      return aptHourPrefix === slotHourPrefix && aptPeriod === slotPeriod;
+      return getHour24(apt.time || apt.startTime) === slotH;
     });
   };
 
@@ -544,9 +579,16 @@ export function CalendarView({ onGoToPosBilling }: CalendarViewProps) {
       {viewMode === "week" && (
         <div className="bg-[#101010] border border-[#27272A] rounded-2xl p-5 shadow-xl space-y-4">
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-3">
-            {["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"].map((dayName, idx) => {
-              const isToday = idx === 1; // demo highlight
-              const dayAppointments = filteredAppointments.filter((_, aIdx) => aIdx % 7 === idx);
+            {Array.from({ length: 7 }).map((_, idx) => {
+              const base = new Date(selectedDate);
+              const dayOfWeek = base.getDay();
+              const mondayOffset = dayOfWeek === 0 ? -6 : 1 - dayOfWeek;
+              const colDate = new Date(base);
+              colDate.setDate(base.getDate() + mondayOffset + idx);
+              const colIso = colDate.toISOString().split("T")[0];
+              const dayName = colDate.toLocaleDateString("en-IN", { weekday: "short", day: "numeric" });
+              const isToday = colIso === todayIso;
+              const dayAppointments = filteredAppointments.filter((a) => (a.date || todayIso) === colIso);
 
               return (
                 <div
@@ -885,7 +927,7 @@ export function CalendarView({ onGoToPosBilling }: CalendarViewProps) {
               </div>
             )}
 
-            <form onSubmit={handleBookSubmit} className="space-y-4 text-xs">
+            <form onSubmit={handleBookSubmit} noValidate className="space-y-4 text-xs">
               <div>
                 <label className="text-[11px] font-mono uppercase text-[#71717A] block mb-1">
                   Client Full Name *
@@ -1006,7 +1048,17 @@ export function CalendarView({ onGoToPosBilling }: CalendarViewProps) {
           invoices={invoices}
           onClose={() => setActiveFormulaCustomer(null)}
           onUpdateFormula={(cid, formula) => {
-            updateCustomer(cid, { formulaNotes: formula });
+            if (cid.startsWith("temp_")) {
+              addCustomer({
+                name: activeFormulaCustomer.name,
+                phone: activeFormulaCustomer.phone || "",
+                formulaNotes: formula,
+                lastService: activeFormulaCustomer.lastService,
+                preferredStaff: activeFormulaCustomer.preferredStaff,
+              });
+            } else {
+              updateCustomer(cid, { formulaNotes: formula });
+            }
             setActiveFormulaCustomer(null);
           }}
         />

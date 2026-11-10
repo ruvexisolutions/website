@@ -23,6 +23,7 @@ import {
 interface UpiCounterQrModalProps {
   isOpen: boolean;
   onClose: () => void;
+  invoiceId?: string;
   amount: number;
   customerName: string;
   customerPhone?: string;
@@ -48,6 +49,7 @@ interface UpiCounterQrModalProps {
 export function UpiCounterQrModal({
   isOpen,
   onClose,
+  invoiceId,
   amount,
   customerName,
   customerPhone,
@@ -227,7 +229,7 @@ export function UpiCounterQrModal({
     setTimeout(() => setCopiedField(null), 2500);
   };
 
-  const handleConfirmPayment = () => {
+  const handleConfirmPayment = async () => {
     setErrorBanner(null);
     if (!staffConfirmedFunds) {
       setErrorBanner("Please verify funds arrived in the salon's UPI / Bank app and check the confirmation box.");
@@ -236,13 +238,24 @@ export function UpiCounterQrModal({
 
     setIsVerifying(true);
     const txnRef = manualUtr.trim() || `UPI-${Date.now().toString().slice(-8)}`;
-    setConfirmedRef(txnRef);
-
-    setTimeout(() => {
-      setIsVerifying(false);
+    try {
+      if (invoiceId) {
+        await RuvexiApi.confirmPayment(invoiceId, {
+          paymentMethod: "UPI",
+          explicitVerification: true,
+          bankReference: manualUtr.trim() || undefined,
+          notes: "Manual counter verification confirmed via UPI terminal",
+        });
+      }
+      setConfirmedRef(txnRef);
       setPaymentState("success");
       playPaymentAlertSound("success");
-    }, 250);
+    } catch (err: any) {
+      setErrorBanner(err?.message || "Payment verification failed. Please check UTR reference.");
+      playPaymentAlertSound("failure");
+    } finally {
+      setIsVerifying(false);
+    }
   };
 
   return (

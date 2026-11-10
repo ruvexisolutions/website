@@ -34,7 +34,7 @@ export function MetaEmbeddedSignupModal({
   const [step, setStep] = useState<1 | 2 | 3 | 4>(1);
   const [businessName, setBusinessName] = useState(salonName);
   const [displayPhone, setDisplayPhone] = useState(salonPhone);
-  const [otpCode, setOtpCode] = useState("849201");
+  const [phoneNumberIdInput, setPhoneNumberIdInput] = useState("");
   const [otpInput, setOtpInput] = useState("");
   const [isVerifying, setIsVerifying] = useState(false);
   const [testRecipient, setTestRecipient] = useState(salonPhone);
@@ -66,6 +66,7 @@ export function MetaEmbeddedSignupModal({
     try {
       const data = await RuvexiApi.embeddedSignupWhatsApp({
         code: otpInput,
+        phoneNumberId: phoneNumberIdInput.trim(),
         displayNumber: displayPhone,
         verifiedName: businessName,
       });
@@ -263,24 +264,36 @@ export function MetaEmbeddedSignupModal({
               </div>
 
               <div className="space-y-1">
-                <h4 className="text-base font-black text-slate-900">Verify Phone Ownership</h4>
+                <h4 className="text-base font-black text-slate-900">Complete Meta OAuth Exchange</h4>
                 <p className="text-xs text-slate-500 max-w-xs mx-auto">
-                  Meta dispatched a 6-digit verification code to <span className="font-mono font-bold text-slate-800">{displayPhone}</span>.
+                  Enter your Meta <span className="font-mono font-bold text-slate-800">Phone Number ID</span> and authorization code for <span className="font-mono font-bold text-slate-800">{displayPhone}</span>.
                 </p>
-                <p className="text-[11px] text-emerald-600 font-bold">Auto-fill test code: 849201</p>
               </div>
 
-              <div className="max-w-xs mx-auto">
+              <div className="max-w-xs mx-auto space-y-2.5">
                 <input
                   type="text"
-                  maxLength={6}
+                  required
+                  value={phoneNumberIdInput}
+                  onChange={(e) => setPhoneNumberIdInput(e.target.value)}
+                  placeholder="Meta Phone Number ID"
+                  className="w-full py-2.5 px-3 bg-slate-50 border border-slate-300 rounded-xl text-center font-mono text-xs font-bold text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500/30"
+                />
+                <input
+                  type="text"
                   required
                   value={otpInput}
                   onChange={(e) => setOtpInput(e.target.value)}
-                  placeholder="849201"
-                  className="w-full py-3 bg-slate-50 border border-slate-300 rounded-2xl text-center font-mono text-2xl tracking-[0.3em] font-black text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500/30"
+                  placeholder="Meta OAuth / Verification Code"
+                  className="w-full py-3 bg-slate-50 border border-slate-300 rounded-2xl text-center font-mono text-sm font-black text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500/30"
                 />
               </div>
+
+              {testStatus && (
+                <div className="p-2.5 rounded-xl bg-rose-50 border border-rose-200 text-xs text-rose-700 font-medium">
+                  {testStatus}
+                </div>
+              )}
 
               <button
                 type="submit"
@@ -327,7 +340,7 @@ export function MetaEmbeddedSignupModal({
                 </div>
                 <div className="flex justify-between py-1 border-b border-slate-200/60">
                   <span className="text-slate-500">Sender Phone ID:</span>
-                  <span className="font-mono text-slate-800 font-bold">10982348911029</span>
+                  <span className="font-mono text-slate-800 font-bold">{phoneNumberIdInput || "Configured"}</span>
                 </div>
                 <div className="flex justify-between py-1 border-b border-slate-200/60">
                   <span className="text-slate-500">Quality Rating:</span>

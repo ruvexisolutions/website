@@ -1,7 +1,8 @@
-﻿"use client";
+"use client";
 
-import React, { useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { useRuvexi } from "@/lib/ruvexi-context";
+import { RuvexiApi } from "@/lib/api-client";
 import { formatCurrency } from "@/lib/utils";
 import {
   BarChart3,
@@ -22,46 +23,137 @@ import {
 } from "lucide-react";
 
 export function ReportsView() {
-  const { salon, invoices, staff } = useRuvexi();
+  const { invoices, staff } = useRuvexi();
 
-  const [dateFilter, setDateFilter] = useState<"Today" | "Week" | "Month">("Today");
+  const [dateFilter, setDateFilter] = useState<"today" | "week" | "month">("month");
+  const [serverSummary, setServerSummary] = useState<any>(null);
 
-  // Calculations
-  const totalGrossRevenue = invoices.reduce((acc, inv) => acc + (inv.total || inv.grandTotal || 0), 0);
-  const totalDiscounts = invoices.reduce((acc, inv) => acc + (inv.discount || inv.discountAmount || 0), 0);
-  const totalGst = invoices.reduce((acc, inv) => acc + (inv.gstAmount || inv.taxAmount || 0), 0);
+  useEffect(() => {
+    let active = true;
+    RuvexiApi.getReportsSummary(dateFilter)
+      .then((res) => {
+        if (active && res?.metrics) {
+          setServerSummary(res);
+        }
+      })
+      .catch(() => {});
+    return () => {
+      active = false;
+    };
+  }, [dateFilter, invoices.length]);
 
-  // Service vs Product breakdown
-  let totalServiceRevenue = 0;
-  let totalRetailRevenue = 0;
+  const paidInvoices = useMemo(
+    () => invoices.filter((i) => String(i.status || "").toLowerCase() === "paid"),
+    [invoices]
+  );
 
-  invoices.forEach((inv) => {
-    inv.items?.forEach((item: any) => {
-      const price = item.price || item.unitPrice || 0;
-      const qty = item.quantity || 1;
-      if (item.type === "service") {
-        totalServiceRevenue += price * qty;
-      } else {
-        totalRetailRevenue += price * qty;
-      }
+  const localStats = useMemo(() => {
+    const now = Date.now();
+    const cutoffMs =
+      dateFilter === "today"
+        ? new Date().setHours(0, 0, 0, 0)
+        : dateFilter === "week"
+          ? now - 7 * 86400_000
+          : now - 30 * 86400_000;
+
+    const scoped = paidInvoices.filter((inv) => {
+      const ts = inv.createdAt ? new Date(inv.createdAt).getTime() : NaN;
+      return Number.isNaN(ts) || ts >= cutoffMs;
     });
-  });
 
-  // Payment Breakdown
-  const upiTotal = invoices
-    .filter((inv) => inv.paymentMethod === "UPI")
-    .reduce((acc, inv) => acc + inv.total, 0);
-  const cardTotal = invoices
-    .filter((inv) => inv.paymentMethod === "Card")
-    .reduce((acc, inv) => acc + inv.total, 0);
-  const cashTotal = invoices
-    .filter((inv) => inv.paymentMethod === "Cash")
-    .reduce((acc, inv) => acc + inv.total, 0);
-  const splitTotal = invoices
-    .filter((inv) => inv.paymentMethod === "Split")
-    .reduce((acc, inv) => acc + inv.total, 0);
+    const gross = scoped.reduce((acc, inv) => acc + (inv.grandTotal || inv.total || 0), 0);
+    const discounts = scoped.reduce((acc, inv) => acc + (inv.discountAmount || inv.discount || 0), 0);
+    const gst = scoped.reduce((acc, inv) => acc + (inv.taxAmount || inv.gstAmount || 0), 0);
 
-  const avgTicket = Math.round(totalGrossRevenue / (invoices.length || 1));
+    let srvRev = 0;
+    let retailRev = 0;
+    let upi = 0;
+    let card = 0;
+    let cash = 0;
+    let split = 0;
+
+    scoped.forEach((inv) => {
+      const amt = inv.grandTotal || inv.total || 0;
+      const pm = String(inv.paymentMethod || "").toLowerCase();
+      if (pm.includes("split")) split += amt;
+      else if (pm.includes("upi")) upi += amt;
+      else if (pm.includes("card")) card += amt;
+      else if (pm.includes("cash")) cash += amt;
+      else upi += amt;
+
+      inv.items?.forEach((item: any) => {
+        const line = (item.price || item.unitPrice || 0) * (item.quantity || 1);
+        if (item.type === "product") retailRev += line;
+        else srvRev += line;
+      });
+    });
+
+    return {
+      grossRevenue: gross,
+      discounts,
+      gst,
+      invoicesCount: scoped.length,
+      avgTicket: scoped.length ? Math.round(gross / scoped.length) : 0,
+      serviceRevenue: srvRev,
+      productRevenue: retailRev,
+      upi,
+      card,
+      cash,
+      split,
+    };
+  }, [paidInvoices, dateFilter]);
+
+  const totalGrossRevenue = serverSummary?.metrics?.grossRevenue ?? localStats.grossRevenue;
+  const totalGst = serverSummary?.metrics?.taxTotal ?? localStats.gst;
+  const totalDiscounts = serverSummary?.metrics?.totalDiscounts ?? localStats.discounts;
+  const invoicesCount = serverSummary?.metrics?.invoicesCount ?? localStats.invoicesCount;
+  const avgTicket = Math.round(serverSummary?.metrics?.averageTicketSize ?? localStats.avgTicket);
+  const netProfit = serverSummary?.metrics?.netProfit;
+
+  const totalServiceRevenue = serverSummary?.categoryBreakdown?.serviceRevenue ?? localStats.serviceRevenue;
+  const totalRetailRevenue = serverSummary?.categoryBreakdown?.productRevenue ?? localStats.productRevenue;
+  const catTotal = Math.max(1, totalServiceRevenue + totalRetailRevenue);
+  const servicePct = Math.round((totalServiceRevenue / catTotal) * 100);
+  const retailPct = Math.max(0, 100 - servicePct);
+
+  const upiTotal = serverSummary?.paymentBreakdown?.UPI ?? localStats.upi;
+  const cardTotal = serverSummary?.paymentBreakdown?.Card ?? localStats.card;
+  const cashTotal = serverSummary?.paymentBreakdown?.Cash ?? localStats.cash;
+  const splitTotal = serverSummary?.paymentBreakdown?.Split ?? localStats.split;
+
+  const staffRows: Array<{
+    id: string;
+    name: string;
+    role: string;
+    avatar?: string;
+    servicesCount: number;
+    commissionRate: number;
+    revenue: number;
+    commissionEarned: number;
+  }> = serverSummary?.staffPerformance
+    ? serverSummary.staffPerformance.map((sp: any) => {
+        const stObj = staff.find((s) => s.id === sp.staffId || s.name === sp.staffName);
+        return {
+          id: sp.staffId,
+          name: sp.staffName,
+          role: sp.role || stObj?.role || "Stylist",
+          avatar: stObj?.avatar,
+          servicesCount: sp.servicesCount || 0,
+          commissionRate: sp.commissionRate || 15,
+          revenue: sp.revenue || 0,
+          commissionEarned: sp.commissionEarned || 0,
+        };
+      })
+    : staff.map((st) => ({
+        id: st.id,
+        name: st.name,
+        role: st.role || "Stylist",
+        avatar: st.avatar,
+        servicesCount: st.todayServicesCount || 0,
+        commissionRate: st.commissionRate || 15,
+        revenue: st.todayRevenue || 0,
+        commissionEarned: st.todayCommission || 0,
+      }));
 
   const handlePrint = () => {
     window.print();
@@ -106,7 +198,23 @@ export function ReportsView() {
           </div>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
+          <div className="flex items-center gap-1 bg-[#181818] p-1 rounded-xl border border-[#27272A]">
+            {(["today", "week", "month"] as const).map((r) => (
+              <button
+                key={r}
+                type="button"
+                onClick={() => setDateFilter(r)}
+                className={`px-3 py-1.5 rounded-lg text-[11px] font-mono uppercase transition-all cursor-pointer ${
+                  dateFilter === r
+                    ? "bg-[#FACC15] text-[#080808] font-bold"
+                    : "text-[#A1A1AA] hover:text-white"
+                }`}
+              >
+                {r}
+              </button>
+            ))}
+          </div>
           <button
             onClick={handleExportCSV}
             className="inline-flex items-center gap-1.5 px-3.5 py-2.5 bg-[#181818] border border-[#27272A] hover:bg-[#27272A] text-[#F8FAFC] font-bold text-xs rounded-xl shadow-xs transition-all cursor-pointer"
@@ -126,13 +234,14 @@ export function ReportsView() {
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <div className="bg-[#151515] border border-[#27272A] p-5 rounded-xl">
           <span className="text-[10px] font-mono font-bold text-[#71717A] uppercase tracking-wider block">
-            Gross Billed Revenue
+            Gross Billed Revenue ({dateFilter})
           </span>
           <h3 className="text-2xl font-mono font-bold text-[#FACC15] mt-1">
             {formatCurrency(totalGrossRevenue)}
           </h3>
           <span className="text-[11px] text-emerald-400 font-mono mt-2 flex items-center gap-1">
-            <TrendingUp className="w-3.5 h-3.5" /> +18.4% vs last cycle
+            <TrendingUp className="w-3.5 h-3.5" />
+            {netProfit !== undefined ? `Net after expenses: ${formatCurrency(netProfit)}` : `${invoicesCount} paid invoices`}
           </span>
         </div>
 
@@ -144,7 +253,7 @@ export function ReportsView() {
             {formatCurrency(avgTicket)}
           </h3>
           <span className="text-[11px] text-[#71717A] font-mono mt-2 block">
-            Across {invoices.length} completed tickets
+            Across {invoicesCount} settled bills
           </span>
         </div>
 
@@ -258,23 +367,23 @@ export function ReportsView() {
               <div className="flex justify-between text-xs font-bold mb-1.5">
                 <span className="text-[#A1A1AA]">Salon Treatment Services</span>
                 <span className="text-[#F8FAFC] font-mono">
-                  {formatCurrency(totalServiceRevenue)} (88%)
+                  {formatCurrency(totalServiceRevenue)} ({servicePct}%)
                 </span>
               </div>
               <div className="w-full bg-[#181818] h-2.5 rounded-full overflow-hidden border border-[#27272A]">
-                <div className="bg-[#FACC15] h-full rounded-full w-[88%]" />
+                <div className="bg-[#FACC15] h-full rounded-full transition-all" style={{ width: `${servicePct}%` }} />
               </div>
             </div>
 
             <div>
               <div className="flex justify-between text-xs font-bold mb-1.5">
-                <span className="text-[#A1A1AA]">Retail Product Sales (Moroccanoil, Olaplex)</span>
+                <span className="text-[#A1A1AA]">Retail Product Sales</span>
                 <span className="text-[#F8FAFC] font-mono">
-                  {formatCurrency(totalRetailRevenue)} (12%)
+                  {formatCurrency(totalRetailRevenue)} ({retailPct}%)
                 </span>
               </div>
               <div className="w-full bg-[#181818] h-2.5 rounded-full overflow-hidden border border-[#27272A]">
-                <div className="bg-emerald-400 h-full rounded-full w-[12%]" />
+                <div className="bg-emerald-400 h-full rounded-full transition-all" style={{ width: `${retailPct}%` }} />
               </div>
             </div>
 
@@ -316,15 +425,21 @@ export function ReportsView() {
               </tr>
             </thead>
             <tbody className="divide-y divide-[#27272A]">
-              {staff.map((st) => (
+              {staffRows.map((st) => (
                 <tr key={st.id} className="hover:bg-[#181818] transition-colors">
                   <td className="py-3.5 px-4">
                     <div className="flex items-center gap-2.5">
-                      <img
-                        src={st.avatar}
-                        alt={st.name}
-                        className="w-7 h-7 rounded-full object-cover border border-[#27272A]"
-                      />
+                      {st.avatar ? (
+                        <img
+                          src={st.avatar}
+                          alt={st.name}
+                          className="w-7 h-7 rounded-full object-cover border border-[#27272A]"
+                        />
+                      ) : (
+                        <div className="w-7 h-7 rounded-full bg-[#181818] border border-[#27272A] flex items-center justify-center text-[11px] font-bold text-[#FACC15]">
+                          {st.name.charAt(0).toUpperCase()}
+                        </div>
+                      )}
                       <div>
                         <span className="font-bold text-[#F8FAFC] block">{st.name}</span>
                         <span className="text-[10px] text-[#71717A]">{st.role}</span>
@@ -332,16 +447,16 @@ export function ReportsView() {
                     </div>
                   </td>
                   <td className="py-3.5 px-4 font-mono font-bold text-[#A1A1AA]">
-                    {st.todayServicesCount} treatments
+                    {st.servicesCount} treatments
                   </td>
                   <td className="py-3.5 px-4 font-mono font-bold text-[#FACC15]">
                     {st.commissionRate}%
                   </td>
                   <td className="py-3.5 px-4 text-right font-mono font-bold text-[#F8FAFC]">
-                    {formatCurrency(st.todayRevenue || 0)}
+                    {formatCurrency(st.revenue)}
                   </td>
                   <td className="py-3.5 px-4 text-right font-mono font-bold text-emerald-400">
-                    {formatCurrency(st.todayCommission || 0)}
+                    {formatCurrency(st.commissionEarned)}
                   </td>
                 </tr>
               ))}

@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import React, { useState, useEffect } from "react";
 import { useParams, useRouter } from "next/navigation";
@@ -6,6 +6,7 @@ import Link from "next/link";
 import { RuvexiLogo } from "@/components/brand/ruvexi-logo";
 import { ShieldCheck, UserCheck, Lock, User, Phone, ArrowRight, AlertCircle, CheckCircle2 } from "lucide-react";
 import { useRuvexi } from "@/lib/ruvexi-context";
+import { RuvexiApi } from "@/lib/api-client";
 
 export default function AcceptInvitationPage() {
   const params = useParams();
@@ -34,16 +35,10 @@ export default function AcceptInvitationPage() {
     async function checkToken() {
       setIsLoading(true);
       try {
-        const res = await fetch(`/api/v1/invitations/${token}`);
-        if (res.ok) {
-          const data = await res.json();
-          setInviteData(data);
-        } else {
-          const err = await res.json();
-          setError(err.detail || "Invitation link is invalid or has expired.");
-        }
-      } catch {
-        setError("Unable to reach authentication server. Please check your network connection.");
+        const data = await RuvexiApi.getInvitation(token);
+        setInviteData(data);
+      } catch (err: any) {
+        setError(err?.message || "Invitation link is invalid or has expired.");
       } finally {
         setIsLoading(false);
       }
@@ -54,36 +49,30 @@ export default function AcceptInvitationPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!name || !password) {
-      showToast("Please provide your name and a secure password", "error");
+    if (!name.trim() || password.length < 6) {
+      showToast("Please enter your full name and a password of at least 6 characters.", "error");
       return;
     }
 
     setIsSubmitting(true);
     try {
-      const res = await fetch("/api/v1/invitations/accept", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          token,
-          name,
-          phone,
-          password,
-        }),
+      const data = await RuvexiApi.acceptInvitation({
+        token,
+        name: name.trim(),
+        phone: phone.trim(),
+        password,
       });
-
-      const data = await res.json();
-      if (res.ok && data.success) {
+      if (data?.success) {
         if (data.user && data.salon) {
           setSession(data.user, data.salon, data.token);
         }
         showToast(data.message || "Account registered successfully!", "success");
         router.push("/front-desk");
       } else {
-        showToast(data.detail || "Failed to accept invitation", "error");
+        showToast(data?.detail || "Failed to accept invitation", "error");
       }
-    } catch {
-      showToast("Network error. Please try again.", "error");
+    } catch (err: any) {
+      showToast(err?.message || "Failed to accept invitation. Please try again.", "error");
     } finally {
       setIsSubmitting(false);
     }

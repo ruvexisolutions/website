@@ -1,6 +1,7 @@
-﻿"use client";
+"use client";
 
-import React, { useRef } from "react";
+import React, { useEffect, useRef, useState } from "react";
+import QRCode from "qrcode";
 import { formatCurrency } from "@/lib/utils";
 import { Printer, Download, Share2, Copy, Check, QrCode, Scissors } from "lucide-react";
 
@@ -378,68 +379,22 @@ export function ThermalReceipt({ invoice, salon, onClose }: ThermalReceiptProps)
           </div>
         )}
 
-        {/* QR Code & Scan to Pay / View Digital Receipt */}
-        <div className="pt-2 text-center space-y-1.5">
-          <div className="inline-block p-1 bg-white border border-slate-300 rounded shadow-2xs">
-            <svg
-              className="w-20 h-20 mx-auto"
-              viewBox="0 0 100 100"
-              fill="none"
-              xmlns="http://www.w3.org/2000/svg"
-            >
-              {/* High-contrast crisp SVG QR Code pattern */}
-              <rect width="100" height="100" fill="white" />
-              <rect x="10" y="10" width="24" height="24" fill="black" />
-              <rect x="14" y="14" width="16" height="16" fill="white" />
-              <rect x="18" y="18" width="8" height="8" fill="black" />
+        {/* Dynamic QR Code & Scan to Pay / Verify E-Receipt */}
+        <DynamicReceiptQr
+          upiId={salon.upiId}
+          salonName={salon.name}
+          total={invoice.total}
+          invoiceNumber={invoice.invoiceNumber}
+        />
 
-              <rect x="66" y="10" width="24" height="24" fill="black" />
-              <rect x="70" y="14" width="16" height="16" fill="white" />
-              <rect x="74" y="18" width="8" height="8" fill="black" />
-
-              <rect x="10" y="66" width="24" height="24" fill="black" />
-              <rect x="14" y="70" width="16" height="16" fill="white" />
-              <rect x="18" y="74" width="8" height="8" fill="black" />
-
-              {/* Data blocks */}
-              <rect x="40" y="14" width="6" height="6" fill="black" />
-              <rect x="50" y="14" width="6" height="6" fill="black" />
-              <rect x="44" y="24" width="6" height="6" fill="black" />
-              <rect x="40" y="34" width="6" height="6" fill="black" />
-              <rect x="52" y="34" width="6" height="6" fill="black" />
-              <rect x="14" y="44" width="6" height="6" fill="black" />
-              <rect x="24" y="44" width="6" height="6" fill="black" />
-              <rect x="34" y="44" width="6" height="6" fill="black" />
-              <rect x="44" y="44" width="12" height="12" fill="black" />
-              <rect x="64" y="44" width="6" height="6" fill="black" />
-              <rect x="74" y="44" width="6" height="6" fill="black" />
-              <rect x="40" y="64" width="6" height="6" fill="black" />
-              <rect x="50" y="64" width="6" height="6" fill="black" />
-              <rect x="64" y="64" width="6" height="6" fill="black" />
-              <rect x="74" y="64" width="6" height="6" fill="black" />
-              <rect x="44" y="74" width="6" height="6" fill="black" />
-              <rect x="54" y="74" width="6" height="6" fill="black" />
-              <rect x="68" y="74" width="12" height="12" fill="black" />
-              <rect x="40" y="84" width="6" height="6" fill="black" />
-              <rect x="54" y="84" width="6" height="6" fill="black" />
-            </svg>
-          </div>
-          <div className="text-[9px] uppercase font-bold text-slate-500 tracking-wider">
-            Scan to Verify E-Receipt
-          </div>
-          <div className="text-[10px] font-mono font-bold text-slate-700">
-            UPI: {salon.upiId || "Ruvexi.pos@icici"}
-          </div>
-        </div>
-
-        {/* Barcode Simulation for POS Scanner */}
+        {/* Deterministic Invoice Code Strip */}
         <div className="pt-2 text-center">
           <div className="inline-flex items-center gap-[2px] h-7 bg-white px-2 py-0.5 border border-slate-200">
-            {[4, 2, 6, 2, 8, 3, 5, 2, 7, 3, 2, 6, 4, 2, 5, 8, 3, 4, 2, 6, 3, 7, 2, 5].map((w, i) => (
+            {invoice.invoiceNumber.split("").map((ch, i) => (
               <div
                 key={i}
                 className="bg-black h-full"
-                style={{ width: `${(w % 3) + 1.2}px` }}
+                style={{ width: `${(ch.charCodeAt(0) % 3) + 1.2}px` }}
               />
             ))}
           </div>
@@ -452,7 +407,7 @@ export function ThermalReceipt({ invoice, salon, onClose }: ThermalReceiptProps)
         <div className="pt-3 pb-1 text-center text-[10px] text-slate-600 border-t border-dotted border-slate-400 mt-2 space-y-0.5">
           <div className="font-bold text-black">*** THANK YOU FOR VISITING ***</div>
           <div className="text-[9px] text-slate-500">
-            Appointments & 24/7 Booking: Ruvexi.app
+            Verified Digital GST Receipt
           </div>
           <div className="text-[8px] text-slate-400 pt-1">
             Software by Ruvexi Solutions Salon OS
@@ -462,6 +417,49 @@ export function ThermalReceipt({ invoice, salon, onClose }: ThermalReceiptProps)
         {/* Bottom serrated cut illusion */}
         <div className="absolute bottom-0 left-0 right-0 h-1 bg-[radial-gradient(circle,transparent_2px,#e2e8f0_2px)] bg-[length:6px_4px] no-print" />
       </div>
+    </div>
+  );
+}
+
+function DynamicReceiptQr({
+  upiId,
+  salonName,
+  total,
+  invoiceNumber,
+}: {
+  upiId?: string;
+  salonName: string;
+  total: number;
+  invoiceNumber: string;
+}) {
+  const [qrSrc, setQrSrc] = useState<string>("");
+
+  useEffect(() => {
+    const payload = upiId
+      ? `upi://pay?pa=${encodeURIComponent(upiId)}&pn=${encodeURIComponent(salonName)}&am=${total.toFixed(2)}&cu=INR&tn=${encodeURIComponent(invoiceNumber)}`
+      : `RUVEXI-RECEIPT|${invoiceNumber}|${salonName}|${total.toFixed(2)}`;
+    QRCode.toDataURL(payload, { width: 120, margin: 1 })
+      .then((url) => setQrSrc(url))
+      .catch(() => {});
+  }, [upiId, salonName, total, invoiceNumber]);
+
+  return (
+    <div className="pt-2 text-center space-y-1.5">
+      <div className="inline-block p-1 bg-white border border-slate-300 rounded shadow-2xs">
+        {qrSrc ? (
+          <img src={qrSrc} alt="Receipt QR Code" className="w-20 h-20 mx-auto" />
+        ) : (
+          <div className="w-20 h-20 flex items-center justify-center text-[9px] text-slate-400">QR</div>
+        )}
+      </div>
+      <div className="text-[9px] uppercase font-bold text-slate-500 tracking-wider">
+        {upiId ? "Scan to Pay / Verify E-Receipt" : "Scan to Verify E-Receipt"}
+      </div>
+      {upiId && (
+        <div className="text-[10px] font-mono font-bold text-slate-700">
+          UPI: {upiId}
+        </div>
+      )}
     </div>
   );
 }

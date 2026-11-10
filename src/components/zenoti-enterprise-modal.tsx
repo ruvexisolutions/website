@@ -1,6 +1,7 @@
 ﻿"use client";
 
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
+import { RuvexiApi } from "@/lib/api-client";
 import {
   X,
   Building2,
@@ -44,48 +45,33 @@ export function ZenotiEnterpriseModal({
 
   const [activeTab, setActiveTab] = useState<"centers" | "migration" | "clinical" | "packages">("centers");
 
-  // Center Management State (Zenoti multi-location architecture)
-  const [centers, setCenters] = useState([
-    {
-      id: "cnt_1",
-      name: "Flagship Studio - Bandra West",
-      city: "Mumbai",
-      address: "Suite 401, Crescent Galleria, Indiranagar",
-      chairs: 8,
-      manager: "Sunil Kumar",
-      phone: "+91 98450 11223",
-      monthlyRevenue: 845000,
-      activeStylists: 6,
-      status: "active",
-      gstin: "27AABCB1234F1Z8",
-    },
-    {
-      id: "cnt_2",
-      name: "Indiranagar Atelier & Aesthetic Spa",
-      city: "Bengaluru",
-      address: "100ft Road, Defence Colony, Indiranagar",
-      chairs: 6,
-      manager: "Kavita Rao",
-      phone: "+91 98222 33445",
-      monthlyRevenue: 620000,
-      activeStylists: 4,
-      status: "active",
-      gstin: "29AABCU9603R1ZM",
-    },
-    {
-      id: "cnt_3",
-      name: "Jubilee Hills Luxury Retreat",
-      city: "Hyderabad",
-      address: "Road No. 36, Jubilee Hills",
-      chairs: 10,
-      manager: "Vikram Malhotra",
-      phone: "+91 98111 22334",
-      monthlyRevenue: 910000,
-      activeStylists: 8,
-      status: "active",
-      gstin: "36AAACB1122D1Z4",
-    },
-  ]);
+  // Center Management State loaded from real backend /api/v1/branches
+  const [centers, setCenters] = useState<any[]>([]);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    RuvexiApi.getBranches()
+      .then((list) => {
+        if (Array.isArray(list)) {
+          setCenters(
+            list.map((b: any) => ({
+              id: b.id,
+              name: b.name,
+              city: b.city || "India",
+              address: b.address || "",
+              chairs: b.chairs || 6,
+              manager: "Branch Lead",
+              phone: b.phone || "",
+              monthlyRevenue: 0,
+              activeStylists: 0,
+              status: "active",
+              gstin: "",
+            }))
+          );
+        }
+      })
+      .catch(() => { });
+  }, [isOpen]);
 
   // Form state for adding new center
   const [showAddCenterForm, setShowAddCenterForm] = useState(false);
@@ -145,33 +131,43 @@ export function ZenotiEnterpriseModal({
 
   if (!isOpen) return null;
 
-  const handleAddNewCenter = (e: React.FormEvent) => {
+  const handleAddNewCenter = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newCenterName) {
+    if (!newCenterName.trim()) {
       showToast("Please enter center location name", "warning");
       return;
     }
 
-    const created = {
-      id: "cnt_" + Date.now(),
-      name: newCenterName,
-      city: newCenterCity,
-      address: newCenterAddress || `${newCenterCity} Center Hub`,
-      chairs: newCenterChairs,
-      manager: newCenterManager,
-      phone: "+91 98000 11223",
-      monthlyRevenue: 0,
-      activeStylists: 4,
-      status: "active",
-      gstin: newCenterGstin,
-    };
+    try {
+      const saved = await RuvexiApi.createBranch({
+        name: newCenterName.trim(),
+        city: newCenterCity.trim(),
+        address: newCenterAddress.trim() || `${newCenterCity} Studio`,
+        chairs: newCenterChairs,
+      });
+      const created = {
+        id: saved?.id || "cnt_" + Date.now(),
+        name: saved?.name || newCenterName.trim(),
+        city: saved?.city || newCenterCity,
+        address: saved?.address || newCenterAddress || `${newCenterCity} Center Hub`,
+        chairs: saved?.chairs || newCenterChairs,
+        manager: newCenterManager,
+        phone: saved?.phone || "",
+        monthlyRevenue: 0,
+        activeStylists: 0,
+        status: "active",
+        gstin: newCenterGstin,
+      };
 
-    setCenters([...centers, created]);
-    setShowAddCenterForm(false);
-    setNewCenterName("");
-    setNewCenterAddress("");
-    showToast(`Zenoti-Grade Center "${created.name}" provisioned successfully!`);
-    onSelectCenter(created.name);
+      setCenters((prev) => [...prev, created]);
+      setShowAddCenterForm(false);
+      setNewCenterName("");
+      setNewCenterAddress("");
+      showToast(`Branch "${created.name}" created in database!`);
+      onSelectCenter(created.name);
+    } catch (err: any) {
+      showToast(err?.message || "Failed to create branch.", "error");
+    }
   };
 
   const handleSimulateMigration = () => {
@@ -256,11 +252,10 @@ export function ZenotiEnterpriseModal({
               <button
                 key={tab.id}
                 onClick={() => setActiveTab(tab.id as any)}
-                className={`flex items-center gap-2 py-3 px-4 text-xs font-semibold border-b-2 transition-all whitespace-nowrap cursor-pointer ${
-                  isActive
+                className={`flex items-center gap-2 py-3 px-4 text-xs font-semibold border-b-2 transition-all whitespace-nowrap cursor-pointer ${isActive
                     ? "border-[#FACC15] text-[#FACC15] bg-[#151515]"
                     : "border-transparent text-[#A1A1AA] hover:text-[#F8FAFC]"
-                }`}
+                  }`}
               >
                 <Icon className={`w-4 h-4 ${isActive ? "text-[#FACC15]" : "text-[#71717A]"}`} />
                 <span>{tab.label}</span>
@@ -392,11 +387,10 @@ export function ZenotiEnterpriseModal({
                   onClose();
                   showToast("Switched to Consolidated Enterprise Group View");
                 }}
-                className={`p-4 rounded-2xl border transition-all cursor-pointer flex items-center justify-between ${
-                  activeCenter.includes("All Centers")
+                className={`p-4 rounded-2xl border transition-all cursor-pointer flex items-center justify-between ${activeCenter.includes("All Centers")
                     ? "bg-[#181818] border-[#FACC15] shadow-sm shadow-[#FACC15]/10"
                     : "bg-[#151515] border-[#27272A] hover:border-[#3F3F46]"
-                }`}
+                  }`}
               >
                 <div className="flex items-center gap-3">
                   <div className="w-10 h-10 rounded-xl bg-[#080808] border border-[#FACC15]/30 text-[#FACC15] flex items-center justify-center font-bold">
@@ -443,11 +437,10 @@ export function ZenotiEnterpriseModal({
                   return (
                     <div
                       key={center.id}
-                      className={`bg-[#151515] rounded-2xl border p-4 transition-all flex flex-col justify-between space-y-3 ${
-                        isSelected
+                      className={`bg-[#151515] rounded-2xl border p-4 transition-all flex flex-col justify-between space-y-3 ${isSelected
                           ? "border-[#FACC15] shadow-md ring-1 ring-[#FACC15]/30"
                           : "border-[#27272A] hover:border-[#3F3F46]"
-                      }`}
+                        }`}
                     >
                       <div className="space-y-1.5">
                         <div className="flex items-center justify-between">
@@ -493,11 +486,10 @@ export function ZenotiEnterpriseModal({
                           onClose();
                           showToast(`Switched active workstation to "${center.name}"`);
                         }}
-                        className={`w-full py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
-                          isSelected
+                        className={`w-full py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${isSelected
                             ? "bg-[#181818] text-[#FACC15] border border-[#FACC15]/40 cursor-default"
                             : "bg-[#181818] hover:bg-[#27272A] text-[#F8FAFC] border border-[#27272A]"
-                        }`}
+                          }`}
                       >
                         {isSelected ? "Current Workspace" : "Switch to this Center"}
                       </button>
@@ -533,11 +525,10 @@ export function ZenotiEnterpriseModal({
                         key={plat}
                         type="button"
                         onClick={() => setMigrationPlatform(plat)}
-                        className={`p-2.5 rounded-xl border text-xs font-bold transition-all text-center cursor-pointer ${
-                          migrationPlatform === plat
+                        className={`p-2.5 rounded-xl border text-xs font-bold transition-all text-center cursor-pointer ${migrationPlatform === plat
                             ? "bg-[#FACC15] text-slate-950 border-[#FACC15] shadow-xs"
                             : "bg-[#080808] hover:bg-[#181818] border-[#27272A] text-[#A1A1AA]"
-                        }`}
+                          }`}
                       >
                         {plat}
                       </button>
@@ -666,11 +657,10 @@ export function ZenotiEnterpriseModal({
                       setClientSignature("Ananya Deshmukh - 23/10/2026 23:05 IST");
                       showToast("Digital consent signature recorded & encrypted");
                     }}
-                    className={`h-24 rounded-xl border-2 border-dashed flex items-center justify-center transition-all cursor-pointer ${
-                      hasSigned
+                    className={`h-24 rounded-xl border-2 border-dashed flex items-center justify-center transition-all cursor-pointer ${hasSigned
                         ? "bg-[#181818] border-emerald-500/50 text-[#F8FAFC]"
                         : "bg-[#080808] border-[#27272A] hover:border-[#3F3F46] text-[#71717A]"
-                    }`}
+                      }`}
                   >
                     {hasSigned ? (
                       <div className="text-center">

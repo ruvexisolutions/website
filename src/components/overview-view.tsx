@@ -1,7 +1,8 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { useRuvexi } from "@/lib/ruvexi-context";
+import { RuvexiApi } from "@/lib/api-client";
 import { formatCurrency } from "@/lib/utils";
 import {
   Users,
@@ -37,35 +38,65 @@ export function OverviewView({ onNavigateTab, onOpenSwitchLocation, activeBranch
     useRuvexi();
 
   const [productivityRange, setProductivityRange] = useState<"today" | "week" | "month">("today");
+  const [rangeReport, setRangeReport] = useState<any>(null);
 
-  // Calculations from authoritative state
-  const totalTodayRevenue = invoices.reduce((acc, inv) => acc + (inv.total || inv.grandTotal || 0), 0);
+  useEffect(() => {
+    let active = true;
+    RuvexiApi.getReportsSummary(productivityRange)
+      .then((res) => {
+        if (active && res?.staffPerformance) setRangeReport(res);
+      })
+      .catch(() => {});
+    return () => {
+      active = false;
+    };
+  }, [productivityRange, invoices.length]);
+
+  const todayIso = new Date().toISOString().split("T")[0];
+
+  // Calculations from authoritative state (paid today only)
+  const paidTodayInvoices = invoices.filter((inv) => {
+    const isPaid = String(inv.status || "").toLowerCase() === "paid";
+    const invDate = String(inv.paidAt || inv.createdAt || inv.date || "");
+    const isToday = !invDate || invDate.startsWith(todayIso) || invDate.toLowerCase().includes("today");
+    return isPaid && isToday;
+  });
+  const totalTodayRevenue = paidTodayInvoices.reduce((acc, inv) => acc + (inv.total || inv.grandTotal || 0), 0);
   const clockedInStaff = staff.filter((s) => s.status === "clocked_in" || s.isClockedIn);
   const lowStockItems = inventory.filter((i) => i.currentStock <= i.minThreshold);
-  const pendingFollowUps = followUps.filter((f) => f.status === "Pending" || f.status === "pending");
+  const pendingFollowUps = followUps.filter((f) => String(f.status || "").toLowerCase() === "pending");
+
+  const todayAppointments = appointments.filter((a) => !a.date || a.date === todayIso);
 
   // Customers served count (unique customers in today's completed/in-service appointments or paid invoices)
   const customersServedSet = new Set<string>();
-  invoices.forEach((inv) => {
+  paidTodayInvoices.forEach((inv) => {
     if (inv.customerName) customersServedSet.add(inv.customerName);
   });
-  appointments.forEach((apt) => {
-    if (apt.status === "Completed" || apt.status === "In-Service") {
+  todayAppointments.forEach((apt) => {
+    const st = String(apt.status || "").toLowerCase();
+    if (st === "completed" || st === "in-service" || st === "in_service") {
       customersServedSet.add(apt.customerName);
     }
   });
   const customersServedCount = customersServedSet.size;
 
-  // Pending payments (draft or unpaid invoices)
-  const pendingInvoices = invoices.filter((i) => i.status === "draft");
+  // Pending payments (pending, partially_paid, or draft invoices)
+  const pendingInvoices = invoices.filter((i) =>
+    ["pending", "partially_paid", "draft"].includes(String(i.status || "").toLowerCase())
+  );
   const pendingPaymentsAmount = pendingInvoices.reduce(
     (acc, inv) => acc + (inv.total || inv.grandTotal || 0),
     0
   );
 
   // Appointments today breakdown
-  const inServiceAppointments = appointments.filter((a) => a.status === "In-Service").length;
-  const completedAppointments = appointments.filter((a) => a.status === "Completed").length;
+  const inServiceAppointments = todayAppointments.filter(
+    (a) => String(a.status || "").toLowerCase().replace("_", "-") === "in-service"
+  ).length;
+  const completedAppointments = todayAppointments.filter(
+    (a) => String(a.status || "").toLowerCase() === "completed"
+  ).length;
 
   const todayDateString = new Date().toLocaleDateString("en-IN", {
     weekday: "long",
@@ -73,9 +104,6 @@ export function OverviewView({ onNavigateTab, onOpenSwitchLocation, activeBranch
     day: "numeric",
     year: "numeric",
   });
-
-  // Multiplier for productivity tab
-  const rangeMultiplier = productivityRange === "today" ? 1 : productivityRange === "week" ? 5.5 : 22;
 
   return (
     <div className="space-y-6 text-[#F8FAFC]">
@@ -232,7 +260,7 @@ export function OverviewView({ onNavigateTab, onOpenSwitchLocation, activeBranch
             <span className="text-[#10B981] font-mono text-[10px] flex items-center gap-1">
               <ArrowUpRight className="w-3 h-3" /> Live
             </span>
-            <span className="text-[#71717A] font-mono text-[10px]">{invoices.length} Bills paid</span>
+            <span className="text-[#71717A] font-mono text-[10px]">{paidTodayInvoices.length} Bills paid</span>
           </div>
         </div>
 
@@ -250,7 +278,7 @@ export function OverviewView({ onNavigateTab, onOpenSwitchLocation, activeBranch
             </span>
           </div>
           <div className="font-mono text-xl sm:text-2xl text-[#F8FAFC] font-semibold mt-2.5 tracking-tight tabular-nums">
-            {appointments.length}
+            {todayAppointments.length}
           </div>
           <div className="flex items-center justify-between text-xs mt-3 pt-2.5 border-t border-[#27272A]/80">
             <span className="text-[#60A5FA] font-mono text-[10px]">
@@ -402,8 +430,8 @@ export function OverviewView({ onNavigateTab, onOpenSwitchLocation, activeBranch
                 </button>
               </div>
             ) : (
-              appointments.map((apt, index) => {
-                const chairNumber = (index % 6) + 1;
+              todayAppointments.map((apt, index) => {
+                const chairNumber = apt.chairNumber || (index % Math.max(1, salon.chairs || 6)) + 1;
                 return (
                   <div
                     key={apt.id}
@@ -504,9 +532,20 @@ export function OverviewView({ onNavigateTab, onOpenSwitchLocation, activeBranch
 
             <div className="space-y-3">
               {staff.map((st) => {
-                const calculatedRevenue = Math.round((st.todayRevenue || st.todayEarnings || 2500) * rangeMultiplier);
-                const calculatedCommission = Math.round((st.todayCommission || (calculatedRevenue * st.commissionRate) / 100));
-                const calculatedServices = Math.round((st.todayServicesCount || 2) * rangeMultiplier);
+                const serverPerf = rangeReport?.staffPerformance?.find(
+                  (sp: any) => sp.staffId === st.id || sp.staffName === st.name
+                );
+                const calculatedRevenue = Math.round(
+                  serverPerf ? Number(serverPerf.revenue || 0) : Number(st.todayRevenue || 0)
+                );
+                const calculatedCommission = Math.round(
+                  serverPerf
+                    ? Number(serverPerf.commissionEarned || 0)
+                    : Number(st.todayCommission || (calculatedRevenue * (st.commissionRate || 15)) / 100)
+                );
+                const calculatedServices = Number(
+                  serverPerf ? serverPerf.servicesCount || 0 : st.todayServicesCount || 0
+                );
 
                 return (
                   <div
