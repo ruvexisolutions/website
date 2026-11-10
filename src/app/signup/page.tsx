@@ -12,7 +12,7 @@ import { Building2, User, Mail, Lock, AlertCircle } from "lucide-react";
 
 export default function SignupPage() {
   const router = useRouter();
-  const { signup } = useRuvexi();
+  const { signup, salon, setSession, showToast } = useRuvexi();
 
   const [salonName, setSalonName] = useState("");
   const [fullName, setFullName] = useState("");
@@ -108,12 +108,18 @@ export default function SignupPage() {
 
     try {
       const res = await signInWithGoogle();
+      if (res.success && res.user && res.salon) {
+        setSession(res.user, { ...salon, ...res.salon } as any, res.token);
+        showToast(`Welcome to RUVEXI, ${res.user.name}!`, "success");
+        router.push("/overview");
+        return;
+      }
       if (!res.success && res.error) {
         setErrors({ general: res.error });
-        setIsGoogleLoading(false);
       }
     } catch (err: any) {
       setErrors({ general: err.message || "Google sign-in could not be initiated." });
+    } finally {
       setIsGoogleLoading(false);
     }
   };

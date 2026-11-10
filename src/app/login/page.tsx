@@ -196,12 +196,18 @@ export default function LoginPage() {
 
     try {
       const res = await signInWithGoogle();
+      if (res.success && res.user && res.salon) {
+        setSession(res.user, { ...salon, ...res.salon } as any, res.token);
+        showToast(`Welcome back, ${res.user.name}!`, "success");
+        router.push("/overview");
+        return;
+      }
       if (!res.success && res.error) {
         setErrors({ general: res.error });
-        setIsGoogleLoading(false);
       }
     } catch (err: any) {
       setErrors({ general: err.message || "Google sign-in could not be initiated." });
+    } finally {
       setIsGoogleLoading(false);
     }
   };
@@ -210,8 +216,8 @@ export default function LoginPage() {
     <AuthSplitLayout
       headline="Salon Operating System."
       supportingText="Sign in to manage your salon."
-      imageSrc="/images/splash.webp"
-      imageAlt="RUVEXI Salon Management"
+      imageSrc="/images/spa-wellness.webp"
+      imageAlt="Luxury salon front desk"
     >
       <div className="bg-[#101010] border border-[#27272A] rounded-2xl p-7 sm:p-9 shadow-sm">
         {/* Header */}

@@ -345,45 +345,105 @@ export async function verifySupabaseEmailOtp(email: string, token: string): Prom
   }
 }
 
-/**
- * 4c. Sign In with Google OAuth using Supabase Auth
- */
-export async function signInWithGoogle(): Promise<{ success: boolean; error?: string }> {
-  const supabase = createClient();
-  const configured = isSupabaseConfigured();
+const GOOGLE_CLIENT_ID =
+  process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID ||
+  "688082902607-cuotmpb605mn5i7jkjv6ojql16bkmdml.apps.googleusercontent.com";
 
-  if (!configured) {
-    return {
-      success: false,
-      error: "Google Sign-In requires active Supabase credentials in .env.local with Google OAuth enabled in Supabase Dashboard.",
-    };
+function loadGoogleGsiScript(): Promise<void> {
+  return new Promise((resolve, reject) => {
+    if (typeof window === "undefined") {
+      reject(new Error("Google Sign-In is only supported in the browser."));
+      return;
+    }
+    const w = window as any;
+    if (w.google?.accounts?.oauth2) {
+      resolve();
+      return;
+    }
+    const existing = document.querySelector('script[src="https://accounts.google.com/gsi/client"]');
+    if (existing) {
+      existing.addEventListener("load", () => resolve());
+      existing.addEventListener("error", () => reject(new Error("Failed to load Google Sign-In SDK.")));
+      return;
+    }
+    const script = document.createElement("script");
+    script.src = "https://accounts.google.com/gsi/client";
+    script.async = true;
+    script.defer = true;
+    script.onload = () => resolve();
+    script.onerror = () => reject(new Error("Failed to load Google Sign-In SDK."));
+    document.head.appendChild(script);
+  });
+}
+
+/**
+ * 4c. Sign In with Google OAuth (Direct Google Identity Services using configured Client ID)
+ */
+export async function signInWithGoogle(): Promise<RuvexiAuthResult> {
+  if (typeof window === "undefined") {
+    return { success: false, error: "Google Sign-In requires a browser environment." };
   }
 
   try {
-    const redirectTo = typeof window !== "undefined"
-      ? `${window.location.origin}/auth/callback?next=/overview`
-      : undefined;
+    await loadGoogleGsiScript();
+    const w = window as any;
 
-    const { data, error } = await supabase.auth.signInWithOAuth({
-      provider: "google",
-      options: {
-        redirectTo,
-        queryParams: {
-          access_type: "offline",
-          prompt: "consent",
+    if (!w.google?.accounts?.oauth2) {
+      return { success: false, error: "Google OAuth SDK failed to initialize." };
+    }
+
+    return await new Promise<RuvexiAuthResult>((resolve) => {
+      const tokenClient = w.google.accounts.oauth2.initTokenClient({
+        client_id: GOOGLE_CLIENT_ID,
+        scope: "openid email profile",
+        callback: async (tokenResponse: any) => {
+          if (tokenResponse?.error || !tokenResponse?.access_token) {
+            resolve({
+              success: false,
+              error: tokenResponse?.error_description || tokenResponse?.error || "Google sign-in was cancelled.",
+            });
+            return;
+          }
+
+          try {
+            const verifyRes = await fetch("/api/auth/google", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ accessToken: tokenResponse.access_token }),
+            });
+            const data = await verifyRes.json();
+
+            if (!verifyRes.ok || !data?.success) {
+              resolve({
+                success: false,
+                error: data?.error || "Failed to verify Google account with server.",
+              });
+              return;
+            }
+
+            resolve({
+              success: true,
+              user: data.user,
+              salon: data.salon,
+              token: data.token,
+            });
+          } catch (err: any) {
+            resolve({
+              success: false,
+              error: err.message || "Network error during Google sign-in verification.",
+            });
+          }
         },
-      },
+        error_callback: (err: any) => {
+          resolve({
+            success: false,
+            error: err?.message || "Google sign-in popup was closed or blocked.",
+          });
+        },
+      });
+
+      tokenClient.requestAccessToken({ prompt: "select_account" });
     });
-
-    if (error) {
-      return { success: false, error: error.message };
-    }
-
-    if (data?.url && typeof window !== "undefined") {
-      window.location.href = data.url;
-    }
-
-    return { success: true };
   } catch (err: any) {
     return { success: false, error: err.message || "Failed to initiate Google sign in." };
   }
