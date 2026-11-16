@@ -2,7 +2,7 @@
 
 import React, { useState, useMemo, useEffect, useRef } from "react";
 import { useRuvexi } from "@/lib/ruvexi-context";
-import { formatCurrency } from "@/lib/utils";
+import { formatCurrency, getCustomerAvatarSrc } from "@/lib/utils";
 import {
   Calendar,
   Clock,
@@ -88,6 +88,8 @@ export function FrontDeskView({ onNavigateTab, onGoToPosBilling }: FrontDeskView
   const [walkInGender, setWalkInGender] = useState<"female" | "male" | "other">("female");
   const [walkInPhone, setWalkInPhone] = useState("+91 ");
   const [walkInServices, setWalkInServices] = useState<string[]>(services[0]?.name ? [services[0].name] : []);
+  const [walkInCatFilter, setWalkInCatFilter] = useState<string>("All");
+  const [walkInSearch, setWalkInSearch] = useState<string>("");
   const [customWalkInServiceName, setCustomWalkInServiceName] = useState("");
   const [customWalkInServicePrice, setCustomWalkInServicePrice] = useState<number>(500);
   const [walkInStaff, setWalkInStaff] = useState(staff[0]?.name || "Priya Sharma");
@@ -96,6 +98,27 @@ export function FrontDeskView({ onNavigateTab, onGoToPosBilling }: FrontDeskView
   // Step 2 & 3: Fill Services Taken for In-Chair Client Modal
   const [serviceModalApt, setServiceModalApt] = useState<any>(null);
   const [selectedServiceList, setSelectedServiceList] = useState<string[]>([]);
+  const [serviceModalCatFilter, setServiceModalCatFilter] = useState<string>("All");
+  const [serviceModalSearch, setServiceModalSearch] = useState<string>("");
+
+  const frontDeskCategories = useMemo(() => {
+    const defaultOrder = [
+      "All",
+      "Waxing",
+      "Hair",
+      "Beard & Grooming",
+      "Hair Colour",
+      "Nails",
+      "Skin & Spa",
+      "Threading",
+      "Hair Spa",
+      "Massage",
+      "Facial",
+    ];
+    const srvCats = Array.from(new Set(services.map((s) => s.category).filter(Boolean)));
+    const extra = srvCats.filter((c) => !defaultOrder.includes(c));
+    return [...defaultOrder.filter((c) => c === "All" || srvCats.includes(c)), ...extra];
+  }, [services]);
 
   // Step 4: Billing with QR & Split Pay Modal
   const [billingApt, setBillingApt] = useState<any>(null);
@@ -664,10 +687,6 @@ We look forward to seeing you again soon! 💇‍♀️✨`;
 
             {/* Brand text */}
             <div className="space-y-1.5">
-              <div className="inline-flex items-center gap-2 text-[11px] font-mono tracking-wider text-[#A1A1AA] uppercase">
-                <span className="w-2 h-2 rounded-full bg-[#10B981]" />
-                <span>RECEPTIONIST FLOOR TERMINAL</span>
-              </div>
               <h1 className="text-2xl sm:text-[28px] font-bold tracking-tight text-[#FACC15] leading-tight">
                 {salon.name || "Your Salon"}
               </h1>
@@ -932,23 +951,30 @@ We look forward to seeing you again soon! 💇‍♀️✨`;
                     >
                       {/* Left: Customer Info */}
                       <div className="flex items-start gap-3 min-w-0">
-                        <div
-                          className={`w-9 h-9 rounded-xl flex items-center justify-center font-bold text-xs shrink-0 mt-0.5 ${
-                            isInChair
-                              ? "bg-[#FACC15]/15 text-[#FACC15] border border-[#FACC15]/25"
-                              : isWaiting
-                              ? "bg-[#60A5FA]/15 text-[#60A5FA] border border-[#60A5FA]/25"
-                              : "bg-[#10B981]/15 text-[#10B981] border border-[#10B981]/25"
-                          }`}
-                        >
-                          {isInChair ? (
-                            <Scissors className="w-4 h-4 text-[#FACC15]" />
-                          ) : isWaiting ? (
-                            <Clock className="w-4 h-4 text-[#60A5FA]" />
-                          ) : (
-                            <Check className="w-4 h-4 text-[#10B981]" />
-                          )}
-                        </div>
+                        {(() => {
+                          const matchedCust = customers.find(
+                            (c) =>
+                              c.id === apt.customerId ||
+                              (apt.customerPhone && c.phone === apt.customerPhone)
+                          );
+                          return (
+                            <div
+                              className={`w-10 h-10 rounded-xl overflow-hidden shrink-0 mt-0.5 border ${
+                                isInChair
+                                  ? "border-[#FACC15]/50 ring-2 ring-[#FACC15]/20"
+                                  : isWaiting
+                                  ? "border-[#60A5FA]/50 ring-2 ring-[#60A5FA]/20"
+                                  : "border-[#10B981]/50"
+                              }`}
+                            >
+                              <img
+                                src={getCustomerAvatarSrc((apt as any).customerGender || matchedCust?.gender)}
+                                alt={apt.customerName}
+                                className="w-full h-full object-cover"
+                              />
+                            </div>
+                          );
+                        })()}
 
                         <div className="min-w-0 space-y-1">
                           <div className="flex items-center gap-2 flex-wrap">
@@ -1495,9 +1521,9 @@ We look forward to seeing you again soon! 💇‍♀️✨`;
             <form onSubmit={handleAllotChairAndBegin} noValidate className="space-y-4 pt-1">
               {/* Step 2: Multi-Select Services */}
               <div className="space-y-2">
-                <div className="flex items-center justify-between">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
                   <label className="text-[11px] font-mono uppercase tracking-wider text-[#A1A1AA]">
-                    2. Select Services
+                    2. Select Category & Services
                   </label>
                   {walkInServices.length > 0 && (
                     <span className="text-[11px] font-mono text-[#FACC15] font-semibold">
@@ -1511,9 +1537,44 @@ We look forward to seeing you again soon! 💇‍♀️✨`;
                   )}
                 </div>
 
+                {/* Category Selector & Search */}
+                <div className="space-y-2">
+                  <input
+                    type="text"
+                    placeholder="Search services in catalog..."
+                    value={walkInSearch}
+                    onChange={(e) => setWalkInSearch(e.target.value)}
+                    className="w-full px-3 py-1.5 text-xs bg-[#111111] border border-[#27272A] rounded-lg text-[#F8FAFC] placeholder-[#71717A] focus:outline-none focus:border-[#FACC15]"
+                  />
+
+                  <div className="flex items-center gap-1.5 overflow-x-auto pb-1 text-xs">
+                    {frontDeskCategories.map((cat) => {
+                      const count = cat === "All" ? services.length : services.filter((s) => s.category === cat).length;
+                      return (
+                        <button
+                          key={cat}
+                          type="button"
+                          onClick={() => setWalkInCatFilter(cat)}
+                          className={`px-2.5 py-1 rounded-lg whitespace-nowrap text-[11px] font-bold transition-all shrink-0 cursor-pointer ${
+                            walkInCatFilter === cat
+                              ? "bg-[#FACC15] text-[#080808]"
+                              : "bg-[#181818] text-[#A1A1AA] hover:text-[#F8FAFC] border border-[#27272A]"
+                          }`}
+                        >
+                          <span>{cat}</span>
+                          <span className="text-[9px] opacity-75 ml-1">({count})</span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+
                 {services.length > 0 ? (
-                  <div className="grid grid-cols-2 gap-2 max-h-36 overflow-y-auto pr-1">
-                    {services.map((s) => {
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-48 overflow-y-auto pr-1">
+                    {services
+                      .filter((s) => walkInCatFilter === "All" || s.category === walkInCatFilter)
+                      .filter((s) => !walkInSearch.trim() || s.name.toLowerCase().includes(walkInSearch.toLowerCase()) || (s.category && s.category.toLowerCase().includes(walkInSearch.toLowerCase())))
+                      .map((s) => {
                       const isSel = walkInServices.includes(s.name);
                       return (
                         <button
@@ -1527,6 +1588,7 @@ We look forward to seeing you again soon! 💇‍♀️✨`;
                           }`}
                         >
                           <div className="min-w-0">
+                            <div className="text-[9px] font-mono uppercase tracking-wider text-[#FACC15]/70">{s.category}</div>
                             <div className="text-xs font-semibold text-[#F8FAFC] truncate">{s.name}</div>
                             <div className="text-[10px] font-mono text-[#71717A]">{s.durationMinutes} min</div>
                           </div>
@@ -1675,9 +1737,48 @@ We look forward to seeing you again soon! 💇‍♀️✨`;
             </div>
 
             <div className="space-y-2">
-              <label className="text-xs font-medium text-[#A1A1AA]">Available Services:</label>
+              <div className="flex items-center justify-between">
+                <label className="text-xs font-medium text-[#A1A1AA]">Select Category & Services:</label>
+                <span className="text-[11px] font-mono text-[#FACC15]">{selectedServiceList.length} selected</span>
+              </div>
+
+              {/* Category Filter & Search */}
+              <div className="space-y-2">
+                <input
+                  type="text"
+                  placeholder="Search service name..."
+                  value={serviceModalSearch}
+                  onChange={(e) => setServiceModalSearch(e.target.value)}
+                  className="w-full px-3 py-1.5 text-xs bg-[#111111] border border-[#27272A] rounded-lg text-[#F8FAFC] placeholder-[#71717A] focus:outline-none focus:border-[#FACC15]"
+                />
+
+                <div className="flex items-center gap-1.5 overflow-x-auto pb-1 text-xs">
+                  {frontDeskCategories.map((cat) => {
+                    const count = cat === "All" ? services.length : services.filter((s) => s.category === cat).length;
+                    return (
+                      <button
+                        key={cat}
+                        type="button"
+                        onClick={() => setServiceModalCatFilter(cat)}
+                        className={`px-2.5 py-1 rounded-lg whitespace-nowrap text-[11px] font-bold transition-all shrink-0 cursor-pointer ${
+                          serviceModalCatFilter === cat
+                            ? "bg-[#FACC15] text-[#080808]"
+                            : "bg-[#181818] text-[#A1A1AA] hover:text-[#F8FAFC] border border-[#27272A]"
+                        }`}
+                      >
+                        <span>{cat}</span>
+                        <span className="text-[9px] opacity-75 ml-1">({count})</span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-60 overflow-y-auto p-0.5">
-                {services.map((srv) => {
+                {services
+                  .filter((s) => serviceModalCatFilter === "All" || s.category === serviceModalCatFilter)
+                  .filter((s) => !serviceModalSearch.trim() || s.name.toLowerCase().includes(serviceModalSearch.toLowerCase()) || (s.category && s.category.toLowerCase().includes(serviceModalSearch.toLowerCase())))
+                  .map((srv) => {
                   const isSelected = selectedServiceList.includes(srv.name);
                   return (
                     <button
@@ -1690,8 +1791,11 @@ We look forward to seeing you again soon! 💇‍♀️✨`;
                           : "bg-[#111111] text-[#A1A1AA] border-[#27272A] hover:border-[#3F3F46]"
                       }`}
                     >
-                      <span className="truncate">{srv.name}</span>
-                      <span className="font-mono text-[11px] shrink-0 ml-1">
+                      <div className="min-w-0">
+                        <div className="text-[9px] font-mono uppercase text-[#FACC15]/70">{srv.category}</div>
+                        <div className="truncate font-semibold text-[#F8FAFC]">{srv.name}</div>
+                      </div>
+                      <span className="font-mono text-[11px] shrink-0 ml-1 text-[#FACC15]">
                         {formatCurrency(srv.price)}
                       </span>
                     </button>

@@ -188,9 +188,6 @@ export function ReportsView() {
               <h1 className="text-xl font-serif font-bold text-[#F8FAFC] tracking-tight">
                 Sales & Tax Intelligence
               </h1>
-              <span className="text-[10px] font-mono uppercase tracking-wider font-bold px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/30">
-                GST Ready
-              </span>
             </div>
             <p className="text-xs text-[#71717A] mt-0.5">
               Daily revenue ledger • Payment tender settlement • Staff commission distribution

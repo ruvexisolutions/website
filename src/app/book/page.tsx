@@ -1,10 +1,10 @@
-﻿"use client";
+"use client";
 
 import React, { Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import { BookingPreviewView } from "@/components/booking-preview-view";
 import Link from "next/link";
-import { ShieldCheck, Sparkles, Building2, Lock } from "lucide-react";
+import { ShieldCheck } from "lucide-react";
 
 function BookingContent() {
   const searchParams = useSearchParams();
@@ -16,17 +16,8 @@ function BookingContent() {
 export default function BookPage() {
   return (
     <div className="min-h-screen bg-[#080808] text-slate-100 py-6 sm:py-10 px-3 sm:px-6 lg:px-8 selection:bg-[#FACC15] selection:text-[#080808]">
-      {/* Top Client Brand & Trust Header */}
-      <div className="max-w-6xl mx-auto mb-6 flex items-center justify-between gap-3 px-1">
-        <div className="flex items-center gap-2 text-xs font-mono text-slate-400">
-          <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-          <span className="font-semibold text-slate-200">Ruvexi Concierge</span>
-          <span className="hidden sm:inline-flex items-center gap-1 text-[11px] text-slate-500 border-l border-white/[0.1] pl-2">
-            <Lock className="w-3 h-3 text-[#FACC15]/80" />
-            Verified Direct Booking
-          </span>
-        </div>
-
+      {/* Top Client Header */}
+      <div className="max-w-6xl mx-auto mb-6 flex items-center justify-end gap-3 px-1">
         <div className="flex items-center gap-3">
           <Link
             href="/login"

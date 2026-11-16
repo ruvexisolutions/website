@@ -10,6 +10,7 @@ import {
   signOutWithSupabase,
   mapSupabaseUserToRuvexi,
 } from "./supabase/auth";
+import { INITIAL_SERVICES as DEMO_SERVICES } from "./demo-data";
 
 // ============================================================================
 // Types & Data Contracts (Modeled on Salonist.io architecture)
@@ -259,7 +260,6 @@ export interface ToastNotification {
 
 export type TabType =
   | "frontdesk"
-  | "owner"
   | "overview"
   | "calendar"
   | "pos"
@@ -410,7 +410,7 @@ const DEFAULT_SALON: Salon = {
   category: "Luxury Hair Studio & Aesthetic Spa",
   logoUrl: "/images/ruvexi-logo.png",
   logo: "/images/ruvexi-logo.png",
-  bannerPreset: "discord-blurple",
+  bannerPreset: "marble-showcase",
   bannerUrl: "",
   bannerGradient: "linear-gradient(135deg, #1e1f38 0%, #5865F2 45%, #7289da 70%, #eb459e 100%)",
   accentColor: "#FACC15",
@@ -431,7 +431,20 @@ const DEFAULT_SALON: Salon = {
   bankName: "",
 };
 
-const INITIAL_SERVICES: Service[] = [];
+const INITIAL_SERVICES: Service[] = DEMO_SERVICES.map((s) => ({
+  id: s.id,
+  salonId: "sln_1dc700ec03ea",
+  category: s.category,
+  name: s.name,
+  durationMinutes: s.durationMinutes,
+  bufferMinutes: 5,
+  price: s.price,
+  description: s.description,
+  popular: s.popular,
+  imageUrl: s.imageUrl || "",
+  isOnlineBookable: true,
+  isActive: true,
+}));
 
 const INITIAL_STAFF: Staff[] = [];
 
@@ -511,8 +524,9 @@ export function RuvexiProvider({ children }: { children: React.ReactNode }) {
           persist("Ruvexi_customers", data.customers);
         }
         if (Array.isArray(data.services)) {
-          setServices(data.services);
-          persist("Ruvexi_services", data.services);
+          const srvList = data.services.length > 0 ? data.services : INITIAL_SERVICES;
+          setServices(srvList);
+          persist("Ruvexi_services", srvList);
         }
         if (Array.isArray(data.staff)) {
           setStaff(data.staff);
@@ -603,7 +617,16 @@ export function RuvexiProvider({ children }: { children: React.ReactNode }) {
       }
       if (storedSalon) setSalon(JSON.parse(storedSalon));
       if (storedCustomers) setCustomers(JSON.parse(storedCustomers));
-      if (storedServices) setServices(JSON.parse(storedServices));
+      if (storedServices) {
+        try {
+          const parsed = JSON.parse(storedServices);
+          setServices(Array.isArray(parsed) && parsed.length > 0 ? parsed : INITIAL_SERVICES);
+        } catch {
+          setServices(INITIAL_SERVICES);
+        }
+      } else {
+        setServices(INITIAL_SERVICES);
+      }
       if (storedStaff) setStaff(JSON.parse(storedStaff));
       if (storedInventory) setInventory(JSON.parse(storedInventory));
       if (storedAppointments) setAppointments(JSON.parse(storedAppointments));

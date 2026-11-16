@@ -20,8 +20,7 @@ export type DashboardTab =
   | "reports"
   | "booking"
   | "settings"
-  | "subscription"
-  | "owner";
+  | "subscription";
 
 export interface RoleConfig {
   role: "SALON_RECEPTIONIST" | "SALON_MANAGER";
@@ -115,7 +114,6 @@ export const ROLE_CONFIGS: Record<"SALON_RECEPTIONIST" | "SALON_MANAGER", RoleCo
       "booking",
       "settings",
       "subscription",
-      "owner",
     ],
     capabilities: {
       canViewBusinessAnalytics: true,
@@ -159,7 +157,6 @@ export function canAccessTab(role: string | undefined, tab: DashboardTab): boole
 export function getRequiredRoleForTab(tab: DashboardTab): string {
   switch (tab) {
     case "overview":
-    case "owner":
     case "reports":
     case "inventory":
     case "followups":

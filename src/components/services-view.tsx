@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useMemo } from "react";
 import { useRuvexi } from "@/lib/ruvexi-context";
 import { formatCurrency } from "@/lib/utils";
 import { ServiceItem } from "@/lib/types";
@@ -25,7 +25,7 @@ import {
 } from "lucide-react";
 
 export function ServicesView() {
-  const { services, inventory, addService, updateService, showToast } = useRuvexi();
+  const { services, inventory, salon, addService, updateService, showToast } = useRuvexi();
 
   const [activeCategory, setActiveCategory] = useState<string>("All");
   const [searchQuery, setSearchQuery] = useState<string>("");
@@ -48,8 +48,126 @@ export function ServicesView() {
   const [newPopular, setNewPopular] = useState(false);
   const [newImageUrl, setNewImageUrl] = useState("");
   const [isGeneratingAiDesc, setIsGeneratingAiDesc] = useState(false);
+  const [isGeneratingAiCover, setIsGeneratingAiCover] = useState(false);
 
-  const categories = ["All", "Hair", "Skin & Spa", "Nails", "Beard & Grooming", "Makeup"];
+  const brandCoverImageWithSalonName = async (
+    baseDataUrl: string,
+    salonLabel: string,
+    serviceLabel: string
+  ): Promise<string> => {
+    return new Promise((resolve) => {
+      const img = new Image();
+      img.onload = () => {
+        const canvas = document.createElement("canvas");
+        canvas.width = 1024;
+        canvas.height = 576;
+        const ctx = canvas.getContext("2d");
+        if (!ctx) {
+          resolve(baseDataUrl);
+          return;
+        }
+        // Cover crop
+        const scale = Math.max(canvas.width / img.width, canvas.height / img.height);
+        const w = img.width * scale;
+        const h = img.height * scale;
+        ctx.drawImage(img, (canvas.width - w) / 2, (canvas.height - h) / 2, w, h);
+
+        // Editorial bottom gradient vignette
+        const grad = ctx.createLinearGradient(0, canvas.height * 0.42, 0, canvas.height);
+        grad.addColorStop(0, "rgba(8, 8, 8, 0)");
+        grad.addColorStop(0.55, "rgba(8, 8, 8, 0.55)");
+        grad.addColorStop(1, "rgba(8, 8, 8, 0.92)");
+        ctx.fillStyle = grad;
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+        // Top-left salon pill badge
+        const safeSalon = (salonLabel || "Salon Studio").toUpperCase();
+        ctx.font = "700 18px ui-monospace, SFMono-Regular, Menlo, monospace";
+        const pillTextW = ctx.measureText(safeSalon).width;
+        const pillW = Math.min(pillTextW + 44, canvas.width - 72);
+        ctx.fillStyle = "rgba(16, 16, 16, 0.82)";
+        ctx.strokeStyle = "rgba(250, 204, 21, 0.55)";
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.roundRect(36, 32, pillW, 40, 20);
+        ctx.fill();
+        ctx.stroke();
+
+        ctx.fillStyle = "#FACC15";
+        ctx.textBaseline = "middle";
+        ctx.fillText(safeSalon, 58, 53, pillW - 44);
+
+        // Bottom service title + salon signature
+        ctx.fillStyle = "#F8FAFC";
+        ctx.font = "700 40px Georgia, serif";
+        ctx.textBaseline = "alphabetic";
+        ctx.fillText(serviceLabel || "Signature Treatment", 36, canvas.height - 54, canvas.width - 72);
+
+        ctx.fillStyle = "#FACC15";
+        ctx.font = "600 16px ui-monospace, SFMono-Regular, Menlo, monospace";
+        ctx.fillText(`CURATED BY ${safeSalon}`, 36, canvas.height - 26, canvas.width - 72);
+
+        resolve(canvas.toDataURL("image/jpeg", 0.9));
+      };
+      img.onerror = () => resolve(baseDataUrl);
+      img.src = baseDataUrl;
+    });
+  };
+
+  const handleGenerateAiCover = async () => {
+    const targetName = newName.trim() || `${newCategory} Signature Treatment`;
+    setIsGeneratingAiCover(true);
+    try {
+      const token = typeof window !== "undefined" ? localStorage.getItem("Ruvexi_token") : null;
+      const res = await fetch("/api/ai/service-cover", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        body: JSON.stringify({
+          serviceName: targetName,
+          category: newCategory,
+          description: newDescription,
+          salonName: salon.name,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok || !data.imageDataUrl) {
+        throw new Error(data.error || "Could not generate AI cover.");
+      }
+      const brandedDataUrl = await brandCoverImageWithSalonName(
+        data.imageDataUrl,
+        salon.name,
+        targetName
+      );
+      setNewImageUrl(brandedDataUrl);
+      showToast(`AI cover generated with "${salon.name}" branding!`);
+    } catch (err: any) {
+      showToast(err?.message || "Failed to generate AI cover image.", "error");
+    } finally {
+      setIsGeneratingAiCover(false);
+    }
+  };
+
+  const categories = useMemo<string[]>(() => {
+    const defaultOrder = [
+      "All",
+      "Waxing",
+      "Hair",
+      "Beard & Grooming",
+      "Hair Colour",
+      "Nails",
+      "Skin & Spa",
+      "Threading",
+      "Hair Spa",
+      "Massage",
+      "Facial",
+    ];
+    const srvCats = Array.from(new Set(services.map((s) => s.category).filter(Boolean))) as string[];
+    const extra = srvCats.filter((c: string) => !defaultOrder.includes(c));
+    return [...defaultOrder.filter((c: string) => c === "All" || srvCats.includes(c)), ...extra];
+  }, [services]);
 
   const filteredServices = services.filter((s) => {
     const matchesCategory = activeCategory === "All" || s.category === activeCategory;
@@ -187,7 +305,7 @@ export function ServicesView() {
         </div>
 
         <div className="flex items-center gap-1.5 overflow-x-auto text-xs pb-1">
-          {categories.map((cat) => (
+          {categories.map((cat: string) => (
             <button
               key={cat}
               onClick={() => setActiveCategory(cat)}
@@ -440,12 +558,22 @@ export function ServicesView() {
 
               {/* Service Media & Photo Upload */}
               <div className="p-3.5 bg-[#181818] border border-[#27272A] rounded-xl space-y-3">
-                <div className="flex items-center justify-between">
+                <div className="flex items-center justify-between gap-2 flex-wrap">
                   <label className="font-mono text-[11px] text-[#FACC15] font-bold flex items-center gap-1.5">
                     <ImageIcon className="w-3.5 h-3.5" />
                     <span>Service Photo & Media</span>
                   </label>
-                  <span className="text-[10px] text-[#71717A] font-mono">JPG, PNG, WebP</span>
+                  <button
+                    type="button"
+                    disabled={isGeneratingAiCover}
+                    onClick={handleGenerateAiCover}
+                    className="px-2.5 py-1 rounded-lg bg-[#FACC15]/15 hover:bg-[#FACC15]/25 border border-[#FACC15]/30 text-[#FACC15] text-[10px] font-mono font-bold flex items-center gap-1.5 transition-all cursor-pointer disabled:opacity-50"
+                  >
+                    <Sparkles className="w-3 h-3" />
+                    <span>
+                      {isGeneratingAiCover ? "Generating AI Cover..." : `AI Cover (${salon.name})`}
+                    </span>
+                  </button>
                 </div>
 
                 {newImageUrl ? (

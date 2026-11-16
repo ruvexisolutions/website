@@ -117,9 +117,6 @@ export function OverviewView({ onNavigateTab, onOpenSwitchLocation, activeBranch
           {/* Top Status & Active Studio Switcher / Trial Row */}
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[#151515] border border-[#27272A] text-xs font-mono tracking-wider">
-              <span className="w-2 h-2 rounded-full bg-[#10B981] animate-pulse" />
-              <span className="text-[#10B981] font-semibold">Live Operational</span>
-              <span className="text-[#71717A]">•</span>
               <span className="text-[#A1A1AA]">{todayDateString}</span>
             </div>
 
@@ -145,21 +142,7 @@ export function OverviewView({ onNavigateTab, onOpenSwitchLocation, activeBranch
                 )}
               </div>
 
-              {/* 7-Day Trial Status Pill */}
-              {salon.subscriptionStatus === "trial" && (
-                <button
-                  type="button"
-                  onClick={() => onNavigateTab("subscription")}
-                  className="cursor-pointer bg-[#FACC15]/10 border border-[#FACC15]/25 hover:border-[#FACC15] rounded-full px-3 py-1 flex items-center gap-1.5 transition-colors"
-                  title="7-Day Free Trial Active. Click to view subscription options."
-                >
-                  <span className="w-1.5 h-1.5 rounded-full bg-[#FACC15] animate-ping" />
-                  <span className="text-[11px] font-mono text-[#FACC15] font-semibold">
-                    7-Day Trial: {typeof salon.trialDaysLeft === "number" ? salon.trialDaysLeft : 7}d left
-                  </span>
-                  <ChevronRight className="w-3 h-3 text-[#FACC15]" />
-                </button>
-              )}
+
             </div>
           </div>
 

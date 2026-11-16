@@ -40,6 +40,13 @@ export function mapSupabaseUserToRuvexi(supabaseUser: SupabaseAuthUser, session?
   const salonId = metadata.salon_id || `sln_${supabaseUser.id.replace(/-/g, "").slice(0, 12)}`;
   const salonName = metadata.salon_name || `${name}'s Atelier`;
 
+  const avatar =
+    metadata.avatar_url ||
+    metadata.picture ||
+    supabaseUser.user_metadata?.avatar_url ||
+    supabaseUser.user_metadata?.picture ||
+    name.charAt(0).toUpperCase();
+
   const user = {
     id: supabaseUser.id,
     name,
@@ -47,7 +54,7 @@ export function mapSupabaseUserToRuvexi(supabaseUser: SupabaseAuthUser, session?
     phone,
     role,
     salonId,
-    avatar: name.charAt(0).toUpperCase(),
+    avatar,
   };
 
   const salon = {
@@ -353,7 +360,7 @@ async function resolveGoogleClientId(): Promise<string> {
   if (cachedGoogleClientId) return cachedGoogleClientId;
   try {
     const apiBase =
-      process.env.NEXT_PUBLIC_API_URL || "https://web-production-7d450.up.railway.app/api/v1";
+      process.env.NEXT_PUBLIC_API_URL || "https://api.ruvexisolutions.com/api/v1";
     const res = await fetch(`${apiBase}/auth/public-config`, { cache: "no-store" });
     if (res.ok) {
       const data = await res.json();

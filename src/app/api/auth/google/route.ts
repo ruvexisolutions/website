@@ -3,7 +3,7 @@ import { NextResponse } from "next/server";
 const BACKEND_URL =
   process.env.BACKEND_INTERNAL_URL ||
   process.env.NEXT_PUBLIC_API_URL?.replace(/\/api\/v1\/?$/, "") ||
-  "https://web-production-7d450.up.railway.app";
+  "https://api.ruvexisolutions.com";
 
 export async function POST(request: Request) {
   try {

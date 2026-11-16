@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useMemo } from "react";
 import { useRuvexi } from "@/lib/ruvexi-context";
 import { InvoiceItem, Invoice } from "@/lib/types";
 import { formatCurrency } from "@/lib/utils";
@@ -36,6 +36,7 @@ import {
   ExternalLink,
   AlertCircle,
   Wallet,
+  Maximize2,
 } from "lucide-react";
 import QRCode from "qrcode";
 import { playPaymentAlertSound } from "@/lib/audio-alerts";
@@ -58,8 +59,30 @@ export function PosView() {
   const [categoryFilter, setCategoryFilter] = useState<string>("All");
   const [itemTypeTab, setItemTypeTab] = useState<"services" | "retail">("services");
 
+  // Dynamic Categories from Services Catalog
+  const availableCategories = useMemo<string[]>(() => {
+    const defaultOrder = [
+      "All",
+      "Waxing",
+      "Hair",
+      "Beard & Grooming",
+      "Hair Colour",
+      "Nails",
+      "Skin & Spa",
+      "Threading",
+      "Hair Spa",
+      "Massage",
+      "Facial",
+    ];
+    const srvCats = Array.from(new Set(services.map((s) => s.category).filter(Boolean))) as string[];
+    const extra = srvCats.filter((c: string) => !defaultOrder.includes(c));
+    return [...defaultOrder.filter((c: string) => c === "All" || srvCats.includes(c)), ...extra];
+  }, [services]);
+
   // Payment, Tip & Discount
   const [discountCode, setDiscountCode] = useState<string>("");
+  const [discountMode, setDiscountMode] = useState<"percent" | "amount">("percent");
+  const [discountInput, setDiscountInput] = useState<string>("");
   const [appliedDiscount, setAppliedDiscount] = useState<number>(0);
   const [discountMessage, setDiscountMessage] = useState<string>("");
   // Payment & Dynamic Checkout States
@@ -72,11 +95,13 @@ export function PosView() {
   const [upiQrDataUrl, setUpiQrDataUrl] = useState<string>("");
   const [upiIntentUri, setUpiIntentUri] = useState<string>("");
   const [copiedUpi, setCopiedUpi] = useState<boolean>(false);
+  const [showQrPopup, setShowQrPopup] = useState<boolean>(false);
   const [upiConfirmedByStaff, setUpiConfirmedByStaff] = useState<boolean>(false);
   const [manualUtr, setManualUtr] = useState<string>("");
   const [checkoutError, setCheckoutError] = useState<string | null>(null);
 
-  const [tipPercentage, setTipPercentage] = useState<number | null>(null);
+  const [tipMode, setTipMode] = useState<"percent" | "amount">("percent");
+  const [tipInput, setTipInput] = useState<string>("");
   const [tipAmount, setTipAmount] = useState<number>(0);
   const [redeemLoyalty, setRedeemLoyalty] = useState<boolean>(false);
   const [showFormulaModal, setShowFormulaModal] = useState<boolean>(false);
@@ -273,21 +298,43 @@ export function PosView() {
     setCart((prev) => prev.filter((_, idx) => idx !== index));
   };
 
-  const applyPredefinedCoupon = (code: string) => {
-    setDiscountCode(code);
-    if (code === "FESTIVE20") {
-      const disc = Math.round(subtotal * 0.2);
-      setAppliedDiscount(disc);
-      setDiscountMessage("✓ 20% Festive Special Applied");
-    } else if (code === "LUXE10") {
-      const disc = Math.round(subtotal * 0.1);
-      setAppliedDiscount(disc);
-      setDiscountMessage("✓ 10% Privilege Applied");
-    } else if (code === "VIP500") {
-      setAppliedDiscount(500);
-      setDiscountMessage("✓ ₹500 VIP Voucher Applied");
+  // Recalculate custom discount dynamically when cart subtotal or discount inputs change
+  React.useEffect(() => {
+    const raw = parseFloat(discountInput);
+    if (!discountInput.trim() || Number.isNaN(raw) || raw <= 0 || subtotal <= 0) {
+      setAppliedDiscount(0);
+      setDiscountCode("");
+      setDiscountMessage("");
+      return;
     }
-  };
+    if (discountMode === "percent") {
+      const pct = Math.min(100, Math.max(0, raw));
+      const disc = Math.min(subtotal, Math.round((subtotal * pct) / 100));
+      setAppliedDiscount(disc);
+      setDiscountCode(`${pct}% Off`);
+      setDiscountMessage(`✓ ${pct}% custom discount applied (-${formatCurrency(disc)})`);
+    } else {
+      const amt = Math.min(subtotal, Math.round(raw));
+      setAppliedDiscount(amt);
+      setDiscountCode("Custom ₹");
+      setDiscountMessage(`✓ ${formatCurrency(amt)} custom discount applied`);
+    }
+  }, [subtotal, discountMode, discountInput]);
+
+  // Recalculate custom tip dynamically when cart subtotal or tip inputs change
+  React.useEffect(() => {
+    const raw = parseFloat(tipInput);
+    if (!tipInput.trim() || Number.isNaN(raw) || raw <= 0 || subtotal <= 0) {
+      setTipAmount(0);
+      return;
+    }
+    if (tipMode === "percent") {
+      const pct = Math.min(100, Math.max(0, raw));
+      setTipAmount(Math.round((subtotal * pct) / 100));
+    } else {
+      setTipAmount(Math.round(raw));
+    }
+  }, [subtotal, tipMode, tipInput]);
 
   const handleCheckout = (asPending: boolean = false) => {
     setCheckoutError(null);
@@ -388,9 +435,10 @@ export function PosView() {
 
       // Reset checkout form
       setCart([]);
+      setDiscountInput("");
       setAppliedDiscount(0);
+      setTipInput("");
       setTipAmount(0);
-      setTipPercentage(null);
       setRedeemLoyalty(false);
       setDiscountCode("");
       setDiscountMessage("");
@@ -437,9 +485,6 @@ export function PosView() {
           <div>
             <div className="flex items-center gap-2.5">
               <h1 className="text-xl font-serif font-bold text-[#F8FAFC] tracking-tight">Point of Sale & Register</h1>
-              <span className="text-[10px] font-mono uppercase tracking-wider font-bold px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/30">
-                Live Terminal
-              </span>
             </div>
             <p className="text-xs text-[#71717A] mt-0.5">
               Rapid multi-item counter billing • Stylist commission attribution • GST split compliance
@@ -525,19 +570,40 @@ export function PosView() {
               </div>
 
               {itemTypeTab === "services" && (
-                <div className="flex items-center gap-2 overflow-x-auto pb-1 text-xs">
-                  {["All", "Hair", "Skin & Spa", "Nails", "Beard & Grooming", "Makeup"].map((cat) => (
-                    <button
-                      key={cat}
-                      onClick={() => setCategoryFilter(cat)}
-                      className={`px-3.5 py-1.5 rounded-lg whitespace-nowrap text-xs font-bold transition-all ${categoryFilter === cat
-                          ? "bg-[#FACC15] text-[#080808] shadow-sm"
-                          : "bg-[#181818] text-[#A1A1AA] hover:text-[#F8FAFC] border border-[#27272A]"
-                        }`}
-                    >
-                      {cat}
-                    </button>
-                  ))}
+                <div className="space-y-2 pt-1 border-t border-[#27272A]/60">
+                  <div className="flex items-center justify-between text-[11px]">
+                    <span className="font-mono uppercase tracking-wider font-semibold text-[#FACC15] flex items-center gap-1.5">
+                      <Sparkles className="w-3 h-3 text-[#FACC15]" />
+                      Select Category
+                    </span>
+                    <span className="text-[#A1A1AA] text-[10px] font-mono">
+                      {categoryFilter === "All" ? `${services.length} services in catalog` : `${filteredServices.length} services in ${categoryFilter}`}
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-1.5 overflow-x-auto pb-1 text-xs">
+                    {availableCategories.map((cat: string) => {
+                      const count = cat === "All" ? services.length : services.filter((s) => s.category === cat).length;
+                      return (
+                        <button
+                          key={cat}
+                          type="button"
+                          onClick={() => setCategoryFilter(cat)}
+                          className={`px-3 py-1.5 rounded-lg whitespace-nowrap text-xs font-bold transition-all flex items-center gap-1.5 shrink-0 ${categoryFilter === cat
+                              ? "bg-[#FACC15] text-[#080808] shadow-sm font-extrabold"
+                              : "bg-[#181818] text-[#A1A1AA] hover:text-[#F8FAFC] border border-[#27272A]"
+                            }`}
+                        >
+                          <span>{cat}</span>
+                          <span
+                            className={`text-[10px] px-1.5 py-0.2 rounded-full font-mono ${categoryFilter === cat ? "bg-[#080808]/20 text-[#080808]" : "bg-[#27272A] text-[#71717A]"
+                              }`}
+                          >
+                            {count}
+                          </span>
+                        </button>
+                      );
+                    })}
+                  </div>
                 </div>
               )}
             </div>
@@ -545,7 +611,55 @@ export function PosView() {
             {/* Catalog Grid */}
             <div className="max-h-[620px] overflow-y-auto pr-1 space-y-3">
               {itemTypeTab === "services" ? (
-                filteredServices.length === 0 ? (
+                <>
+                  {categoryFilter !== "All" && (
+                    <div className="flex items-center justify-between bg-[#151515] border border-[#27272A] px-3.5 py-2 rounded-xl">
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs font-bold text-[#F8FAFC]">{categoryFilter}</span>
+                        <span className="text-[11px] text-[#A1A1AA]">({filteredServices.length} services)</span>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => setCategoryFilter("All")}
+                        className="text-[11px] font-mono text-[#FACC15] hover:underline flex items-center gap-1 cursor-pointer"
+                      >
+                        <span>View All Categories</span>
+                      </button>
+                    </div>
+                  )}
+
+                  {categoryFilter === "All" && !catalogSearch && (
+                    <div className="bg-[#101010] border border-[#27272A] p-3.5 rounded-2xl space-y-2 mb-2">
+                      <div className="text-[11px] font-mono uppercase tracking-wider text-[#71717A] flex items-center justify-between">
+                        <span>Select a Category to Browse</span>
+                        <span className="text-[#FACC15]">{availableCategories.filter((c: string) => c !== "All").length} Categories</span>
+                      </div>
+                      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2">
+                        {availableCategories
+                          .filter((c: string) => c !== "All")
+                          .map((cat: string) => {
+                            const count = services.filter((s) => s.category === cat).length;
+                            return (
+                              <button
+                                key={cat}
+                                type="button"
+                                onClick={() => setCategoryFilter(cat)}
+                                className="bg-[#161616] hover:bg-[#1f1f1f] border border-[#27272A] hover:border-[#FACC15]/40 p-2.5 rounded-xl text-left transition-all group cursor-pointer"
+                              >
+                                <div className="text-xs font-bold text-[#F8FAFC] group-hover:text-[#FACC15] transition-colors truncate">
+                                  {cat}
+                                </div>
+                                <div className="text-[10px] text-[#71717A] font-mono mt-0.5">
+                                  {count} {count === 1 ? "service" : "services"}
+                                </div>
+                              </button>
+                            );
+                          })}
+                      </div>
+                    </div>
+                  )}
+
+                  {filteredServices.length === 0 ? (
                   <div className="bg-[#101010] border border-[#27272A] p-12 rounded-2xl text-center space-y-3">
                     <div className="w-14 h-14 rounded-full bg-[#181818] border border-[#27272A] text-[#FACC15] flex items-center justify-center mx-auto">
                       <Scissors className="w-7 h-7" />
@@ -600,7 +714,8 @@ export function PosView() {
                       </div>
                     ))}
                   </div>
-                )
+                )}
+                </>
               ) : filteredRetailProducts.length === 0 ? (
                 <div className="bg-[#101010] border border-[#27272A] p-12 rounded-2xl text-center space-y-3">
                   <div className="w-14 h-14 rounded-full bg-[#181818] border border-[#27272A] text-emerald-400 flex items-center justify-center mx-auto">
@@ -893,47 +1008,65 @@ export function PosView() {
                 )}
               </div>
 
-              {/* Predefined Coupon Codes */}
+              {/* Custom Owner Discount (% or ₹) */}
               <div className="pt-2 border-t border-[#27272A] space-y-2">
-                <span className="text-xs font-mono font-bold text-[#A1A1AA] block uppercase tracking-wider">
-                  Discount Coupons:
-                </span>
-                <div className="flex flex-wrap gap-1.5">
-                  <button
-                    onClick={() => applyPredefinedCoupon("FESTIVE20")}
-                    className={`px-3 py-1 rounded-lg text-xs font-bold border transition-all ${discountCode === "FESTIVE20"
-                        ? "bg-[#FACC15] text-[#080808] border-[#FACC15] shadow-sm"
-                        : "bg-[#181818] text-[#A1A1AA] border-[#27272A] hover:bg-[#27272A]"
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-mono font-bold text-[#A1A1AA] uppercase tracking-wider">
+                    Custom Discount:
+                  </span>
+                  {appliedDiscount > 0 && (
+                    <button
+                      type="button"
+                      onClick={() => setDiscountInput("")}
+                      className="text-[11px] font-bold text-[#A1A1AA] hover:text-white transition-colors"
+                    >
+                      Clear
+                    </button>
+                  )}
+                </div>
+                <div className="flex items-center gap-2">
+                  <div className="flex rounded-lg border border-[#27272A] bg-[#181818] p-0.5 shrink-0">
+                    <button
+                      type="button"
+                      onClick={() => setDiscountMode("percent")}
+                      className={`px-2.5 py-1 rounded-md text-xs font-bold font-mono transition-all ${
+                        discountMode === "percent"
+                          ? "bg-[#FACC15] text-[#080808]"
+                          : "text-[#A1A1AA] hover:text-white"
                       }`}
-                  >
-                    🏷️ FESTIVE20 (20% Off)
-                  </button>
-                  <button
-                    onClick={() => applyPredefinedCoupon("LUXE10")}
-                    className={`px-3 py-1 rounded-lg text-xs font-bold border transition-all ${discountCode === "LUXE10"
-                        ? "bg-[#FACC15] text-[#080808] border-[#FACC15] shadow-sm"
-                        : "bg-[#181818] text-[#A1A1AA] border-[#27272A] hover:bg-[#27272A]"
+                    >
+                      %
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setDiscountMode("amount")}
+                      className={`px-2.5 py-1 rounded-md text-xs font-bold font-mono transition-all ${
+                        discountMode === "amount"
+                          ? "bg-[#FACC15] text-[#080808]"
+                          : "text-[#A1A1AA] hover:text-white"
                       }`}
-                  >
-                    🏷️ LUXE10 (10% Off)
-                  </button>
-                  <button
-                    onClick={() => applyPredefinedCoupon("VIP500")}
-                    className={`px-3 py-1 rounded-lg text-xs font-bold border transition-all ${discountCode === "VIP500"
-                        ? "bg-[#FACC15] text-[#080808] border-[#FACC15] shadow-sm"
-                        : "bg-[#181818] text-[#A1A1AA] border-[#27272A] hover:bg-[#27272A]"
-                      }`}
-                  >
-                    🏷️ VIP500 (₹500 Off)
-                  </button>
+                    >
+                      ₹
+                    </button>
+                  </div>
+                  <input
+                    type="number"
+                    min="0"
+                    max={discountMode === "percent" ? 100 : undefined}
+                    step="any"
+                    value={discountInput}
+                    onChange={(e) => setDiscountInput(e.target.value)}
+                    placeholder={discountMode === "percent" ? "Enter discount % (e.g. 15)" : "Enter discount ₹ (e.g. 250)"}
+                    className="w-full px-3 py-1.5 rounded-lg bg-[#181818] border border-[#27272A] text-xs text-[#F8FAFC] placeholder:text-[#71717A] font-mono focus:outline-none focus:border-[#FACC15]"
+                  />
                 </div>
                 {discountMessage && (
                   <p className="text-xs text-emerald-400 font-bold">{discountMessage}</p>
                 )}
               </div>
 
-              {/* Stylist Gratuity & Tip Selector */}
-              <div className="pt-2 border-t border-[#27272A] space-y-1.5">
+              {/* Stylist Gratuity & Tip Selector (Custom % or ₹) */}
+              <div className="pt-2 border-t border-[#27272A] space-y-2">
                 <div className="flex items-center justify-between text-xs">
                   <span className="font-mono font-bold text-[#A1A1AA] uppercase tracking-wider flex items-center gap-1.5">
                     <Sparkles className="w-3.5 h-3.5 text-[#FACC15]" /> Stylist Tip (Optional)
@@ -944,23 +1077,52 @@ export function PosView() {
                     </span>
                   )}
                 </div>
-                <div className="grid grid-cols-4 gap-1.5">
-                  {[0, 10, 15, 20].map((pct) => (
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setTipInput("")}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-bold border transition-all font-mono shrink-0 ${
+                      !tipInput || tipAmount === 0
+                        ? "bg-[#FACC15] text-[#080808] border-[#FACC15] shadow-sm"
+                        : "bg-[#181818] text-[#A1A1AA] border-[#27272A] hover:bg-[#27272A]"
+                    }`}
+                  >
+                    No Tip
+                  </button>
+                  <div className="flex rounded-lg border border-[#27272A] bg-[#181818] p-0.5 shrink-0">
                     <button
-                      key={pct}
                       type="button"
-                      onClick={() => {
-                        setTipPercentage(pct);
-                        setTipAmount(pct === 0 ? 0 : Math.round((subtotal * pct) / 100));
-                      }}
-                      className={`py-1.5 rounded-lg text-xs font-bold border transition-all font-mono ${tipPercentage === pct
-                          ? "bg-[#FACC15] text-[#080808] border-[#FACC15] shadow-sm"
-                          : "bg-[#181818] text-[#A1A1AA] border-[#27272A] hover:bg-[#27272A]"
-                        }`}
+                      onClick={() => setTipMode("percent")}
+                      className={`px-2.5 py-1 rounded-md text-xs font-bold font-mono transition-all ${
+                        tipMode === "percent"
+                          ? "bg-[#FACC15] text-[#080808]"
+                          : "text-[#A1A1AA] hover:text-white"
+                      }`}
                     >
-                      {pct === 0 ? "No Tip" : `${pct}%`}
+                      %
                     </button>
-                  ))}
+                    <button
+                      type="button"
+                      onClick={() => setTipMode("amount")}
+                      className={`px-2.5 py-1 rounded-md text-xs font-bold font-mono transition-all ${
+                        tipMode === "amount"
+                          ? "bg-[#FACC15] text-[#080808]"
+                          : "text-[#A1A1AA] hover:text-white"
+                      }`}
+                    >
+                      ₹
+                    </button>
+                  </div>
+                  <input
+                    type="number"
+                    min="0"
+                    max={tipMode === "percent" ? 100 : undefined}
+                    step="any"
+                    value={tipInput}
+                    onChange={(e) => setTipInput(e.target.value)}
+                    placeholder={tipMode === "percent" ? "Tip % (optional)" : "Tip ₹ (optional)"}
+                    className="w-full px-3 py-1.5 rounded-lg bg-[#181818] border border-[#27272A] text-xs text-[#F8FAFC] placeholder:text-[#71717A] font-mono focus:outline-none focus:border-[#FACC15]"
+                  />
                 </div>
               </div>
 
@@ -1054,6 +1216,9 @@ export function PosView() {
                       if (isUpiAvailable) {
                         setPaymentMethod("UPI");
                         setCheckoutError(null);
+                        if (grandTotal > 0) {
+                          setShowQrPopup(true);
+                        }
                       }
                     }}
                     className={`p-3.5 rounded-2xl border transition-all flex flex-col justify-between ${paymentMethod === "UPI"
@@ -1216,17 +1381,37 @@ export function PosView() {
                         Payee: <span className="text-[#F8FAFC] font-semibold">{salon.paymentSettings?.upiPayeeName || salon.name}</span>
                       </p>
                     </div>
-                    <span className="text-xs font-mono font-bold text-[#FACC15]">
-                      Exact: {formatCurrency(grandTotal)}
-                    </span>
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs font-mono font-bold text-[#FACC15]">
+                        Exact: {formatCurrency(grandTotal)}
+                      </span>
+                      {upiQrDataUrl && (
+                        <button
+                          type="button"
+                          onClick={() => setShowQrPopup(true)}
+                          className="px-2.5 py-1 rounded-lg bg-[#FACC15]/15 hover:bg-[#FACC15]/25 border border-[#FACC15]/40 text-[#FACC15] text-[11px] font-bold flex items-center gap-1 transition-colors cursor-pointer"
+                        >
+                          <Maximize2 className="w-3 h-3" />
+                          <span>Pop-up QR</span>
+                        </button>
+                      )}
+                    </div>
                   </div>
 
-                  {/* Centered QR Display */}
+                  {/* Centered QR Display (clickable to pop out) */}
                   <div className="flex flex-col items-center justify-center py-2 space-y-3">
                     {upiQrDataUrl ? (
-                      <div className="p-3 bg-white rounded-2xl shadow-xl flex items-center justify-center">
+                      <button
+                        type="button"
+                        onClick={() => setShowQrPopup(true)}
+                        title="Click to open large customer-facing QR pop-up"
+                        className="group relative p-3 bg-white rounded-2xl shadow-xl flex items-center justify-center cursor-pointer transition-transform hover:scale-[1.02]"
+                      >
                         <img src={upiQrDataUrl} alt="Salon UPI QR Code" className="w-48 h-48 block" />
-                      </div>
+                        <span className="absolute bottom-2 right-2 px-2 py-0.5 rounded-md bg-black/80 text-white text-[10px] font-bold flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                          <Maximize2 className="w-2.5 h-2.5" /> Pop-up
+                        </span>
+                      </button>
                     ) : (
                       <div className="w-48 h-48 bg-[#181818] border border-[#27272A] rounded-2xl flex flex-col items-center justify-center text-[#71717A] p-4 text-center">
                         <QrCode className="w-10 h-10 mb-2 opacity-50" />
@@ -1511,6 +1696,109 @@ export function PosView() {
                 >
                   <Plus className="w-3.5 h-3.5" />
                   <span>Add to Cart ({formatCurrency(customItemPrice)})</span>
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+      {/* CUSTOMER-FACING UPI QR POP-UP MODAL */}
+      {showQrPopup && (
+        <div
+          className="fixed inset-0 z-50 bg-black/85 backdrop-blur-md flex items-center justify-center p-4 animate-in fade-in"
+          onClick={() => setShowQrPopup(false)}
+        >
+          <div
+            className="w-full max-w-sm bg-[#121212] border border-[#27272A] rounded-3xl shadow-2xl overflow-hidden text-center"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Top Header with Salon Name */}
+            <div className="px-6 pt-5 pb-4 bg-[#181818] border-b border-[#27272A] relative">
+              <button
+                type="button"
+                onClick={() => setShowQrPopup(false)}
+                className="absolute top-4 right-4 p-1.5 rounded-xl bg-[#27272A]/60 hover:bg-[#27272A] text-[#A1A1AA] hover:text-white transition-colors cursor-pointer"
+                aria-label="Close QR Pop-up"
+              >
+                <X className="w-4 h-4" />
+              </button>
+              <span className="text-[10px] font-mono font-bold uppercase tracking-[0.2em] text-[#FACC15]">
+                Scan &amp; Pay via UPI
+              </span>
+              <h3 className="text-xl font-extrabold text-[#F8FAFC] mt-1 tracking-tight">
+                {salon.paymentSettings?.upiPayeeName || salon.name}
+              </h3>
+              {salon.city && (
+                <p className="text-xs text-[#71717A] mt-0.5">{salon.city}</p>
+              )}
+            </div>
+
+            {/* Bill Amount + Large QR */}
+            <div className="p-6 space-y-4">
+              <div className="inline-flex flex-col items-center px-5 py-2 rounded-2xl bg-[#FACC15]/10 border border-[#FACC15]/30">
+                <span className="text-[10px] font-mono uppercase tracking-wider text-[#FACC15]/80">
+                  Total Bill Amount
+                </span>
+                <span className="text-3xl font-black font-mono text-[#FACC15] tracking-tight">
+                  {formatCurrency(grandTotal)}
+                </span>
+              </div>
+
+              <div className="flex justify-center">
+                {upiQrDataUrl ? (
+                  <div className="p-4 bg-white rounded-2xl shadow-xl">
+                    <img src={upiQrDataUrl} alt="Salon Payment QR" className="w-60 h-60 block" />
+                  </div>
+                ) : (
+                  <div className="w-60 h-60 bg-[#181818] border border-[#27272A] rounded-2xl flex flex-col items-center justify-center text-[#71717A]">
+                    <QrCode className="w-10 h-10 mb-2 opacity-50" />
+                    <span className="text-xs font-mono">Generating QR...</span>
+                  </div>
+                )}
+              </div>
+
+              {salon.upiId && (
+                <div className="flex items-center justify-center gap-2">
+                  <span className="px-3 py-1.5 rounded-xl bg-[#181818] border border-[#27272A] text-xs font-mono font-bold text-[#F8FAFC]">
+                    {salon.upiId}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      navigator.clipboard.writeText(salon.upiId || "");
+                      setCopiedUpi(true);
+                      setTimeout(() => setCopiedUpi(false), 2000);
+                    }}
+                    className="p-2 rounded-xl bg-[#181818] hover:bg-[#27272A] border border-[#27272A] text-[#A1A1AA] hover:text-white transition-colors cursor-pointer"
+                    title="Copy UPI ID"
+                  >
+                    {copiedUpi ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
+                  </button>
+                </div>
+              )}
+
+              <p className="text-[11px] text-[#71717A]">
+                GPay • PhonePe • Paytm • BHIM • Any UPI App
+              </p>
+
+              <div className="flex items-center gap-2 pt-1">
+                <button
+                  type="button"
+                  onClick={() => setShowQrPopup(false)}
+                  className="flex-1 py-2.5 px-3 rounded-xl bg-[#181818] hover:bg-[#27272A] border border-[#27272A] text-xs font-bold text-[#A1A1AA] hover:text-white transition-colors cursor-pointer"
+                >
+                  Close
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setUpiConfirmedByStaff(true);
+                    setShowQrPopup(false);
+                  }}
+                  className="flex-1 py-2.5 px-3 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-xs font-extrabold text-[#080808] flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
+                >
+                  <CheckCircle2 className="w-4 h-4" />
+                  <span>Payment Received</span>
                 </button>
               </div>
             </div>

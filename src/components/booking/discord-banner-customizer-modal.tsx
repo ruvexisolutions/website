@@ -56,24 +56,17 @@ export function DiscordBannerCustomizerModal({
   salon,
   onSave,
 }: DiscordBannerCustomizerModalProps) {
-  const [activeTab, setActiveTab] = useState<"presets" | "gradient" | "image" | "brand">("presets");
+  const [activeTab, setActiveTab] = useState<"presets" | "image" | "brand">("presets");
 
   // Local draft state for real-time live preview
-  const [selectedPreset, setSelectedPreset] = useState<string>(salon.bannerPreset || "discord-blurple");
+  const [selectedPreset, setSelectedPreset] = useState<string>(salon.bannerPreset || "marble-showcase");
   const [bannerUrl, setBannerUrl] = useState<string>(salon.bannerUrl || "");
-  const [bannerGradient, setBannerGradient] = useState<string>(salon.bannerGradient || "");
   const [accentColor, setAccentColor] = useState<string>(salon.accentColor || "#FACC15");
   const [brandName, setBrandName] = useState<string>(salon.name || "Ruvexi Premier Atelier");
   const [tagline, setTagline] = useState<string>(
     salon.tagline || "Bespoke Styling, Organic Hair Therapy & Modern Skin Wellness"
   );
-
-  // Gradient customizer controls
-  const [gradColor1, setGradColor1] = useState<string>("#5865F2");
-  const [gradColor2, setGradColor2] = useState<string>("#eb459e");
-  const [gradAngle, setGradAngle] = useState<number>(135);
-  const [gradType, setGradType] = useState<"linear" | "radial">("linear");
-  const [hasMesh, setHasMesh] = useState<boolean>(true);
+  const [uploadError, setUploadError] = useState<string | null>(null);
 
   // Image upload ref
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -81,61 +74,49 @@ export function DiscordBannerCustomizerModal({
   // Sync draft state ONLY when opening the modal (never overwrite draft on parent re-renders)
   useEffect(() => {
     if (isOpen) {
-      setSelectedPreset(salon.bannerPreset || "discord-blurple");
+      setSelectedPreset(salon.bannerPreset || "marble-showcase");
       setBannerUrl(salon.bannerUrl || "");
-      setBannerGradient(salon.bannerGradient || "");
       setAccentColor(salon.accentColor || "#FACC15");
       setBrandName(salon.name || "Ruvexi Premier Atelier");
       setTagline(salon.tagline || "Bespoke Styling, Organic Hair Therapy & Modern Skin Wellness");
+      setUploadError(null);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isOpen]);
 
   if (!isOpen) return null;
 
-  // Calculate live preview style
+  // Calculate live preview style (photo-only, never plain color/gradient)
   const draftSalon = {
     bannerPreset: selectedPreset,
     bannerUrl,
-    bannerGradient,
+    bannerGradient: "",
   };
   const liveBannerStyle = resolveSalonBannerStyle(draftSalon);
 
   const handleApplyPreset = (preset: BannerPreset) => {
     setSelectedPreset(preset.id);
-    setBannerGradient("");
     setBannerUrl("");
+    setUploadError(null);
     if (preset.accentColor) {
       setAccentColor(preset.accentColor);
     }
   };
 
-  const handleUpdateCustomGradient = (
-    c1 = gradColor1,
-    c2 = gradColor2,
-    angle = gradAngle,
-    type = gradType
-  ) => {
-    let gradString = "";
-    if (type === "linear") {
-      gradString = `linear-gradient(${angle}deg, ${c1} 0%, ${c2} 100%)`;
-    } else {
-      gradString = `radial-gradient(circle at center, ${c1} 0%, ${c2} 100%)`;
-    }
-    setBannerGradient(gradString);
-    setSelectedPreset("");
-    setBannerUrl("");
-  };
-
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
+    if (file.size > 5 * 1024 * 1024) {
+      setUploadError("Image must be smaller than 5 MB.");
+      return;
+    }
+    setUploadError(null);
     const reader = new FileReader();
     reader.onload = (ev) => {
       const dataUrl = ev.target?.result as string;
       setBannerUrl(dataUrl);
       setSelectedPreset("");
-      setBannerGradient("");
+      setActiveTab("image");
     };
     reader.readAsDataURL(file);
   };
@@ -146,17 +127,17 @@ export function DiscordBannerCustomizerModal({
       tagline: tagline.trim(),
       bannerPreset: selectedPreset,
       bannerUrl: bannerUrl.trim(),
-      bannerGradient: bannerGradient.trim(),
+      bannerGradient: "",
       accentColor,
     });
     onClose();
   };
 
   const handleResetDefault = () => {
-    setSelectedPreset("discord-blurple");
+    setSelectedPreset("marble-showcase");
     setBannerUrl("");
-    setBannerGradient("");
-    setAccentColor("#5865F2");
+    setUploadError(null);
+    setAccentColor("#FACC15");
     setBrandName(salon.name || "Ruvexi Premier Atelier");
   };
 
@@ -180,7 +161,7 @@ export function DiscordBannerCustomizerModal({
                 </h3>
               </div>
               <p className="text-xs text-[#949BA4]">
-                Choose curated Discord themes, custom gradients, or brand artwork for your respected salon booking page.
+                Choose curated studio photography banners or upload your own salon image from your computer.
               </p>
             </div>
           </div>
@@ -306,20 +287,7 @@ export function DiscordBannerCustomizerModal({
               }`}
             >
               <Sparkles className="w-3.5 h-3.5" />
-              <span>Curated Themes ({DISCORD_BANNER_PRESETS.length})</span>
-            </button>
-
-            <button
-              type="button"
-              onClick={() => setActiveTab("gradient")}
-              className={`px-4 py-2 rounded-xl font-bold flex items-center gap-2 transition-all cursor-pointer shrink-0 ${
-                activeTab === "gradient"
-                  ? "bg-[#5865F2] text-white shadow-md shadow-[#5865F2]/20"
-                  : "bg-[#18191C] text-[#949BA4] hover:text-white hover:bg-[#232428]"
-              }`}
-            >
-              <Sliders className="w-3.5 h-3.5" />
-              <span>Custom Gradients</span>
+              <span>Photo Banners ({DISCORD_BANNER_PRESETS.length})</span>
             </button>
 
             <button
@@ -331,8 +299,8 @@ export function DiscordBannerCustomizerModal({
                   : "bg-[#18191C] text-[#949BA4] hover:text-white hover:bg-[#232428]"
               }`}
             >
-              <ImageIcon className="w-3.5 h-3.5" />
-              <span>Upload / Custom Image</span>
+              <Upload className="w-3.5 h-3.5" />
+              <span>Upload Your Image</span>
             </button>
 
             <button
@@ -349,17 +317,24 @@ export function DiscordBannerCustomizerModal({
             </button>
           </div>
 
-          {/* TAB 1: Discord Nitro Presets */}
+          {/* TAB 1: Curated Studio Photo Banners */}
           {activeTab === "presets" && (
             <div className="space-y-4">
-              <div className="flex items-center justify-between text-xs text-[#949BA4]">
-                <span>Click any theme to apply it instantly to your live booking header.</span>
-                <span className="font-mono text-[#5865F2]">100% Responsive &amp; Optimized</span>
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs text-[#949BA4]">
+                <span>Select any studio photograph or upload your own salon banner image.</span>
+                <button
+                  type="button"
+                  onClick={() => fileInputRef.current?.click()}
+                  className="px-3 py-1.5 rounded-lg bg-[#232428] hover:bg-[#2b2d31] border border-[#5865F2]/40 text-white font-mono text-[11px] font-bold flex items-center gap-1.5 transition-colors cursor-pointer self-start sm:self-auto"
+                >
+                  <Upload className="w-3.5 h-3.5 text-[#5865F2]" />
+                  <span>Upload from Computer</span>
+                </button>
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
                 {DISCORD_BANNER_PRESETS.map((preset) => {
-                  const isSelected = selectedPreset === preset.id && !bannerGradient && !bannerUrl;
+                  const isSelected = selectedPreset === preset.id && !bannerUrl;
                   return (
                     <div
                       key={preset.id}
@@ -419,136 +394,30 @@ export function DiscordBannerCustomizerModal({
             </div>
           )}
 
-          {/* TAB 2: Custom Gradients */}
-          {activeTab === "gradient" && (
-            <div className="space-y-5 bg-[#18191C] p-5 rounded-2xl border border-[#27272A]">
-              <div>
-                <h4 className="text-sm font-bold text-white">Custom Gradient Studio</h4>
-                <p className="text-xs text-[#949BA4] mt-0.5">
-                  Mix your salon brand colors with smooth angle transitions and mesh effects.
-                </p>
-              </div>
+          {/* Hidden shared file input so "Upload from Computer" works from both tabs */}
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="image/*"
+            onChange={handleFileUpload}
+            className="hidden"
+          />
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                {/* Color 1 */}
-                <div className="space-y-2">
-                  <label className="text-xs font-mono uppercase tracking-wider text-[#949BA4]">
-                    Start Gradient Color
-                  </label>
-                  <div className="flex items-center gap-2.5">
-                    <input
-                      type="color"
-                      value={gradColor1}
-                      onChange={(e) => {
-                        setGradColor1(e.target.value);
-                        handleUpdateCustomGradient(e.target.value, gradColor2, gradAngle, gradType);
-                      }}
-                      className="w-10 h-10 rounded-xl bg-transparent border border-[#27272A] cursor-pointer"
-                    />
-                    <input
-                      type="text"
-                      value={gradColor1}
-                      onChange={(e) => {
-                        setGradColor1(e.target.value);
-                        handleUpdateCustomGradient(e.target.value, gradColor2, gradAngle, gradType);
-                      }}
-                      className="flex-1 px-3 py-2 bg-[#1e1f22] border border-[#27272A] rounded-xl text-xs font-mono text-white"
-                    />
-                  </div>
-                </div>
-
-                {/* Color 2 */}
-                <div className="space-y-2">
-                  <label className="text-xs font-mono uppercase tracking-wider text-[#949BA4]">
-                    End Gradient Color
-                  </label>
-                  <div className="flex items-center gap-2.5">
-                    <input
-                      type="color"
-                      value={gradColor2}
-                      onChange={(e) => {
-                        setGradColor2(e.target.value);
-                        handleUpdateCustomGradient(gradColor1, e.target.value, gradAngle, gradType);
-                      }}
-                      className="w-10 h-10 rounded-xl bg-transparent border border-[#27272A] cursor-pointer"
-                    />
-                    <input
-                      type="text"
-                      value={gradColor2}
-                      onChange={(e) => {
-                        setGradColor2(e.target.value);
-                        handleUpdateCustomGradient(gradColor1, e.target.value, gradAngle, gradType);
-                      }}
-                      className="flex-1 px-3 py-2 bg-[#1e1f22] border border-[#27272A] rounded-xl text-xs font-mono text-white"
-                    />
-                  </div>
-                </div>
-              </div>
-
-              {/* Angle Slider */}
-              <div className="space-y-2 pt-2">
-                <div className="flex justify-between text-xs font-mono">
-                  <span className="text-[#949BA4]">Gradient Angle</span>
-                  <span className="text-white font-bold">{gradAngle}°</span>
-                </div>
-                <input
-                  type="range"
-                  min="0"
-                  max="360"
-                  step="5"
-                  value={gradAngle}
-                  onChange={(e) => {
-                    const val = Number(e.target.value);
-                    setGradAngle(val);
-                    handleUpdateCustomGradient(gradColor1, gradColor2, val, gradType);
-                  }}
-                  className="w-full h-2 bg-[#27272A] rounded-lg appearance-none cursor-pointer accent-[#5865F2]"
-                />
-              </div>
-
-              {/* Popular Swatches */}
-              <div className="pt-2 border-t border-[#27272A] space-y-2">
-                <span className="text-[11px] font-mono text-[#949BA4]">Quick Color Swatches:</span>
-                <div className="flex flex-wrap gap-2">
-                  {[
-                    { c1: "#5865F2", c2: "#eb459e", label: "Blurple Rose" },
-                    { c1: "#18140c", c2: "#f6d285", label: "Imperial Gold" },
-                    { c1: "#064e3b", c2: "#10b981", label: "Emerald Oasis" },
-                    { c1: "#311042", c2: "#06b6d4", label: "Cyberpunk" },
-                    { c1: "#0f172a", c2: "#38bdf8", label: "Skyline" },
-                    { c1: "#4c1535", c2: "#fb7185", label: "Velvet Quartz" },
-                  ].map((swatch) => (
-                    <button
-                      key={swatch.label}
-                      type="button"
-                      onClick={() => {
-                        setGradColor1(swatch.c1);
-                        setGradColor2(swatch.c2);
-                        handleUpdateCustomGradient(swatch.c1, swatch.c2, gradAngle, gradType);
-                      }}
-                      className="px-3 py-1.5 rounded-lg text-xs font-mono bg-[#1e1f22] hover:bg-[#27272A] border border-[#27272A] text-white flex items-center gap-2 cursor-pointer"
-                    >
-                      <div
-                        className="w-3.5 h-3.5 rounded-full"
-                        style={{ background: `linear-gradient(135deg, ${swatch.c1}, ${swatch.c2})` }}
-                      />
-                      <span>{swatch.label}</span>
-                    </button>
-                  ))}
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* TAB 3: Upload / Custom Image */}
+          {/* TAB 2: Upload / Custom Image */}
           {activeTab === "image" && (
             <div className="space-y-5 bg-[#18191C] p-5 rounded-2xl border border-[#27272A]">
               <div>
-                <h4 className="text-sm font-bold text-white">Upload Salon Banner Artwork</h4>
+                <h4 className="text-sm font-bold text-white">Upload Your Salon Banner Photo</h4>
                 <p className="text-xs text-[#949BA4] mt-0.5">
-                  Upload high-resolution photography of your salon interior, styling stations, or custom Discord banner graphic.
+                  Choose any high-resolution photo of your salon interior, styling stations, or storefront directly from your computer.
                 </p>
               </div>
+
+              {uploadError && (
+                <div className="p-3 rounded-xl bg-rose-500/10 border border-rose-500/30 text-rose-400 text-xs font-mono">
+                  {uploadError}
+                </div>
+              )}
 
               {/* Upload Dropzone */}
               <div
@@ -559,19 +428,40 @@ export function DiscordBannerCustomizerModal({
                   <Upload className="w-6 h-6" />
                 </div>
                 <div>
-                  <p className="text-sm font-bold text-white">Click to Upload Banner Image</p>
+                  <p className="text-sm font-bold text-white">Click to Choose Image from Your Computer</p>
                   <p className="text-xs text-[#949BA4] mt-1 font-mono">
-                    Supports JPG, PNG, WEBP, GIF (Recommended 1920 × 480 px, max 5MB)
+                    Supports JPG, PNG, WEBP (Recommended 1920 × 480 px, max 5MB)
                   </p>
                 </div>
-                <input
-                  ref={fileInputRef}
-                  type="file"
-                  accept="image/*"
-                  onChange={handleFileUpload}
-                  className="hidden"
-                />
               </div>
+
+              {bannerUrl && (
+                <div className="flex items-center justify-between gap-3 p-3 rounded-xl bg-[#1e1f22] border border-[#27272A]">
+                  <div className="flex items-center gap-3 min-w-0">
+                    <img
+                      src={bannerUrl}
+                      alt="Uploaded banner preview"
+                      className="w-20 h-12 object-cover rounded-lg border border-white/10 shrink-0"
+                    />
+                    <div className="min-w-0">
+                      <p className="text-xs font-bold text-white truncate">Custom Banner Image Active</p>
+                      <p className="text-[11px] font-mono text-[#949BA4] truncate">
+                        {bannerUrl.startsWith("data:") ? "Uploaded from your computer" : bannerUrl}
+                      </p>
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setBannerUrl("");
+                      setSelectedPreset("marble-showcase");
+                    }}
+                    className="px-3 py-1.5 rounded-lg bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 border border-rose-500/30 text-xs font-mono font-bold cursor-pointer shrink-0"
+                  >
+                    Remove
+                  </button>
+                </div>
+              )}
 
               {/* Direct URL Input */}
               <div className="space-y-2 pt-2">
@@ -586,7 +476,6 @@ export function DiscordBannerCustomizerModal({
                     onChange={(e) => {
                       setBannerUrl(e.target.value);
                       setSelectedPreset("");
-                      setBannerGradient("");
                     }}
                     className="flex-1 px-4 py-2.5 bg-[#1e1f22] border border-[#27272A] rounded-xl text-xs text-white placeholder-[#5e646d] focus:border-[#5865F2] focus:outline-none font-mono"
                   />
@@ -595,45 +484,12 @@ export function DiscordBannerCustomizerModal({
                     onClick={() => {
                       if (bannerUrl.trim()) {
                         setSelectedPreset("");
-                        setBannerGradient("");
                       }
                     }}
                     className="px-4 py-2.5 bg-[#232428] hover:bg-[#2b2d31] text-white text-xs font-mono font-bold rounded-xl border border-[#27272A] transition-all cursor-pointer"
                   >
                     Load URL
                   </button>
-                </div>
-              </div>
-
-              {/* Pre-packaged Salon Photos */}
-              <div className="pt-2 border-t border-[#27272A] space-y-2">
-                <span className="text-[11px] font-mono text-[#949BA4]">Curated Photography Presets:</span>
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-                  {[
-                    { name: "Luxury Studio", path: "/images/hero-showcase.jpg" },
-                    { name: "Spa Sanctuary", path: "/images/spa-wellness.jpg" },
-                    { name: "Stylist Lounge", path: "/images/stylist-consultation.jpg" },
-                    { name: "Atelier Ambience", path: "/images/hero-bg.jpg" },
-                  ].map((presetImg) => (
-                    <div
-                      key={presetImg.name}
-                      onClick={() => {
-                        setBannerUrl(presetImg.path);
-                        setSelectedPreset("");
-                        setBannerGradient("");
-                      }}
-                      className="group p-1.5 rounded-xl border border-[#27272A] bg-[#1e1f22] hover:border-[#5865F2] cursor-pointer transition-all text-center"
-                    >
-                      <img
-                        src={presetImg.path}
-                        alt={presetImg.name}
-                        className="w-full h-14 object-cover rounded-lg mb-1"
-                      />
-                      <span className="text-[11px] font-mono text-[#DBDEE1] block truncate">
-                        {presetImg.name}
-                      </span>
-                    </div>
-                  ))}
                 </div>
               </div>
             </div>

@@ -3,5 +3,5 @@
 import { DashboardShell } from "@/components/dashboard-shell";
 
 export default function SalonOwnerPage() {
-  return <DashboardShell initialTab="owner" />;
+  return <DashboardShell initialTab="overview" />;
 }

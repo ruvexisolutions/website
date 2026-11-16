@@ -4,7 +4,7 @@ import { createClient } from "@/lib/supabase/server";
 const BACKEND_URL =
   process.env.BACKEND_INTERNAL_URL ||
   process.env.NEXT_PUBLIC_API_URL?.replace(/\/api\/v1\/?$/, "") ||
-  "https://web-production-7d450.up.railway.app";
+  "https://api.ruvexisolutions.com";
 
 const RATE_WINDOW_MS = 60_000;
 const RATE_MAX_REQUESTS = 25;

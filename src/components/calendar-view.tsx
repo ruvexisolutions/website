@@ -66,6 +66,7 @@ export function CalendarView({ onGoToPosBilling }: CalendarViewProps) {
   // New appointment form state
   const [custName, setCustName] = useState("");
   const [custPhone, setCustPhone] = useState("+91 98");
+  const [selectedModalCategory, setSelectedModalCategory] = useState<string>("All");
   const [serviceName, setServiceName] = useState(services[0]?.name || "");
   const [staffName, setStaffName] = useState(staff[0]?.name || "");
   const [timeSlot, setTimeSlot] = useState("02:00 PM");
@@ -267,9 +268,6 @@ export function CalendarView({ onGoToPosBilling }: CalendarViewProps) {
               <h1 className="text-xl font-serif font-medium text-[#F8FAFC] tracking-tight">
                 Appointment Calendar & Chair Schedule
               </h1>
-              <span className="text-[10px] font-mono uppercase tracking-wider font-bold px-2 py-0.5 rounded-full bg-[#10B981]/10 text-[#10B981] border border-[#10B981]/30">
-                Live Roster
-              </span>
             </div>
             <p className="text-xs text-[#71717A] mt-0.5">
               Multi-stylist timeline matrix • Real-time status transitions • Double-booking prevention
@@ -955,21 +953,47 @@ export function CalendarView({ onGoToPosBilling }: CalendarViewProps) {
                 />
               </div>
 
+              <div>
+                <label className="text-[11px] font-mono uppercase text-[#FACC15] block mb-1">
+                  1. Select Category
+                </label>
+                <select
+                  value={selectedModalCategory}
+                  onChange={(e) => {
+                    const cat = e.target.value;
+                    setSelectedModalCategory(cat);
+                    const matched = services.filter((s) => cat === "All" || s.category === cat);
+                    if (matched.length > 0 && !matched.some((s) => s.name === serviceName)) {
+                      setServiceName(matched[0].name);
+                    }
+                  }}
+                  className="w-full px-3 py-2 bg-[#101010] border border-[#27272A] rounded-xl text-xs text-[#F8FAFC] focus:outline-none focus:border-[#FACC15]"
+                >
+                  {["All", "Waxing", "Hair", "Beard & Grooming", "Hair Colour", "Nails", "Skin & Spa", "Threading", "Hair Spa", "Massage", "Facial"].map((cat) => (
+                    <option key={cat} value={cat}>
+                      {cat} {cat === "All" ? `(${services.length})` : `(${services.filter((s) => s.category === cat).length})`}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="text-[11px] font-mono uppercase text-[#71717A] block mb-1">
-                    Select Service
+                    2. Select Service
                   </label>
                   <select
                     value={serviceName}
                     onChange={(e) => setServiceName(e.target.value)}
                     className="w-full px-3 py-2 bg-[#101010] border border-[#27272A] rounded-xl text-xs text-[#F8FAFC] focus:outline-none focus:border-[#FACC15]"
                   >
-                    {services.map((s) => (
-                      <option key={s.id} value={s.name}>
-                        {s.name} ({formatCurrency(s.price)})
-                      </option>
-                    ))}
+                    {services
+                      .filter((s) => selectedModalCategory === "All" || s.category === selectedModalCategory)
+                      .map((s) => (
+                        <option key={s.id} value={s.name}>
+                          {s.name} ({formatCurrency(s.price)})
+                        </option>
+                      ))}
                   </select>
                 </div>
 

@@ -2,7 +2,7 @@
 
 import React, { useState } from "react";
 import { useRuvexi } from "@/lib/ruvexi-context";
-import { formatCurrency } from "@/lib/utils";
+import { formatCurrency, getCustomerAvatarSrc } from "@/lib/utils";
 import { CustomerProfile } from "@/lib/types";
 import { ClientFormulaModal } from "./client-formula-modal";
 import {
@@ -298,11 +298,12 @@ export function CustomersView({ onGoToPos, onGoToBooking }: CustomersViewProps) 
                 {/* Header with VIP Pill & Initials */}
                 <div className="flex items-start justify-between gap-3">
                   <div className="flex items-center gap-3">
-                    <div className="w-12 h-12 rounded-xl bg-[#181818] border border-[#27272A] text-[#FACC15] font-bold text-sm flex items-center justify-center shadow-md font-mono">
-                      {cust.name
-                        .split(" ")
-                        .map((n) => n[0])
-                        .join("")}
+                    <div className="w-12 h-12 rounded-xl bg-[#181818] border border-[#27272A] overflow-hidden shrink-0 shadow-md">
+                      <img
+                        src={getCustomerAvatarSrc(cust.gender)}
+                        alt={cust.name}
+                        className="w-full h-full object-cover"
+                      />
                     </div>
                     <div>
                       <h3 className="font-bold text-[#F8FAFC] text-sm leading-tight">

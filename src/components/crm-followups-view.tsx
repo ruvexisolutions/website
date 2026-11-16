@@ -441,9 +441,6 @@ export function CrmFollowupsView() {
               <h1 className="text-xl font-serif font-bold text-[#F8FAFC] tracking-tight">
                 WhatsApp Messaging &amp; Templates
               </h1>
-              <span className="text-[10px] font-mono uppercase tracking-wider font-bold px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/30">
-                1-Click WhatsApp Ready • No API Required
-              </span>
             </div>
             <p className="text-xs text-[#71717A] mt-0.5">
               Pick any customer • Auto-fill previous bill, booking, or offers with {salon.name} • Open directly on WhatsApp

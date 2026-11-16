@@ -11,7 +11,6 @@ import {
   CheckCircle2,
   Save,
   MessageSquare,
-  Crown,
   Smartphone,
   QrCode,
   ImagePlus,
@@ -53,7 +52,6 @@ export function SettingsView({ initialSubTab = "general" }: SettingsViewProps) {
   const [address, setAddress] = useState(salon.address);
   const [phone, setPhone] = useState(salon.phone);
   const [email, setEmail] = useState(salon.email);
-  const [gstin, setGstin] = useState(salon.gstin);
   const [upiId, setUpiId] = useState(salon.upiId || "");
   const [cashEnabled, setCashEnabled] = useState<boolean>(salon.paymentSettings?.cashEnabled ?? (salon as any).cashEnabled ?? true);
   const [upiEnabled, setUpiEnabled] = useState<boolean>(salon.paymentSettings?.upiEnabled ?? (salon as any).upiEnabled ?? false);
@@ -61,10 +59,6 @@ export function SettingsView({ initialSubTab = "general" }: SettingsViewProps) {
   const [paymentInstructions, setPaymentInstructions] = useState(salon.paymentSettings?.paymentInstructions || "");
   const [paymentError, setPaymentError] = useState<string | null>(null);
   const [previewQrUrl, setPreviewQrUrl] = useState<string>("");
-  const [bankAccountName, setBankAccountName] = useState(salon.bankAccountName || salon.name);
-  const [bankAccountNumber, setBankAccountNumber] = useState(salon.bankAccountNumber || "");
-  const [bankIfsc, setBankIfsc] = useState(salon.bankIfsc || "");
-  const [bankName, setBankName] = useState(salon.bankName || "");
   const [savedSuccess, setSavedSuccess] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [showStandeeModal, setShowStandeeModal] = useState(false);
@@ -77,18 +71,13 @@ export function SettingsView({ initialSubTab = "general" }: SettingsViewProps) {
     setAddress(salon.address || "");
     setPhone(salon.phone || "");
     setEmail(salon.email || "");
-    setGstin(salon.gstin || "");
     setUpiId(salon.upiId || "");
     setCashEnabled(salon.paymentSettings?.cashEnabled ?? (salon as any).cashEnabled ?? true);
     setUpiEnabled(salon.paymentSettings?.upiEnabled ?? (salon as any).upiEnabled ?? false);
     setUpiPayeeName(salon.paymentSettings?.upiPayeeName || salon.name || "");
     setPaymentInstructions(salon.paymentSettings?.paymentInstructions || "");
-    setBankAccountName(salon.bankAccountName || salon.name || "");
-    setBankAccountNumber(salon.bankAccountNumber || "");
-    setBankIfsc(salon.bankIfsc || "");
-    setBankName(salon.bankName || "");
     setLogoPreview((salon as any).logoUrl || null);
-    setBannerPreset(salon.bannerPreset || "discord-blurple");
+    setBannerPreset(salon.bannerPreset || "marble-showcase");
     setBannerUrl(salon.bannerUrl || "");
     setBannerGradient(salon.bannerGradient || "");
     setAccentColor(salon.accentColor || "#FACC15");
@@ -99,11 +88,7 @@ export function SettingsView({ initialSubTab = "general" }: SettingsViewProps) {
     salon.address,
     salon.phone,
     salon.email,
-    salon.gstin,
     salon.upiId,
-    salon.bankAccountNumber,
-    salon.bankIfsc,
-    salon.bankName,
     salon.logoUrl,
     salon.bannerPreset,
     salon.bannerUrl,
@@ -128,7 +113,6 @@ export function SettingsView({ initialSubTab = "general" }: SettingsViewProps) {
 
   const [openTime, setOpenTime] = useState("09:30 AM");
   const [closeTime, setCloseTime] = useState("08:30 PM");
-  const [gstRate, setGstRate] = useState("5%");
   const [autoSendWhatsApp, setAutoSendWhatsApp] = useState(true);
   const [isMetaSignupOpen, setIsMetaSignupOpen] = useState(false);
   const [metaWabaStatus, setMetaWabaStatus] = useState<any>(
@@ -143,7 +127,7 @@ export function SettingsView({ initialSubTab = "general" }: SettingsViewProps) {
   );
 
   // Discord Banner & Brand Appearance State
-  const [bannerPreset, setBannerPreset] = useState(salon.bannerPreset || "discord-blurple");
+  const [bannerPreset, setBannerPreset] = useState(salon.bannerPreset || "marble-showcase");
   const [bannerUrl, setBannerUrl] = useState(salon.bannerUrl || "");
   const [bannerGradient, setBannerGradient] = useState(salon.bannerGradient || "");
   const [accentColor, setAccentColor] = useState(salon.accentColor || "#FACC15");
@@ -195,14 +179,9 @@ export function SettingsView({ initialSubTab = "general" }: SettingsViewProps) {
           upiId: upiId.trim(),
           upiPayeeName: upiPayeeName.trim() || name.trim(),
           paymentInstructions: paymentInstructions.trim(),
-          bankAccountName: bankAccountName.trim(),
-          bankAccountNumber: bankAccountNumber.trim(),
-          bankIfsc: bankIfsc.trim(),
-          bankName: bankName.trim(),
         });
       }
 
-      const isTrial = salon.subscriptionStatus === "trial";
       const result = await updateSalonProfile({
         name: name.trim(),
         tagline,
@@ -211,16 +190,11 @@ export function SettingsView({ initialSubTab = "general" }: SettingsViewProps) {
         phone: phone.trim(),
         email: email.trim(),
         ...(canEditBusiness && {
-          ...(!isTrial && gstin !== (salon.gstin || "") ? { gstin } : {}),
           upiId: upiId.trim(),
           cashEnabled,
           upiEnabled,
           upiPayeeName: upiPayeeName.trim() || name.trim(),
           paymentInstructions: paymentInstructions.trim(),
-          bankAccountName: bankAccountName.trim(),
-          bankAccountNumber: bankAccountNumber.trim(),
-          bankIfsc: bankIfsc.trim(),
-          bankName: bankName.trim(),
           paymentSettings: {
             cashEnabled,
             upiEnabled: Boolean(upiEnabled && upiId.trim()),
@@ -435,7 +409,7 @@ export function SettingsView({ initialSubTab = "general" }: SettingsViewProps) {
 
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-1">
                   <p className="text-xs text-[#A1A1AA] leading-relaxed">
-                    Customize your booking header banner with curated studio themes, custom gradients, or salon photos.
+                    Customize your booking header banner with curated studio photography or upload your own salon banner image.
                   </p>
 
                   <button
@@ -544,45 +518,9 @@ export function SettingsView({ initialSubTab = "general" }: SettingsViewProps) {
               </div>
             </div>
 
-            {/* Business / Financial â€” Owner only */}
+            {/* Business / Financial — Owner only */}
             {canEditBusiness ? (
               <>
-                <div className="bg-[#101010] border border-[#27272A] p-6 rounded-2xl space-y-4 shadow-xl">
-                  <h3 className="text-xs font-mono font-bold text-[#A1A1AA] uppercase tracking-wider flex items-center gap-2 pb-3 border-b border-[#27272A]">
-                    <Crown className="w-4 h-4 text-[#FACC15]" />
-                    Tax &amp; GSTIN Configuration
-                  </h3>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
-                    <div>
-                      <div className="flex items-center justify-between mb-1">
-                        <label className="font-mono text-[11px] text-[#A1A1AA]">GSTIN Number</label>
-                        {salon.subscriptionStatus === "trial" && (
-                          <span className="text-[10px] font-mono text-amber-400">Locked on trial</span>
-                        )}
-                      </div>
-                      <input
-                        type="text"
-                        disabled={salon.subscriptionStatus === "trial"}
-                        value={gstin}
-                        onChange={(e) => setGstin(e.target.value)}
-                        className="w-full px-3.5 py-2 bg-[#151515] border border-[#27272A] rounded-xl text-[#F8FAFC] focus:outline-none focus:border-[#FACC15] font-mono font-bold disabled:opacity-50 disabled:cursor-not-allowed"
-                      />
-                    </div>
-                    <div>
-                      <label className="font-mono text-[11px] text-[#A1A1AA] block mb-1">Applicable Tax Slab</label>
-                      <select
-                        value={gstRate}
-                        onChange={(e) => setGstRate(e.target.value)}
-                        className="w-full px-3.5 py-2 bg-[#151515] border border-[#27272A] rounded-xl text-[#F8FAFC] focus:outline-none focus:border-[#FACC15] font-bold"
-                      >
-                        <option value="5%" className="bg-[#151515] text-[#F8FAFC]">5% GST (Standard Salon)</option>
-                        <option value="18%" className="bg-[#151515] text-[#F8FAFC]">18% GST (Luxury Aesthetics)</option>
-                        <option value="0%" className="bg-[#151515] text-[#F8FAFC]">0% Exempt</option>
-                      </select>
-                    </div>
-                  </div>
-                </div>
-
                 {/* Dynamic Cash & Direct Salon UPI Payment Settings */}
                 <div className="bg-[#101010] border border-[#27272A] p-6 rounded-2xl space-y-5 shadow-xl">
                   <div className="flex items-center justify-between pb-3 border-b border-[#27272A]">
@@ -746,31 +684,6 @@ export function SettingsView({ initialSubTab = "general" }: SettingsViewProps) {
                       </div>
                     )}
                   </div>
-
-                  {/* Bank Account Details */}
-                  <div className="pt-2 border-t border-[#27272A] space-y-3">
-                    <span className="text-xs font-mono font-bold text-[#A1A1AA] uppercase tracking-wider block">
-                      Settlement Bank Account Records
-                    </span>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs">
-                      <div>
-                        <label className="font-mono text-[11px] text-[#A1A1AA] block mb-1">Account Holder Name</label>
-                        <input type="text" value={bankAccountName} onChange={(e) => setBankAccountName(e.target.value)} className="w-full px-3.5 py-2 bg-[#151515] border border-[#27272A] rounded-xl text-[#F8FAFC] focus:outline-none focus:border-[#FACC15] font-bold" />
-                      </div>
-                      <div>
-                        <label className="font-mono text-[11px] text-[#A1A1AA] block mb-1">Account Number</label>
-                        <input type="text" value={bankAccountNumber} onChange={(e) => setBankAccountNumber(e.target.value)} className="w-full px-3.5 py-2 bg-[#151515] border border-[#27272A] rounded-xl text-[#F8FAFC] focus:outline-none focus:border-[#FACC15] font-mono font-bold" />
-                      </div>
-                      <div>
-                        <label className="font-mono text-[11px] text-[#A1A1AA] block mb-1">Bank IFSC Code</label>
-                        <input type="text" value={bankIfsc} onChange={(e) => setBankIfsc(e.target.value)} className="w-full px-3.5 py-2 bg-[#151515] border border-[#27272A] rounded-xl text-[#FACC15] focus:outline-none focus:border-[#FACC15] font-mono font-bold uppercase" />
-                      </div>
-                      <div>
-                        <label className="font-mono text-[11px] text-[#A1A1AA] block mb-1">Bank Name &amp; Branch</label>
-                        <input type="text" value={bankName} onChange={(e) => setBankName(e.target.value)} className="w-full px-3.5 py-2 bg-[#151515] border border-[#27272A] rounded-xl text-[#F8FAFC] focus:outline-none focus:border-[#FACC15] font-bold" />
-                      </div>
-                    </div>
-                  </div>
                 </div>
               </>
             ) : (
@@ -781,7 +694,7 @@ export function SettingsView({ initialSubTab = "general" }: SettingsViewProps) {
                 <div>
                   <p className="text-sm font-semibold text-[#A1A1AA]">Business &amp; Financial Settings</p>
                   <p className="text-xs text-[#4B4B52] leading-relaxed mt-1">
-                    GSTIN, tax slabs, UPI merchant destination, and bank settlement details are restricted to the Salon Manager. Contact your manager to update these.
+                    UPI merchant destination and front-desk billing settings are restricted to the Salon Manager. Contact your manager to update these.
                   </p>
                 </div>
               </div>

@@ -186,11 +186,6 @@ export function SubscriptionView() {
         <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-6">
           <div className="space-y-3">
             <div className="flex items-center gap-2">
-              <span className="text-[11px] font-mono uppercase tracking-widest px-3 py-1 rounded-full bg-[#FACC15]/15 text-[#FACC15] border border-[#FACC15]/30 font-semibold flex items-center gap-1.5">
-                <Sparkles className="w-3.5 h-3.5" />
-                {isPaidActive ? "Active Subscription" : "7-Day Free Trial"}
-              </span>
-              <span className="text-xs text-[#71717A]">•</span>
               <span className="text-xs font-mono text-[#A1A1AA]">
                 Workspace: <span className="text-white font-medium">{salon.name}</span>
               </span>

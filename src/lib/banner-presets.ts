@@ -5,8 +5,9 @@
 export interface BannerPreset {
   id: string;
   name: string;
-  category: "Signature Studio" | "Luxury Atmosphere" | "Neon & Cyber" | "Gradients & Mesh";
+  category: "Luxury Atmosphere" | "Hair & Styling" | "Spa & Aesthetics" | "Grooming & Lounge";
   background: string;
+  imageUrl: string;
   accentColor: string;
   description: string;
   isNitroStyle?: boolean;
@@ -15,112 +16,64 @@ export interface BannerPreset {
 
 export const DISCORD_BANNER_PRESETS: BannerPreset[] = [
   {
-    id: "discord-blurple",
-    name: "Cosmic Blurple Atelier",
-    category: "Signature Studio",
-    background: "linear-gradient(135deg, #1e1f38 0%, #5865F2 45%, #7289da 70%, #eb459e 100%)",
-    accentColor: "#5865F2",
-    description: "Deep cosmic violet-indigo glow with radiant magenta highlights",
-    isNitroStyle: true,
-  },
-  {
-    id: "golden-noir",
-    name: "Golden Noir & Velvet",
-    category: "Luxury Atmosphere",
-    background: "linear-gradient(135deg, #09090b 0%, #1c1408 30%, #3a2a10 60%, #b8860b 85%, #f6d285 100%)",
+    id: "editorial-hair",
+    name: "Editorial Hair & Mirror Atelier",
+    category: "Hair & Styling",
+    imageUrl: "/images/banner-editorial-hair.jpg",
+    background: "linear-gradient(to bottom, rgba(9,9,11,0.2), rgba(9,9,11,0.86)), url('/images/banner-editorial-hair.jpg') center/cover no-repeat",
     accentColor: "#FACC15",
-    description: "Champagne gold luxury shimmer against midnight velvet obsidian",
+    description: "Illuminated halo mirrors, black leather styling chairs, and champagne gold counters",
     isNitroStyle: true,
   },
   {
-    id: "cyber-neon",
-    name: "Cyberpunk Neon Atelier",
-    category: "Neon & Cyber",
-    background: "linear-gradient(135deg, #0b071a 0%, #311042 35%, #9333ea 70%, #ec4899 90%, #06b6d4 100%)",
-    accentColor: "#06B6D4",
-    description: "High-octane neon synthwave with cyber magenta and electric turquoise",
-    isNitroStyle: true,
-  },
-  {
-    id: "emerald-oasis",
-    name: "Emerald Botanical Sanctuary",
-    category: "Luxury Atmosphere",
-    background: "linear-gradient(135deg, #021a12 0%, #064e3b 40%, #059669 75%, #10b981 92%, #6ee7b7 100%)",
-    accentColor: "#10B981",
-    description: "Deep organic eucalyptus jade with fresh revitalizing spa botanicals",
-    isNitroStyle: true,
-  },
-  {
-    id: "cosmic-stardust",
-    name: "Cosmic Stardust & Nebula",
-    category: "Signature Studio",
-    background: "radial-gradient(circle at 20% 30%, #3b0764 0%, #1e1035 40%, #09090b 80%), linear-gradient(135deg, #4c1d95 0%, #8b5cf6 50%, #d946ef 100%)",
-    accentColor: "#A855F7",
-    description: "Deep interstellar stardust with radiant ultraviolet nebula streaks",
-    isNitroStyle: true,
-  },
-  {
-    id: "sunset-horizon",
-    name: "California Sunset Horizon",
-    category: "Gradients & Mesh",
-    background: "linear-gradient(135deg, #1f0814 0%, #831843 35%, #ea580c 70%, #f59e0b 90%, #fde047 100%)",
+    id: "barber-grooming",
+    name: "Heritage Grooming & Barber Lounge",
+    category: "Grooming & Lounge",
+    imageUrl: "/images/banner-barber-grooming.jpg",
+    background: "linear-gradient(to bottom, rgba(9,9,11,0.22), rgba(9,9,11,0.88)), url('/images/banner-barber-grooming.jpg') center/cover no-repeat",
     accentColor: "#F97316",
-    description: "Warm radiant golden hour sunset across the Pacific coastline",
-    isNitroStyle: false,
+    description: "Dark walnut paneling, cognac leather chairs, and warm amber pendant lighting",
+    isNitroStyle: true,
   },
   {
-    id: "rose-quartz",
-    name: "Rose Quartz & French Silk",
-    category: "Luxury Atmosphere",
-    background: "linear-gradient(135deg, #180913 0%, #4c1535 40%, #be185d 75%, #fb7185 92%, #fce7f3 100%)",
+    id: "aesthetics-facial",
+    name: "Travertine Skin & Facial Suite",
+    category: "Spa & Aesthetics",
+    imageUrl: "/images/banner-aesthetics-facial.jpg",
+    background: "linear-gradient(to bottom, rgba(9,9,11,0.2), rgba(9,9,11,0.85)), url('/images/banner-aesthetics-facial.jpg') center/cover no-repeat",
+    accentColor: "#38BDF8",
+    description: "Serene travertine stone walls, indirect cove lighting, and botanical eucalyptus",
+    isNitroStyle: true,
+  },
+  {
+    id: "stylist-lounge",
+    name: "Master Stylist Consultation Lounge",
+    category: "Hair & Styling",
+    imageUrl: "/images/stylist-consultation.jpg",
+    background: "linear-gradient(to bottom, rgba(9,9,11,0.22), rgba(9,9,11,0.86)), url('/images/stylist-consultation.jpg') center/cover no-repeat",
     accentColor: "#F43F5E",
-    description: "Ultra-chic Parisian blush with iridescent champagne rose shimmer",
+    description: "Warm editorial salon consultation space with bespoke beauty rituals",
     isNitroStyle: true,
   },
   {
-    id: "obsidian-stealth",
-    name: "Obsidian Carbon Stealth",
-    category: "Neon & Cyber",
-    background: "radial-gradient(ellipse at top left, #27272a 0%, #18181b 45%, #09090b 100%)",
-    accentColor: "#38BDF8",
-    description: "Minimalist executive hyper-dark carbon texture with subtle studio lighting",
-    isNitroStyle: false,
-  },
-  {
-    id: "tokyo-sakura",
-    name: "Tokyo Midnight Sakura",
-    category: "Signature Studio",
-    background: "linear-gradient(135deg, #090c1f 0%, #1e1b4b 35%, #3730a3 65%, #c026d3 88%, #f472b6 100%)",
-    accentColor: "#C026D3",
-    description: "Shinjuku midnight rain illuminated by cherry blossom neon lanterns",
-    isNitroStyle: true,
-  },
-  {
-    id: "ocean-abyss",
-    name: "Deep Ocean Atlantis",
-    category: "Gradients & Mesh",
-    background: "linear-gradient(135deg, #030712 0%, #0c2340 35%, #0284c7 70%, #38bdf8 90%, #a5f3fc 100%)",
-    accentColor: "#38BDF8",
-    description: "Bioluminescent azure waves with crystalline deep sapphire waters",
-    isNitroStyle: false,
-  },
-  {
-    id: "marble-showcase",
-    name: "Luxe Studio Interior Showcase",
+    id: "atelier-ambience",
+    name: "Noir Champagne Salon Ambience",
     category: "Luxury Atmosphere",
-    background: "linear-gradient(to bottom, rgba(9,9,11,0.2), rgba(9,9,11,0.85)), url('/images/hero-showcase.jpg') center/cover no-repeat",
-    accentColor: "#FACC15",
-    description: "Opulent architecture, styling mirrors, and warm champagne studio chandeliers",
+    imageUrl: "/images/hero-bg.jpg",
+    background: "linear-gradient(to bottom, rgba(9,9,11,0.25), rgba(9,9,11,0.88)), url('/images/hero-bg.jpg') center/cover no-repeat",
+    accentColor: "#A855F7",
+    description: "Moody luxury studio atmosphere with soft architectural highlights",
     isNitroStyle: true,
   },
   {
-    id: "spa-sanctuary",
-    name: "Zen Spa & Botanical Waters",
-    category: "Luxury Atmosphere",
-    background: "linear-gradient(to bottom, rgba(9,9,11,0.3), rgba(9,9,11,0.9)), url('/images/spa-wellness.jpg') center/cover no-repeat",
-    accentColor: "#10B981",
-    description: "Aromatic botanical candles, warm river stones, and soothing wellness waters",
-    isNitroStyle: true,
+    id: "reception-concierge",
+    name: "Modern Reception & Concierge",
+    category: "Grooming & Lounge",
+    imageUrl: "/images/checkout-pos.jpg",
+    background: "linear-gradient(to bottom, rgba(9,9,11,0.25), rgba(9,9,11,0.88)), url('/images/checkout-pos.jpg') center/cover no-repeat",
+    accentColor: "#06B6D4",
+    description: "Sleek modern front-desk hospitality lounge and digital studio counter",
+    isNitroStyle: false,
   },
 ];
 
@@ -198,7 +151,7 @@ export const RESPECTED_SALONS: RespectedSalonProfile[] = [
     rating: 4.95,
     reviewCount: 428,
     logo: "/images/ruvexi-logo.png",
-    bannerPreset: "discord-blurple",
+    bannerPreset: "marble-showcase",
     accentColor: "#FACC15",
     category: "Luxury Hair Studio & Aesthetic Spa",
     badges: ["👑 Official Flagship", "✨ Verified Atelier", "💎 Boost Level 3", "⚡ Instant WhatsApp Pass"],
@@ -311,7 +264,7 @@ export const RESPECTED_SALONS: RespectedSalonProfile[] = [
     rating: 4.96,
     reviewCount: 512,
     logo: "https://images.unsplash.com/photo-1560066984-138dadb4c035?w=150&auto=format&fit=crop&q=80",
-    bannerPreset: "rose-quartz",
+    bannerPreset: "aesthetics-facial",
     accentColor: "#F43F5E",
     category: "Organic Hair & Facial Haven",
     badges: ["✨ Partnered Boutique", "🌸 Organic Botanical Certified", "💎 Boost Level 3"],
@@ -389,7 +342,7 @@ export const RESPECTED_SALONS: RespectedSalonProfile[] = [
     rating: 4.88,
     reviewCount: 380,
     logo: "https://images.unsplash.com/photo-1503951914875-452162b0f3f1?w=150&auto=format&fit=crop&q=80",
-    bannerPreset: "obsidian-stealth",
+    bannerPreset: "barber-grooming",
     accentColor: "#06B6D4",
     category: "Executive Barber & Gentlemen's Lounge",
     badges: ["💈 Master Barber Guild", "⚡ Quick 30m Express", "🥃 Single Malt Lounge"],
@@ -459,7 +412,7 @@ export const RESPECTED_SALONS: RespectedSalonProfile[] = [
     rating: 4.98,
     reviewCount: 640,
     logo: "https://images.unsplash.com/photo-1512290900672-1f55b9e07851?w=150&auto=format&fit=crop&q=80",
-    bannerPreset: "emerald-oasis",
+    bannerPreset: "spa-sanctuary",
     accentColor: "#10B981",
     category: "Holistic Skin & Med-Spa",
     badges: ["🌿 100% Ayurvedic", "🧘 Sound Healing Studio", "⭐ 4.98 Highest Rated"],
@@ -558,9 +511,11 @@ export function resolveSalonBannerStyle(
     };
   }
 
-  // Fallback default (Discord Blurple Nitro)
+  // Fallback default (Editorial Hair & Mirror Atelier photo)
   return {
-    background: "linear-gradient(135deg, #1e1f38 0%, #5865F2 45%, #7289da 70%, #eb459e 100%)",
+    background: "linear-gradient(to bottom, rgba(9,9,11,0.2), rgba(9,9,11,0.85)), url('/images/hero-showcase.jpg') center/cover no-repeat",
+    backgroundSize: "cover",
+    backgroundPosition: "center",
   };
 }
 

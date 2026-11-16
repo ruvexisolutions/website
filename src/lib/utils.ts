@@ -24,3 +24,11 @@ export function formatTime(time: string | Date): string {
     timeStyle: "short",
   }).format(new Date(time));
 }
+
+export function getCustomerAvatarSrc(gender?: string): string {
+  const g = (gender || "").trim().toLowerCase();
+  if (g === "male" || g === "m" || g === "man" || g === "boy") {
+    return "/images/avatars/customer-male.jpg";
+  }
+  return "/images/avatars/customer-female.jpg";
+}

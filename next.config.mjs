@@ -1,5 +1,5 @@
 /** @type {import('next').NextConfig} */
-const backendUrl = process.env.BACKEND_INTERNAL_URL || "https://web-production-7d450.up.railway.app";
+const backendUrl = process.env.BACKEND_INTERNAL_URL || "https://api.ruvexisolutions.com";
 
 const nextConfig = {
   reactStrictMode: true,

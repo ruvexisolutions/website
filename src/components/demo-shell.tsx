@@ -7,7 +7,6 @@ import { useRuvexi } from "@/lib/ruvexi-context";
 import { formatCurrency } from "@/lib/utils";
 import { RuvexiLogo } from "./brand/ruvexi-logo";
 import { FrontDeskView } from "./front-desk-view";
-import { SalonOwnerView } from "./salon-owner-view";
 import { OverviewView } from "./overview-view";
 import { PosView } from "./pos-view";
 import { StaffView } from "./staff-view";
@@ -43,7 +42,6 @@ import {
   ChevronRight,
   ShieldCheck,
   CheckCircle2,
-  Crown,
   LogOut,
   Plus,
   Lock,
@@ -59,7 +57,6 @@ import {
 
 export type TabType =
   | "frontdesk"
-  | "owner"
   | "overview"
   | "calendar"
   | "pos"
@@ -75,7 +72,6 @@ export type TabType =
 
 const tabToPathMap: Record<TabType, string> = {
   frontdesk: "/front-desk",
-  owner: "/owner",
   overview: "/overview",
   calendar: "/calendar",
   pos: "/pos",
@@ -273,13 +269,6 @@ export function DemoShell({ initialTab = "frontdesk", initialSubTab }: DemoShell
               icon: BarChart3,
               badge: "P&L",
               badgeColor: "bg-emerald-500/15 text-emerald-400 border-emerald-500/30",
-            },
-            {
-              id: "owner" as TabType,
-              label: "AI Owner Co-Pilot",
-              icon: Crown,
-              badge: "AI",
-              badgeColor: "bg-[#FACC15]/15 text-[#FACC15] border-[#FACC15]/30",
             },
           ],
         },
@@ -619,26 +608,16 @@ export function DemoShell({ initialTab = "frontdesk", initialSubTab }: DemoShell
             </div>
 
             {/* Quick Links (when expanded) */}
-            {!isSidebarCollapsed && (
-              <div className="flex items-center justify-between text-[11px] text-[#71717A] font-medium px-1">
+            {!isSidebarCollapsed && user?.role === "admin" && (
+              <div className="flex items-center justify-end text-[11px] text-[#71717A] font-medium px-1">
                 <Link
-                  href="/book"
-                  className="hover:text-[#F8FAFC] flex items-center gap-1.5 transition-colors"
-                  target="_blank"
+                  href="/admin"
+                  className="text-[#FACC15] hover:text-[#EAB308] font-bold flex items-center gap-1 transition-colors"
+                  title="Ruvexi Platform Super Admin Hub"
                 >
-                  <Globe className="w-3 h-3 text-[#71717A]" />
-                  <span>Client Site ↗</span>
+                  <ShieldCheck className="w-3 h-3 text-[#FACC15]" />
+                  <span>Super Admin</span>
                 </Link>
-                {user?.role === "admin" && (
-                  <Link
-                    href="/admin"
-                    className="text-[#FACC15] hover:text-[#EAB308] font-bold flex items-center gap-1 transition-colors"
-                    title="Ruvexi Platform Super Admin Hub"
-                  >
-                    <ShieldCheck className="w-3 h-3 text-[#FACC15]" />
-                    <span>Super Admin</span>
-                  </Link>
-                )}
               </div>
             )}
           </div>
@@ -734,14 +713,6 @@ export function DemoShell({ initialTab = "frontdesk", initialSubTab }: DemoShell
               <div className="pt-3 border-t border-[#27272A] space-y-2">
                 <div className="flex items-center justify-between text-[11px] text-[#71717A] px-1">
                   <span className="text-[#F8FAFC] font-medium">{user?.name || "Receptionist"}</span>
-                  <Link
-                    href="/book"
-                    className="hover:text-[#F8FAFC] flex items-center gap-1 transition-colors"
-                    target="_blank"
-                  >
-                    <Globe className="w-3 h-3" />
-                    <span>Client Site ↗</span>
-                  </Link>
                 </div>
 
                 <button
@@ -788,7 +759,6 @@ export function DemoShell({ initialTab = "frontdesk", initialSubTab }: DemoShell
                     onGoToPosBilling={handleGoToPosFromCalendar}
                   />
                 )}
-                {activeTab === "owner" && <SalonOwnerView />}
                 {activeTab === "overview" && (
                   <OverviewView
                     onNavigateTab={(tab) => handleSelectTab(tab as any)}
