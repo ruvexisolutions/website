@@ -10,7 +10,6 @@ import {
   signOutWithSupabase,
   mapSupabaseUserToRuvexi,
 } from "./supabase/auth";
-import { INITIAL_SERVICES as DEMO_SERVICES } from "./demo-data";
 
 // ============================================================================
 // Types & Data Contracts (Modeled on Salonist.io architecture)
@@ -431,20 +430,7 @@ const DEFAULT_SALON: Salon = {
   bankName: "",
 };
 
-const INITIAL_SERVICES: Service[] = DEMO_SERVICES.map((s) => ({
-  id: s.id,
-  salonId: "sln_1dc700ec03ea",
-  category: s.category,
-  name: s.name,
-  durationMinutes: s.durationMinutes,
-  bufferMinutes: 5,
-  price: s.price,
-  description: s.description,
-  popular: s.popular,
-  imageUrl: s.imageUrl || "",
-  isOnlineBookable: true,
-  isActive: true,
-}));
+const INITIAL_SERVICES: Service[] = [];
 
 const INITIAL_STAFF: Staff[] = [];
 
@@ -524,9 +510,8 @@ export function RuvexiProvider({ children }: { children: React.ReactNode }) {
           persist("Ruvexi_customers", data.customers);
         }
         if (Array.isArray(data.services)) {
-          const srvList = data.services.length > 0 ? data.services : INITIAL_SERVICES;
-          setServices(srvList);
-          persist("Ruvexi_services", srvList);
+          setServices(data.services);
+          persist("Ruvexi_services", data.services);
         }
         if (Array.isArray(data.staff)) {
           setStaff(data.staff);
@@ -620,12 +605,12 @@ export function RuvexiProvider({ children }: { children: React.ReactNode }) {
       if (storedServices) {
         try {
           const parsed = JSON.parse(storedServices);
-          setServices(Array.isArray(parsed) && parsed.length > 0 ? parsed : INITIAL_SERVICES);
+          setServices(Array.isArray(parsed) ? parsed : []);
         } catch {
-          setServices(INITIAL_SERVICES);
+          setServices([]);
         }
       } else {
-        setServices(INITIAL_SERVICES);
+        setServices([]);
       }
       if (storedStaff) setStaff(JSON.parse(storedStaff));
       if (storedInventory) setInventory(JSON.parse(storedInventory));
