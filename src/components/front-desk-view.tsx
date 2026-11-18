@@ -564,8 +564,8 @@ export function FrontDeskView({ onNavigateTab, onGoToPosBilling }: FrontDeskView
     if (!billingApt) return;
 
     const matchedService = services.find((s) => s.name === billingApt.serviceName);
-    const gstIncludedRate = salon.autoGst === false ? 0 : 5;
-    const computedIncludedGst = gstIncludedRate > 0 ? Math.round(finalBillAmount - finalBillAmount / 1.05) : 0;
+    const gstIncludedRate = 0;
+    const computedIncludedGst = 0;
 
     createInvoice({
       customerId: billingCustomer?.id,
@@ -586,9 +586,10 @@ export function FrontDeskView({ onNavigateTab, onGoToPosBilling }: FrontDeskView
       ],
       subtotal: finalBillAmount,
       discount: 0,
-      taxPercent: gstIncludedRate,
-      gstAmount: computedIncludedGst,
-      gstIncluded: true,
+      taxPercent: 0,
+      gstAmount: 0,
+      cgst: 0,
+      sgst: 0,
       total: finalBillAmount,
       grandTotal: finalBillAmount,
       paymentMethod: payMethod,
@@ -1865,9 +1866,7 @@ We look forward to seeing you again soon! 💇‍♀️✨`;
                   {formatCurrency(finalBillAmount)}
                 </span>
               </div>
-              <span className="px-2.5 py-1 rounded-full bg-[#10B981]/15 text-[#10B981] text-xs font-mono border border-[#10B981]/30">
-                GST Included
-              </span>
+
             </div>
 
             {/* Shop QR Display with Dynamic QR support */}

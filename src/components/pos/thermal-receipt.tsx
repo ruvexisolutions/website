@@ -67,7 +67,6 @@ export function ThermalReceipt({ invoice, salon, onClose }: ThermalReceiptProps)
       `       ${salon.name.toUpperCase()}       `,
       `   ${salon.branch || "Flagship Salon"}   `,
       `Ph: ${salon.phone || "+91 98765 43210"}`,
-      `GSTIN: ${salon.gstin || "29AABCU9603R1ZX"}`,
       `==============================`,
       `Bill No: ${invoice.invoiceNumber}`,
       `Date: ${invoice.date || new Date().toLocaleString("en-IN")}`,
@@ -82,8 +81,6 @@ export function ThermalReceipt({ invoice, salon, onClose }: ThermalReceiptProps)
       `------------------------------`,
       `Subtotal:      ${formatCurrency(invoice.subtotal)}`,
       invoice.discount ? `Discount:     -${formatCurrency(invoice.discount)}` : null,
-      `CGST (2.5%):   ${formatCurrency(Math.round((invoice.gstAmount || 0) / 2))}`,
-      `SGST (2.5%):   ${formatCurrency(Math.round((invoice.gstAmount || 0) / 2))}`,
       invoice.tipAmount ? `Stylist Tip:   ${formatCurrency(invoice.tipAmount)}` : null,
       `TOTAL AMOUNT:  ${formatCurrency(invoice.total)}`,
       `Payment:       ${invoice.paymentMethod}`,
@@ -184,12 +181,6 @@ export function ThermalReceipt({ invoice, salon, onClose }: ThermalReceiptProps)
           <div className="text-[10px] text-slate-600">
             TEL: {salon.phone || "+91 98765 43210"}
           </div>
-          <div className="text-[10px] font-bold text-slate-800">
-            GSTIN: {salon.gstin || "29AABCU9603R1ZX"}
-          </div>
-          <div className="text-[9px] uppercase font-bold text-slate-500 pt-0.5">
-            SAC: 9997 (Salon & Beauty Services)
-          </div>
         </div>
 
         {/* Invoice Info */}
@@ -265,16 +256,6 @@ export function ThermalReceipt({ invoice, salon, onClose }: ThermalReceiptProps)
               <span>- {formatCurrency(invoice.discount)}</span>
             </div>
           ) : null}
-
-          <div className="flex justify-between text-[10px] text-slate-600">
-            <span>CGST (2.5%):</span>
-            <span>{formatCurrency(cgst)}</span>
-          </div>
-
-          <div className="flex justify-between text-[10px] text-slate-600">
-            <span>SGST (2.5%):</span>
-            <span>{formatCurrency(sgst)}</span>
-          </div>
 
           {invoice.tipAmount ? (
             <div className="flex justify-between text-[10px] text-slate-700">
@@ -407,7 +388,7 @@ export function ThermalReceipt({ invoice, salon, onClose }: ThermalReceiptProps)
         <div className="pt-3 pb-1 text-center text-[10px] text-slate-600 border-t border-dotted border-slate-400 mt-2 space-y-0.5">
           <div className="font-bold text-black">*** THANK YOU FOR VISITING ***</div>
           <div className="text-[9px] text-slate-500">
-            Verified Digital GST Receipt
+            Verified Digital Receipt
           </div>
           <div className="text-[8px] text-slate-400 pt-1">
             Software by Ruvexi Solutions Salon OS

@@ -416,8 +416,8 @@ const DEFAULT_SALON: Salon = {
   accentColor: "#FACC15",
   tagline: "Bespoke Hair Sculpting, Organic Keratin Therapy & Aesthetic Skin Wellness",
   badges: ["👑 Official Flagship", "✨ Verified Atelier", "💎 Boost Level 3"],
-  gstin: "27AABCB1234F1Z8",
-  autoGst: true,
+  gstin: "",
+  autoGst: false,
   phone: "+91 98450 11223",
   email: "hello@Ruvexi.io",
   address: "Suite 401, Crescent Galleria, Indiranagar, Bengaluru",
@@ -1361,8 +1361,9 @@ export function RuvexiProvider({ children }: { children: React.ReactNode }) {
     [key: string]: any;
   }): Invoice => {
     const grandTotalVal = data.grandTotal ?? data.total ?? data.subtotal;
+    const cleanSlug = (salon.slug || salon.name || "MAIN").replace(/[^a-zA-Z0-9]/g, "").slice(0, 6).toUpperCase() || "MAIN";
     const seq = 100 + invoices.length + 1;
-    const invNumber = `BC-INV-${new Date().getFullYear()}-${seq.toString().padStart(4, "0")}`;
+    const invNumber = `RVX-${cleanSlug}-${new Date().getFullYear()}-${seq.toString().padStart(4, "0")}`;
     const tempId = "inv_" + Date.now();
     const resolvedStatus = (data.status || data.paymentStatus || "paid") as Invoice["status"];
     const pointsRedeemed = Number(data.loyaltyPointsRedeemed || data.pointsRedeemed || 0);
@@ -1376,11 +1377,11 @@ export function RuvexiProvider({ children }: { children: React.ReactNode }) {
       discountPercent: data.discountPercent ?? 0,
       discountAmount: data.discountAmount ?? data.discount ?? 0,
       discount: data.discount ?? data.discountAmount ?? 0,
-      taxPercent: data.taxPercent ?? (salon.autoGst === false ? 0 : 5),
-      cgst: data.cgst ?? Math.round((data.gstAmount ?? data.taxAmount ?? 0) / 2),
-      sgst: data.sgst ?? Math.round((data.gstAmount ?? data.taxAmount ?? 0) / 2),
-      taxAmount: data.taxAmount ?? data.gstAmount ?? 0,
-      gstAmount: data.gstAmount ?? data.taxAmount ?? 0,
+      taxPercent: 0,
+      cgst: 0,
+      sgst: 0,
+      taxAmount: 0,
+      gstAmount: 0,
       grandTotal: grandTotalVal,
       total: grandTotalVal,
       paymentMethod: data.paymentMethod as any,

@@ -256,14 +256,13 @@ export function ReportsView() {
 
         <div className="bg-[#151515] border border-[#27272A] p-5 rounded-xl">
           <span className="text-[10px] font-mono font-bold text-[#71717A] uppercase tracking-wider block">
-            Net GST Collected (5%)
+            Platform Tax Rate
           </span>
           <h3 className="text-2xl font-mono font-bold text-[#FACC15] mt-1">
-            {formatCurrency(totalGst)}
+            0% (No GST)
           </h3>
           <span className="text-[11px] text-[#71717A] font-mono mt-2 block">
-            CGST: {formatCurrency(Math.round(totalGst / 2))} • SGST:{" "}
-            {formatCurrency(Math.round(totalGst / 2))}
+            Clean direct pricing enabled
           </span>
         </div>
 

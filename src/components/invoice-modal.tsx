@@ -298,9 +298,7 @@ export function InvoiceModal({ invoice: initialInvoice, salon, onClose, onPaymen
                 <p className="text-xs text-slate-500 flex items-center gap-2 pt-1 font-mono">
                   <Phone className="w-3 h-3 text-slate-400" /> {salon.phone} • {salon.email}
                 </p>
-                <div className="mt-3 inline-flex items-center gap-1.5 px-3 py-1 bg-slate-100/90 text-slate-800 rounded-lg text-[11px] font-mono font-bold border border-slate-200">
-                  <ShieldCheck className="w-3.5 h-3.5 text-blue-600" /> GSTIN: {salon.gstin || "29AABCU9603R1ZX"}
-                </div>
+
               </div>
 
               <div className="text-left md:text-right bg-slate-50/80 p-5 rounded-2xl border border-slate-200/80 min-w-[220px] space-y-1.5">
@@ -539,10 +537,7 @@ export function InvoiceModal({ invoice: initialInvoice, salon, onClose, onPaymen
                     <span className="font-mono">- {formatCurrency(invoice.discount)}</span>
                   </div>
                 )}
-                <div className="flex justify-between text-slate-600 font-medium">
-                  <span>GST (CGST 2.5% + SGST 2.5%):</span>
-                  <span className="font-bold text-slate-800 font-mono">{formatCurrency(invoice.gstAmount)}</span>
-                </div>
+
                 <div className="border-t-2 border-slate-900 pt-2 flex justify-between text-base font-black text-slate-900">
                   <span>Total Payable:</span>
                   <span className="text-blue-600 font-mono text-lg">

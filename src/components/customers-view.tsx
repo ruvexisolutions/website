@@ -5,6 +5,8 @@ import { useRuvexi } from "@/lib/ruvexi-context";
 import { formatCurrency, getCustomerAvatarSrc } from "@/lib/utils";
 import { CustomerProfile } from "@/lib/types";
 import { ClientFormulaModal } from "./client-formula-modal";
+import { ImportClientsModal } from "./import-clients-modal";
+import { WhatsAppCampaignRunnerModal } from "./whatsapp-campaign-runner-modal";
 import {
   Users,
   Search,
@@ -24,6 +26,7 @@ import {
   X,
   Filter,
   Download,
+  UploadCloud,
   History,
   Gift,
   ChevronDown,
@@ -35,13 +38,15 @@ interface CustomersViewProps {
 }
 
 export function CustomersView({ onGoToPos, onGoToBooking }: CustomersViewProps) {
-  const { customers, invoices, addCustomer, updateCustomer, showToast } = useRuvexi();
+  const { salon, customers, invoices, addCustomer, updateCustomer, showToast, refreshWorkspace } = useRuvexi();
 
   const [searchQuery, setSearchQuery] = useState("");
   const [tierFilter, setTierFilter] = useState<string>("All");
   const [selectedCustomerForModal, setSelectedCustomerForModal] =
     useState<any>(null);
   const [showAddModal, setShowAddModal] = useState(false);
+  const [showImportModal, setShowImportModal] = useState(false);
+  const [showWhatsAppCampaignModal, setShowWhatsAppCampaignModal] = useState(false);
   const [expandedHistoryCustomerId, setExpandedHistoryCustomerId] = useState<string | null>(null);
 
   // New customer form state
@@ -167,6 +172,22 @@ export function CustomersView({ onGoToPos, onGoToBooking }: CustomersViewProps) 
         </div>
 
         <div className="flex items-center gap-2.5">
+          <button
+            onClick={() => setShowWhatsAppCampaignModal(true)}
+            className="inline-flex items-center gap-1.5 px-3.5 py-2.5 bg-[#122c1a] hover:bg-[#163821] text-[#22c55e] border border-[#22c55e]/40 hover:border-[#22c55e]/70 font-semibold text-xs rounded-xl transition-all cursor-pointer shadow-sm"
+            title="Send bulk personalized WhatsApp messages (No API needed)"
+          >
+            <MessageSquare className="w-4 h-4 text-[#22c55e]" />
+            <span className="hidden sm:inline">WhatsApp Campaign</span>
+          </button>
+          <button
+            onClick={() => setShowImportModal(true)}
+            className="inline-flex items-center gap-1.5 px-3.5 py-2.5 bg-[#171717] hover:bg-[#202020] text-emerald-400 border border-emerald-500/30 hover:border-emerald-500/60 font-semibold text-xs rounded-xl transition-all cursor-pointer shadow-sm"
+            title="Import client directory from Excel (.xlsx, .xls) or CSV"
+          >
+            <UploadCloud className="w-4 h-4 text-emerald-400" />
+            <span className="hidden sm:inline">Import Excel / CSV</span>
+          </button>
           <button
             onClick={handleExportCSV}
             className="inline-flex items-center gap-1.5 px-3.5 py-2.5 bg-[#171717] hover:bg-[#202020] text-[#F8FAFC] border border-[#27272A] hover:border-[#FACC15]/40 font-medium text-xs rounded-xl transition-all cursor-pointer shadow-sm"
@@ -561,6 +582,24 @@ export function CustomersView({ onGoToPos, onGoToBooking }: CustomersViewProps) 
           </div>
         </div>
       )}
+
+      {/* Bulk Excel / CSV Import Modal */}
+      <ImportClientsModal
+        isOpen={showImportModal}
+        onClose={() => setShowImportModal(false)}
+        onSuccess={() => {
+          refreshWorkspace?.();
+        }}
+      />
+
+      {/* 1-Click WhatsApp Campaign Runner (No Meta API) */}
+      <WhatsAppCampaignRunnerModal
+        isOpen={showWhatsAppCampaignModal}
+        onClose={() => setShowWhatsAppCampaignModal(false)}
+        customers={customers}
+        salonName={salon?.name || "OLG Hair Saloon"}
+        salonSlug={salon?.slug || "olg-hair-saloon"}
+      />
     </div>
   );
 }

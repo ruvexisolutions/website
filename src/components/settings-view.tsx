@@ -251,7 +251,7 @@ export function SettingsView({ initialSubTab = "general" }: SettingsViewProps) {
             </div>
             <p className="text-xs text-[#71717A] mt-0.5">
               {canEditBusiness
-                ? "Brand profile \u00b7 Tax & GSTIN compliance \u00b7 WhatsApp Cloud API credentials"
+                ? "Brand profile \u00b7 Direct UPI settlement \u00b7 WhatsApp Cloud API credentials"
                 : "Update your salon logo, name, tagline, address, and contact info."}
             </p>
           </div>

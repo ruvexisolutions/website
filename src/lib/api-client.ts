@@ -105,6 +105,11 @@ export const RuvexiApi = {
     request<{ success: boolean; id: string }>(`/customers/${id}`, {
       method: "DELETE",
     }),
+  importCustomers: (customers: any[], duplicateStrategy: "merge" | "skip" = "merge") =>
+    request<{ success: boolean; imported: number; updated: number; skippedDuplicates: number; totalProcessed: number }>("/customers/import", {
+      method: "POST",
+      body: JSON.stringify({ customers, duplicateStrategy }),
+    }),
 
   // Services
   getServices: () => request<any[]>("/services"),

@@ -116,8 +116,8 @@ export function PosView() {
   const subtotal = cart.reduce((acc, item) => acc + item.price * item.quantity, 0);
   const loyaltyDiscount = redeemLoyalty && selectedCustomer ? Math.min(Math.floor(selectedCustomer.loyaltyPoints / 2), 500) : 0;
   const totalDiscount = appliedDiscount + loyaltyDiscount;
-  const gstAmount = Math.round(subtotal * 0.05); // 5% GST (CGST 2.5% + SGST 2.5%)
-  const grandTotal = Math.max(0, subtotal - totalDiscount + gstAmount + tipAmount);
+  const gstAmount = 0; // Tax removed - clean billing without GST
+  const grandTotal = Math.max(0, subtotal - totalDiscount + tipAmount);
 
   // Sync default customer once context hydrates
   React.useEffect(() => {
@@ -193,7 +193,7 @@ export function PosView() {
     if (isUpiAvailable && salon.upiId && grandTotal > 0) {
       const vpa = salon.upiId.trim();
       const payeeName = salon.paymentSettings?.upiPayeeName || salon.name;
-      const invoiceRef = `BC-INV-${Date.now().toString().slice(-6)}`;
+      const invoiceRef = `RVX-INV-${Date.now().toString().slice(-6)}`;
       const intent = `upi://pay?pa=${encodeURIComponent(vpa)}&pn=${encodeURIComponent(payeeName)}&am=${grandTotal.toFixed(2)}&cu=INR&tn=${encodeURIComponent(invoiceRef)}`;
       setUpiIntentUri(intent);
       QRCode.toDataURL(intent, {
@@ -418,8 +418,10 @@ export function PosView() {
         discountAmount: appliedDiscount,
         loyaltyPointsRedeemed: redeemedPts,
         tipAmount,
-        taxPercent: salon.autoGst === false ? 0 : 5,
-        gstAmount,
+        taxPercent: 0,
+        gstAmount: 0,
+        cgst: 0,
+        sgst: 0,
         total: grandTotal,
         grandTotal,
         paymentMethod: method,
@@ -1144,10 +1146,7 @@ export function PosView() {
                     <span className="font-mono">- {formatCurrency(loyaltyDiscount)}</span>
                   </div>
                 )}
-                <div className="flex justify-between text-[#A1A1AA] font-medium">
-                  <span>Tax (5% GST):</span>
-                  <span className="font-bold text-[#F8FAFC] font-mono">{formatCurrency(gstAmount)}</span>
-                </div>
+
                 {tipAmount > 0 && (
                   <div className="flex justify-between text-[#FACC15] font-bold">
                     <span>Stylist Tip:</span>
