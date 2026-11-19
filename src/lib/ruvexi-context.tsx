@@ -399,28 +399,28 @@ const RuvexiContext = createContext<RuvexiContextType | null>(null);
 // ============================================================================
 
 const DEFAULT_SALON: Salon = {
-  id: "sln_Ruvexi_flagship",
-  name: "Ruvexi Solutions Atelier & Spa",
-  slug: "Ruvexi-atelier",
-  branch: "Flagship Studio",
-  city: "Mumbai & Bengaluru",
+  id: "",
+  name: "",
+  slug: "",
+  branch: "",
+  city: "",
   currency: "₹",
-  chairs: 8,
-  category: "Luxury Hair Studio & Aesthetic Spa",
-  logoUrl: "/images/ruvexi-logo.png",
-  logo: "/images/ruvexi-logo.png",
+  chairs: 0,
+  category: "",
+  logoUrl: "/logo.png",
+  logo: "/logo.png",
   bannerPreset: "marble-showcase",
   bannerUrl: "",
-  bannerGradient: "linear-gradient(135deg, #1e1f38 0%, #5865F2 45%, #7289da 70%, #eb459e 100%)",
+  bannerGradient: "",
   accentColor: "#FACC15",
-  tagline: "Bespoke Hair Sculpting, Organic Keratin Therapy & Aesthetic Skin Wellness",
-  badges: ["👑 Official Flagship", "✨ Verified Atelier", "💎 Boost Level 3"],
+  tagline: "",
+  badges: [],
   gstin: "",
   autoGst: false,
-  phone: "+91 98450 11223",
-  email: "hello@Ruvexi.io",
-  address: "Suite 401, Crescent Galleria, Indiranagar, Bengaluru",
-  timing: "10:00 AM - 09:30 PM (All Days)",
+  phone: "",
+  email: "",
+  address: "",
+  timing: "",
   rating: 0,
   reviewCount: 0,
   upiId: "",
@@ -556,9 +556,10 @@ export function RuvexiProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     try {
       // Clean slate migration: purge previous demo cache and remove old bypass auth tokens
-      if (typeof window !== "undefined" && !localStorage.getItem("Ruvexi_auth_strict_2026_v2")) {
+      if (typeof window !== "undefined" && !localStorage.getItem("Ruvexi_clean_slate_zero_hardcode_2026")) {
         localStorage.removeItem("Ruvexi_user");
         localStorage.removeItem("Ruvexi_token");
+        localStorage.removeItem("Ruvexi_salon");
         localStorage.removeItem("Ruvexi_customers");
         localStorage.removeItem("Ruvexi_services");
         localStorage.removeItem("Ruvexi_staff");
@@ -567,7 +568,8 @@ export function RuvexiProvider({ children }: { children: React.ReactNode }) {
         localStorage.removeItem("Ruvexi_invoices");
         localStorage.removeItem("Ruvexi_followups");
         localStorage.removeItem("Ruvexi_feedbacks");
-        localStorage.setItem("Ruvexi_auth_strict_2026_v2", "true");
+        localStorage.removeItem("Ruvexi_current_shift");
+        localStorage.setItem("Ruvexi_clean_slate_zero_hardcode_2026", "true");
       }
 
       const storedUser = localStorage.getItem("Ruvexi_user");

@@ -161,19 +161,19 @@ export interface Appointment {
 }
 
 export const INITIAL_SALON: SalonProfile = {
-  id: "sln_1dc700ec03ea",
-  name: "OLG Professional Unisex Salon & HairFixing",
-  tagline: "Luxury Styling, Advanced Hair Treatments & Aesthetic Spa",
-  branch: "Chickmagalur Studio",
-  address: "opp jayashree digital, aralimara road, basavanahalli, chikmagalur",
-  phone: "8296294666",
-  email: "darshanurs54@gmail.com",
+  id: "",
+  name: "",
+  tagline: "",
+  branch: "",
+  address: "",
+  phone: "",
+  email: "",
   gstin: "",
   currency: "₹",
-  rating: 4.9,
-  reviewCount: 418,
-  logo: "/logo.png",
-  upiId: "8296294666@ybl",
+  rating: 0,
+  reviewCount: 0,
+  logo: "",
+  upiId: "",
 };
 
 export const INITIAL_STAFF: StaffMember[] = [];

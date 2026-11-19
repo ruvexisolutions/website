@@ -151,11 +151,10 @@ export function DemoShell({ initialTab = "frontdesk", initialSubTab }: DemoShell
 
     const flaggedNew = localStorage.getItem("Ruvexi_needs_onboarding") === "true";
     const hasMissingCoreProfile =
-      Boolean(salon?.id && salon.id !== "sln_1") &&
+      Boolean(salon?.id) &&
       (!salon?.phone ||
         salon.phone === "+91 98000 00000" ||
-        !salon?.address ||
-        salon.address === "Suite 401, Crescent Galleria, Indiranagar");
+        !salon?.address);
 
     if (flaggedNew || hasMissingCoreProfile) {
       setShowOwnerOnboarding(true);
