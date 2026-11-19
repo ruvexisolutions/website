@@ -158,7 +158,12 @@ export const RuvexiApi = {
     }),
   getInvitation: (token: string) =>
     request<any>(`/invitations/${token}`),
-  acceptInvitation: (data: { token: string; name: string; phone?: string; password: string }) =>
+  requestInvitationOtp: (token: string, name?: string) =>
+    request<{ success: boolean; message: string; dev_otp?: string }>("/invitations/request-otp", {
+      method: "POST",
+      body: JSON.stringify({ token, name }),
+    }),
+  acceptInvitation: (data: { token: string; name: string; phone?: string; password: string; otp: string }) =>
     request<any>("/invitations/accept", {
       method: "POST",
       body: JSON.stringify(data),
