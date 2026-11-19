@@ -105,6 +105,7 @@ export function DemoShell({ initialTab = "frontdesk", initialSubTab }: DemoShell
     appointments,
     logout,
     isBackendConnected,
+    showToast,
   } = useRuvexi();
 
   const userRole = ((user?.role as UserRole) || "owner");
@@ -154,12 +155,14 @@ export function DemoShell({ initialTab = "frontdesk", initialSubTab }: DemoShell
       Boolean(salon?.id) &&
       (!salon?.phone ||
         salon.phone === "+91 98000 00000" ||
-        !salon?.address);
+        !salon?.address ||
+        !salon?.upiId ||
+        services.length === 0);
 
     if (flaggedNew || hasMissingCoreProfile) {
       setShowOwnerOnboarding(true);
     }
-  }, [user, salon?.id, salon?.phone, salon?.address, roleConfig.capabilities.canEditSalonSettings]);
+  }, [user, salon?.id, salon?.phone, salon?.address, salon?.upiId, services.length, roleConfig.capabilities.canEditSalonSettings]);
 
   // Search & Notifications Popover States
   const [isSearchOpen, setIsSearchOpen] = useState(false);
@@ -951,7 +954,17 @@ export function DemoShell({ initialTab = "frontdesk", initialSubTab }: DemoShell
 
       {/* First-Time Owner Studio Onboarding Form */}
       {showOwnerOnboarding && (
-        <OwnerOnboardingModal onComplete={() => setShowOwnerOnboarding(false)} />
+        <OwnerOnboardingModal
+          onComplete={(action) => {
+            setShowOwnerOnboarding(false);
+            if (action === "register_customer") {
+              setActiveTab("pos");
+              showToast("🎉 Studio is live! Register your first customer to bill your first service.", "success");
+            } else {
+              showToast("🎉 Studio setup complete! Welcome to Ruvexi.", "success");
+            }
+          }}
+        />
       )}
 
       {/* Zenoti Enterprise Multi-Center & Clinical Suite Modal (Manager / Owner only) */}
