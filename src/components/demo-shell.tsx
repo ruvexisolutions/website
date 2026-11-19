@@ -122,6 +122,15 @@ export function DemoShell({ initialTab = "frontdesk", initialSubTab }: DemoShell
   const [showOwnerOnboarding, setShowOwnerOnboarding] = useState(false);
   const [currentTime, setCurrentTime] = useState<string>("");
 
+  const canManageBranches = roleConfig.capabilities.canManageBranches;
+
+  // Lock receptionist to their assigned branch
+  useEffect(() => {
+    if (!canManageBranches && ((user as any)?.branchId || (user as any)?.branch)) {
+      setSelectedBranch((user as any).branchId || (user as any).branch);
+    }
+  }, [user, canManageBranches]);
+
   // Trigger first-time onboarding form for newly signed-up / Google-registered owners
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -762,7 +771,7 @@ export function DemoShell({ initialTab = "frontdesk", initialSubTab }: DemoShell
                 {activeTab === "overview" && (
                   <OverviewView
                     onNavigateTab={(tab) => handleSelectTab(tab as any)}
-                    onOpenSwitchLocation={() => setIsZenotiModalOpen(true)}
+                    onOpenSwitchLocation={canManageBranches ? () => setIsZenotiModalOpen(true) : undefined}
                     activeBranch={selectedBranch}
                   />
                 )}
@@ -946,13 +955,15 @@ export function DemoShell({ initialTab = "frontdesk", initialSubTab }: DemoShell
         <OwnerOnboardingModal onComplete={() => setShowOwnerOnboarding(false)} />
       )}
 
-      {/* Zenoti Enterprise Multi-Center & Clinical Suite Modal */}
-      <ZenotiEnterpriseModal
-        isOpen={isZenotiModalOpen}
-        onClose={() => setIsZenotiModalOpen(false)}
-        activeCenter={selectedBranch}
-        onSelectCenter={(center) => setSelectedBranch(center)}
-      />
+      {/* Zenoti Enterprise Multi-Center & Clinical Suite Modal (Manager / Owner only) */}
+      {canManageBranches && (
+        <ZenotiEnterpriseModal
+          isOpen={isZenotiModalOpen}
+          onClose={() => setIsZenotiModalOpen(false)}
+          activeCenter={selectedBranch}
+          onSelectCenter={(center) => setSelectedBranch(center)}
+        />
+      )}
     </div>
   );
 }
