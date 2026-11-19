@@ -34,7 +34,7 @@ interface OverviewViewProps {
 }
 
 export function OverviewView({ onNavigateTab, onOpenSwitchLocation, activeBranch }: OverviewViewProps) {
-  const { salon, staff, inventory, followUps, invoices, appointments, updateAppointmentStatus } =
+  const { salon, staff, inventory, followUps, invoices, appointments, updateAppointmentStatus, user } =
     useRuvexi();
 
   const [productivityRange, setProductivityRange] = useState<"today" | "week" | "month">("today");
@@ -105,6 +105,23 @@ export function OverviewView({ onNavigateTab, onOpenSwitchLocation, activeBranch
     year: "numeric",
   });
 
+  const currentHour = new Date().getHours();
+  const greeting =
+    currentHour >= 4 && currentHour < 12
+      ? "Good Morning"
+      : currentHour >= 12 && currentHour < 17
+      ? "Good Afternoon"
+      : "Good Evening";
+
+  const rawName = (user?.name || (user?.email ? user.email.split("@")[0] : "")).trim();
+  const formattedName = rawName
+    ? rawName
+        .split(/\s+/)
+        .map((w) => (w ? w.charAt(0).toUpperCase() + w.slice(1).toLowerCase() : ""))
+        .join(" ")
+    : "Partner";
+  const firstName = formattedName.split(" ")[0];
+
   return (
     <div className="space-y-6 text-[#F8FAFC]">
       {/* ============================================================ */}
@@ -116,8 +133,12 @@ export function OverviewView({ onNavigateTab, onOpenSwitchLocation, activeBranch
         <div className="relative z-10 space-y-5">
           {/* Top Status & Active Studio Switcher / Trial Row */}
           <div className="flex flex-wrap items-center justify-between gap-3">
-            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[#151515] border border-[#27272A] text-xs font-mono tracking-wider">
-              <span className="text-[#A1A1AA]">{todayDateString}</span>
+            <div className="flex items-center gap-2">
+              <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-[#151515] border border-[#27272A] text-xs">
+                <span className="text-[#FACC15] font-semibold">{greeting}, {firstName} 👋</span>
+                <span className="text-white/20">•</span>
+                <span className="text-[#A1A1AA] font-mono text-[11px]">{todayDateString}</span>
+              </div>
             </div>
 
             <div className="flex flex-wrap items-center gap-2.5">

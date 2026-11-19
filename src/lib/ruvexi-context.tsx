@@ -1891,9 +1891,9 @@ export function RuvexiProvider({ children }: { children: React.ReactNode }) {
         },
         currentPersona: {
           id: user?.id || "usr_owner",
-          name: user?.name || "Sunil Kumar",
+          name: user?.name || (user?.email ? user.email.split("@")[0] : "Salon Partner"),
           role: user?.role || "owner",
-          avatar: user?.avatar || user?.name?.charAt(0) || "S",
+          avatar: user?.avatar || (user?.name ? user.name.charAt(0).toUpperCase() : (user?.email ? user.email.charAt(0).toUpperCase() : "R")),
           roleTitle: getRoleConfig(user?.role).label,
         },
         allPersonas: [],
