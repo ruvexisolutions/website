@@ -1,4 +1,4 @@
-﻿export interface SalonProfile {
+export interface SalonProfile {
   id: string;
   name: string;
   tagline: string;
