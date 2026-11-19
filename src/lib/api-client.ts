@@ -55,6 +55,7 @@ async function request<T>(endpoint: string, options: RequestInit = {}): Promise<
 export const RuvexiApi = {
   // Bootstrap entire workspace state
   getBootstrap: () => request<any>("/bootstrap"),
+  getPublicAuthConfig: () => request<any>("/auth/public-config"),
 
   // Auth
   login: (credentials: { email: string; password?: string }) =>

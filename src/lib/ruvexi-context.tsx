@@ -3,7 +3,7 @@
 import React, { createContext, useContext, useState, useEffect } from "react";
 import { RuvexiApi } from "./api-client";
 import { getRoleConfig } from "./role-permissions";
-import { createClient, isSupabaseConfigured } from "./supabase/client";
+import { createClient, isSupabaseConfigured, setDynamicSupabaseConfig } from "./supabase/client";
 import {
   signUpWithSupabase,
   signInWithSupabasePassword,
@@ -622,6 +622,15 @@ export function RuvexiProvider({ children }: { children: React.ReactNode }) {
       console.warn("Ruvexi: Storage hydration warning", e);
     }
 
+    // Load live public config from backend (e.g. Supabase Anon key and Google Client ID)
+    RuvexiApi.getPublicAuthConfig()
+      .then((cfg: any) => {
+        if (cfg?.supabaseUrl && cfg?.supabaseAnonKey) {
+          setDynamicSupabaseConfig(cfg.supabaseUrl, cfg.supabaseAnonKey);
+        }
+      })
+      .catch(() => {});
+
     // Hydrate from active Supabase Session if available
     if (typeof window !== "undefined" && isSupabaseConfigured()) {
       const supabase = createClient();
@@ -688,78 +697,62 @@ export function RuvexiProvider({ children }: { children: React.ReactNode }) {
     }
 
     try {
-      // 1. Authenticate against Ruvexi backend API first to acquire real FastAPI JWT & PostgreSQL tenant
-      try {
-        const res = await RuvexiApi.login({ email: normalizedIdentifier, password });
-        if (res && res.user) {
-          setUser(res.user);
-          persist("Ruvexi_user", res.user);
-          if (res.token) {
-            persist("Ruvexi_token", res.token);
-          }
-          if (res.salon) {
-            setSalon(res.salon);
-            persist("Ruvexi_salon", res.salon);
-          }
-          hydrateFromBackend();
-          showToast(`Welcome back to Ruvexi, ${res.user.name}!`);
-          return { success: true, user: res.user };
-        }
-      } catch (apiErr: any) {
-        if (!isSupabaseConfigured()) {
-          throw apiErr;
-        }
-        console.warn("[Backend Login Fallback -> Supabase]:", apiErr?.message);
-      }
-
-      // 2. Fallback to Supabase Auth if configured (e.g., Supabase-only account) and bridge workspace
+      // 1. PRIMARY: Authenticate against Supabase Auth first when configured (uses auth.users & Resend SMTP)
       if (isSupabaseConfigured() && normalizedIdentifier.includes("@")) {
         const supaRes = await signInWithSupabasePassword(normalizedIdentifier, password);
         if (supaRes.success && supaRes.user) {
-          // Ensure user also exists on FastAPI PostgreSQL backend so CRUD works
+          // Sync with Ruvexi backend API to load PostgreSQL salon workspace
           try {
-            const bridgeSignup = await RuvexiApi.signup({
-              user: {
-                name: supaRes.user.name,
-                email: supaRes.user.email,
-                phone: supaRes.user.phone || "",
-                password,
-              },
-              salon: {
-                name: supaRes.salon?.name || `${supaRes.user.name}'s Atelier`,
-                city: supaRes.salon?.city || "Mumbai",
-                category: supaRes.salon?.category || "Hair Studio & Luxury Spa",
-                chairs: supaRes.salon?.chairs || 6,
-                currency: "₹",
-              },
-            });
-            if (bridgeSignup?.token && bridgeSignup?.user && bridgeSignup?.salon) {
-              setUser(bridgeSignup.user);
-              setSalon(bridgeSignup.salon);
-              persist("Ruvexi_user", bridgeSignup.user);
-              persist("Ruvexi_salon", bridgeSignup.salon);
-              persist("Ruvexi_token", bridgeSignup.token);
+            const apiRes = await RuvexiApi.login({ email: normalizedIdentifier, password });
+            if (apiRes && apiRes.user) {
+              setUser(apiRes.user);
+              persist("Ruvexi_user", apiRes.user);
+              persist("Ruvexi_token", apiRes.token || supaRes.token);
+              if (apiRes.salon) {
+                setSalon(apiRes.salon);
+                persist("Ruvexi_salon", apiRes.salon);
+              }
               hydrateFromBackend();
-              showToast(`Welcome back to Ruvexi, ${bridgeSignup.user.name}!`);
-              return { success: true, user: bridgeSignup.user };
+              showToast(`Welcome back to Ruvexi, ${apiRes.user.name}!`);
+              return { success: true, user: apiRes.user };
             }
           } catch {
-            // Fall back to Supabase session if backend bridge skipped
+            // Use Supabase profile if backend sync was bypassed
+            setUser(supaRes.user as any);
+            persist("Ruvexi_user", supaRes.user);
+            if (supaRes.token) persist("Ruvexi_token", supaRes.token);
+            if (supaRes.salon) {
+              setSalon((prev) => ({ ...prev, ...supaRes.salon }));
+              persist("Ruvexi_salon", supaRes.salon);
+            }
+            hydrateFromBackend();
+            showToast(`Welcome back to Ruvexi, ${supaRes.user.name}!`);
+            return { success: true, user: supaRes.user };
           }
-
-          setUser(supaRes.user);
-          persist("Ruvexi_user", supaRes.user);
-          if (supaRes.token) persist("Ruvexi_token", supaRes.token);
-          if (supaRes.salon) {
-            setSalon((prev) => ({ ...prev, ...supaRes.salon }));
-            persist("Ruvexi_salon", { ...salon, ...supaRes.salon });
-          }
-          showToast(`Welcome back to Ruvexi, ${supaRes.user.name}!`);
-          return { success: true, user: supaRes.user };
         }
         if (supaRes.error) {
-          return { success: false, error: supaRes.error };
+          if (supaRes.error.toLowerCase().includes("email not confirmed")) {
+            return { success: false, error: "Please confirm your email address. A confirmation link was sent via Resend SMTP." };
+          }
+          console.warn("[Supabase Auth check]:", supaRes.error);
         }
+      }
+
+      // 2. Direct backend login (supports phone numbers and direct master admin accounts)
+      const res = await RuvexiApi.login({ email: normalizedIdentifier, password });
+      if (res && res.user) {
+        setUser(res.user);
+        persist("Ruvexi_user", res.user);
+        if (res.token) {
+          persist("Ruvexi_token", res.token);
+        }
+        if (res.salon) {
+          setSalon(res.salon);
+          persist("Ruvexi_salon", res.salon);
+        }
+        hydrateFromBackend();
+        showToast(`Welcome back to Ruvexi, ${res.user.name}!`);
+        return { success: true, user: res.user };
       }
 
       return { success: false, error: "Invalid email/phone or password." };
@@ -781,25 +774,52 @@ export function RuvexiProvider({ children }: { children: React.ReactNode }) {
     }
 
     try {
-      // 1. Always create salon & manager on FastAPI PostgreSQL backend first for valid JWT & CRUD
+      // 1. PRIMARY: Register via Supabase Auth so Resend SMTP sends the verification email!
+      if (isSupabaseConfigured()) {
+        try {
+          const supaSignup = await signUpWithSupabase({
+            email: userData.email,
+            password: userData.password,
+            name: userData.name,
+            phone: userData.phone,
+            salonName: salonData.name,
+            city: salonData.city,
+            category: salonData.category,
+            chairs: salonData.chairs,
+          });
+
+          // Mirror into FastAPI backend PostgreSQL database
+          try {
+            await RuvexiApi.signup({ user: userData, salon: salonData });
+          } catch (_) {}
+
+          if (supaSignup.requiresEmailVerification) {
+            return {
+              success: true,
+              requiresEmailVerification: true,
+              message: `Verification link sent to ${userData.email} via Resend SMTP. Please check your inbox to confirm your account.`
+            };
+          }
+
+          if (supaSignup.success && supaSignup.user) {
+            setUser(supaSignup.user as any);
+            if (supaSignup.salon) setSalon(supaSignup.salon as any);
+            if (supaSignup.token) persist("Ruvexi_token", supaSignup.token);
+            persist("Ruvexi_user", supaSignup.user);
+            hydrateFromBackend();
+            showToast(`Welcome to Ruvexi! Your workspace for "${salonData.name}" is ready.`);
+            return { success: true };
+          }
+        } catch (supaErr: any) {
+          console.warn("[Supabase Signup warning]:", supaErr?.message);
+        }
+      }
+
+      // 2. Direct backend signup fallback
       const res = await RuvexiApi.signup({
         user: userData,
         salon: salonData,
       });
-
-      // Optionally mirror into Supabase Auth when configured (non-blocking if backend succeeded)
-      if (isSupabaseConfigured()) {
-        signUpWithSupabase({
-          email: userData.email,
-          password: userData.password,
-          name: userData.name,
-          phone: userData.phone,
-          salonName: salonData.name,
-          city: salonData.city,
-          category: salonData.category,
-          chairs: salonData.chairs,
-        }).catch(() => {});
-      }
 
       if (res && res.user && res.salon) {
         setUser(res.user);

@@ -1,10 +1,20 @@
 import { createBrowserClient } from "@supabase/ssr";
 
 let browserClient: ReturnType<typeof createBrowserClient> | null = null;
+let dynamicSupabaseUrl = "";
+let dynamicSupabaseAnonKey = "";
+
+export function setDynamicSupabaseConfig(url: string, key: string) {
+  if (url && key) {
+    dynamicSupabaseUrl = url.trim();
+    dynamicSupabaseAnonKey = key.trim();
+    browserClient = null;
+  }
+}
 
 export const isSupabaseConfigured = (): boolean => {
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+  const url = dynamicSupabaseUrl || process.env.NEXT_PUBLIC_SUPABASE_URL || "https://jpkxwdwjrgerdqxjxesw.supabase.co";
+  const key = dynamicSupabaseAnonKey || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
   return Boolean(
     url &&
     key &&
@@ -15,8 +25,8 @@ export const isSupabaseConfigured = (): boolean => {
 };
 
 export function createClient() {
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || "";
-  const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || "";
+  const supabaseUrl = dynamicSupabaseUrl || process.env.NEXT_PUBLIC_SUPABASE_URL || "https://jpkxwdwjrgerdqxjxesw.supabase.co";
+  const supabaseAnonKey = dynamicSupabaseAnonKey || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || "";
 
   if (typeof window !== "undefined") {
     if (!browserClient) {
