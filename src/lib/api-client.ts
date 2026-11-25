@@ -171,12 +171,12 @@ export const RuvexiApi = {
 
   // Branches (Multi-Location Studios)
   getBranches: () => request<any[]>("/branches"),
-  createBranch: (data: { name: string; city: string; address?: string; phone?: string; email?: string; chairs?: number; code?: string }) =>
+  createBranch: (data: { name: string; city: string; address?: string; phone?: string; email?: string; chairs?: number; code?: string; upiId?: string; upiPayeeName?: string; upiEnabled?: boolean }) =>
     request<any>("/branches", {
       method: "POST",
       body: JSON.stringify(data),
     }),
-  updateBranch: (id: string, data: any) =>
+  updateBranch: (id: string, data: { name?: string; city?: string; address?: string; phone?: string; email?: string; chairs?: number; isActive?: boolean; upiId?: string; upiPayeeName?: string; upiEnabled?: boolean }) =>
     request<any>(`/branches/${id}`, {
       method: "PUT",
       body: JSON.stringify(data),

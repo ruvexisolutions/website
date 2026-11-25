@@ -778,7 +778,7 @@ export function DemoShell({ initialTab = "frontdesk", initialSubTab }: DemoShell
                   />
                 )}
                 {activeTab === "calendar" && <CalendarView onGoToPosBilling={handleGoToPosFromCalendar} />}
-                {activeTab === "pos" && <PosView />}
+                {activeTab === "pos" && <PosView activeBranch={selectedBranch} />}
                 {activeTab === "customers" && (
                   <CustomersView
                     onGoToPos={(_cid) => handleSelectTab("pos")}

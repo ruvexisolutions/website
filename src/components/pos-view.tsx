@@ -2,6 +2,7 @@
 
 import React, { useState, useMemo } from "react";
 import { useRuvexi } from "@/lib/ruvexi-context";
+import { RuvexiApi } from "@/lib/api-client";
 import { InvoiceItem, Invoice } from "@/lib/types";
 import { formatCurrency } from "@/lib/utils";
 import { InvoiceModal } from "./invoice-modal";
@@ -41,8 +42,30 @@ import {
 import QRCode from "qrcode";
 import { playPaymentAlertSound } from "@/lib/audio-alerts";
 
-export function PosView() {
-  const { salon, staff, services, inventory, customers, invoices, createInvoice, showToast } = useRuvexi();
+export function PosView({ activeBranch }: { activeBranch?: string } = {}) {
+  const { salon, user, staff, services, inventory, customers, invoices, createInvoice, showToast } = useRuvexi();
+
+  const [branches, setBranches] = useState<any[]>([]);
+  React.useEffect(() => {
+    RuvexiApi.getBranches()
+      .then((list: any[]) => {
+        if (Array.isArray(list)) setBranches(list);
+      })
+      .catch(() => {});
+  }, []);
+
+  const resolvedBranch = React.useMemo(() => {
+    const target = (user as any)?.branchId || activeBranch || salon.branch;
+    if (!target || branches.length === 0) return null;
+    return (
+      branches.find(
+        (b) =>
+          b.id === target ||
+          b.name === target ||
+          b.code === target
+      ) || null
+    );
+  }, [branches, user, activeBranch, salon.branch]);
 
   // Selected tab: "terminal" or "history"
   const [activeSubTab, setActiveSubTab] = useState<"terminal" | "history">("terminal");
@@ -86,9 +109,19 @@ export function PosView() {
   const [appliedDiscount, setAppliedDiscount] = useState<number>(0);
   const [discountMessage, setDiscountMessage] = useState<string>("");
   // Payment & Dynamic Checkout States
+  const branchUpiId = (resolvedBranch?.upiId || "").trim();
+  const effectiveUpiId = branchUpiId || (salon.upiId || "").trim();
+  const effectivePayeeName =
+    (branchUpiId ? resolvedBranch?.upiPayeeName : null) ||
+    salon.paymentSettings?.upiPayeeName ||
+    salon.name;
+
   const isCashAvailable = salon.paymentSettings?.cashEnabled ?? (salon as any).cashEnabled ?? true;
-  const isUpiConfigured = Boolean(salon.upiId && salon.upiId.trim());
-  const isUpiAvailable = Boolean(isUpiConfigured && (salon.paymentSettings?.upiEnabled ?? (salon as any).upiEnabled ?? false));
+  const isUpiConfigured = Boolean(effectiveUpiId);
+  const isUpiAvailable = Boolean(
+    isUpiConfigured &&
+      (branchUpiId ? true : (salon.paymentSettings?.upiEnabled ?? (salon as any).upiEnabled ?? false))
+  );
 
   const [paymentMethod, setPaymentMethod] = useState<"CASH" | "UPI">(isUpiAvailable ? "UPI" : "CASH");
   const [cashTendered, setCashTendered] = useState<number>(0);
@@ -190,9 +223,9 @@ export function PosView() {
 
   // Generate dynamic UPI intent & QR Code
   React.useEffect(() => {
-    if (isUpiAvailable && salon.upiId && grandTotal > 0) {
-      const vpa = salon.upiId.trim();
-      const payeeName = salon.paymentSettings?.upiPayeeName || salon.name;
+    if (isUpiAvailable && effectiveUpiId && grandTotal > 0) {
+      const vpa = effectiveUpiId;
+      const payeeName = effectivePayeeName;
       const invoiceRef = `RVX-INV-${Date.now().toString().slice(-6)}`;
       const intent = `upi://pay?pa=${encodeURIComponent(vpa)}&pn=${encodeURIComponent(payeeName)}&am=${grandTotal.toFixed(2)}&cu=INR&tn=${encodeURIComponent(invoiceRef)}`;
       setUpiIntentUri(intent);
@@ -207,7 +240,7 @@ export function PosView() {
       setUpiIntentUri("");
       setUpiQrDataUrl("");
     }
-  }, [isUpiAvailable, salon.upiId, salon.paymentSettings?.upiPayeeName, salon.name, grandTotal]);
+  }, [isUpiAvailable, effectiveUpiId, effectivePayeeName, grandTotal]);
 
   // Custom Item Modal
   const [showCustomItemModal, setShowCustomItemModal] = useState<boolean>(false);
@@ -407,6 +440,7 @@ export function PosView() {
       const txnRef = extraDetails.transactionReference || (method === "CASH" ? `BC-CASH-${Date.now().toString().slice(-6)}` : `BC-UPI-${Date.now().toString().slice(-6)}`);
 
       const newInvoice = createInvoice({
+        branchId: resolvedBranch?.id || (user as any)?.branchId || undefined,
         customerId: isWalkIn ? "cst_walkin" : selectedCustomer?.id,
         customerName,
         customerPhone,
@@ -1377,7 +1411,12 @@ export function PosView() {
                         <QrCode className="w-4 h-4 text-[#FACC15]" /> Direct Salon UPI QR
                       </span>
                       <p className="text-[11px] text-[#71717A] mt-0.5">
-                        Payee: <span className="text-[#F8FAFC] font-semibold">{salon.paymentSettings?.upiPayeeName || salon.name}</span>
+                        Payee: <span className="text-[#F8FAFC] font-semibold">{effectivePayeeName}</span>
+                        {branchUpiId && resolvedBranch?.name && (
+                          <span className="ml-1.5 px-1.5 py-0.5 rounded bg-[#FACC15]/15 text-[#FACC15] text-[9px] font-mono">
+                            {resolvedBranch.name}
+                          </span>
+                        )}
                       </p>
                     </div>
                     <div className="flex items-center gap-2">
@@ -1421,13 +1460,13 @@ export function PosView() {
                     {/* VPA and Copy / Open buttons */}
                     <div className="flex items-center gap-2">
                       <div className="px-3 py-1.5 bg-[#181818] border border-[#27272A] rounded-xl text-xs font-mono font-bold text-[#FACC15]">
-                        {salon.upiId}
+                        {effectiveUpiId}
                       </div>
                       <button
                         type="button"
                         onClick={() => {
-                          if (salon.upiId) {
-                            navigator.clipboard.writeText(salon.upiId);
+                          if (effectiveUpiId) {
+                            navigator.clipboard.writeText(effectiveUpiId);
                             setCopiedUpi(true);
                             setTimeout(() => setCopiedUpi(false), 2000);
                           }
@@ -1725,10 +1764,10 @@ export function PosView() {
                 Scan &amp; Pay via UPI
               </span>
               <h3 className="text-xl font-extrabold text-[#F8FAFC] mt-1 tracking-tight">
-                {salon.paymentSettings?.upiPayeeName || salon.name}
+                {effectivePayeeName}
               </h3>
-              {salon.city && (
-                <p className="text-xs text-[#71717A] mt-0.5">{salon.city}</p>
+              {(resolvedBranch?.name || salon.city) && (
+                <p className="text-xs text-[#71717A] mt-0.5">{resolvedBranch?.name || salon.city}</p>
               )}
             </div>
 
@@ -1756,15 +1795,15 @@ export function PosView() {
                 )}
               </div>
 
-              {salon.upiId && (
+              {effectiveUpiId && (
                 <div className="flex items-center justify-center gap-2">
                   <span className="px-3 py-1.5 rounded-xl bg-[#181818] border border-[#27272A] text-xs font-mono font-bold text-[#F8FAFC]">
-                    {salon.upiId}
+                    {effectiveUpiId}
                   </span>
                   <button
                     type="button"
                     onClick={() => {
-                      navigator.clipboard.writeText(salon.upiId || "");
+                      navigator.clipboard.writeText(effectiveUpiId || "");
                       setCopiedUpi(true);
                       setTimeout(() => setCopiedUpi(false), 2000);
                     }}

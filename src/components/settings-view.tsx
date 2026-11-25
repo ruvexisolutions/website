@@ -63,6 +63,63 @@ export function SettingsView({ initialSubTab = "general" }: SettingsViewProps) {
   const [isSaving, setIsSaving] = useState(false);
   const [showStandeeModal, setShowStandeeModal] = useState(false);
 
+  // Per-branch UPI override state
+  const [branches, setBranches] = useState<any[]>([]);
+  const [selectedBranchId, setSelectedBranchId] = useState<string>("");
+  const [branchUpiId, setBranchUpiId] = useState<string>("");
+  const [branchUpiPayeeName, setBranchUpiPayeeName] = useState<string>("");
+  const [savingBranchUpi, setSavingBranchUpi] = useState<boolean>(false);
+  const [branchUpiMessage, setBranchUpiMessage] = useState<{ type: "ok" | "err"; text: string } | null>(null);
+
+  React.useEffect(() => {
+    if (!canEditBusiness) return;
+    RuvexiApi.getBranches()
+      .then((list) => {
+        if (Array.isArray(list) && list.length > 0) {
+          setBranches(list);
+          setSelectedBranchId((prev) => prev || list[0].id);
+        }
+      })
+      .catch(() => {});
+  }, [canEditBusiness]);
+
+  React.useEffect(() => {
+    const b = branches.find((br) => br.id === selectedBranchId);
+    if (b) {
+      setBranchUpiId(b.upiId || "");
+      setBranchUpiPayeeName(b.upiPayeeName || "");
+      setBranchUpiMessage(null);
+    }
+  }, [selectedBranchId, branches]);
+
+  const handleSaveBranchUpi = async () => {
+    if (!selectedBranchId) return;
+    setBranchUpiMessage(null);
+    const trimmedUpi = branchUpiId.trim();
+    if (trimmedUpi && !trimmedUpi.includes("@")) {
+      setBranchUpiMessage({ type: "err", text: "Invalid UPI ID format. Must follow username@bank (e.g., branch@okhdfcbank)." });
+      return;
+    }
+    setSavingBranchUpi(true);
+    try {
+      const updated = await RuvexiApi.updateBranch(selectedBranchId, {
+        upiId: trimmedUpi,
+        upiPayeeName: branchUpiPayeeName.trim(),
+      });
+      setBranches((prev) => prev.map((b) => (b.id === selectedBranchId ? { ...b, ...updated } : b)));
+      setBranchUpiMessage({
+        type: "ok",
+        text: trimmedUpi
+          ? `Saved branch UPI (${trimmedUpi}). Bills at this branch will use this UPI ID.`
+          : "Cleared branch UPI override. This branch will now fall back to the Salon UPI ID.",
+      });
+    } catch (err: any) {
+      setBranchUpiMessage({ type: "err", text: err?.message || "Failed to update branch UPI." });
+    } finally {
+      setSavingBranchUpi(false);
+    }
+  };
+
   // Sync local form state when salon hydrates from backend or onboarding
   React.useEffect(() => {
     setName(salon.name || "");
@@ -684,6 +741,84 @@ export function SettingsView({ initialSubTab = "general" }: SettingsViewProps) {
                       </div>
                     )}
                   </div>
+
+                  {/* Per-Branch UPI Overrides */}
+                  {branches.length > 0 && (
+                    <div className="p-4 bg-[#141414] border border-[#27272A] rounded-xl space-y-4">
+                      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+                        <div>
+                          <span className="text-xs font-bold text-[#F8FAFC] flex items-center gap-1.5">
+                            <Building2 className="w-4 h-4 text-[#FACC15]" /> Per-Branch UPI Overrides (Optional)
+                          </span>
+                          <p className="text-[10px] text-[#71717A] mt-0.5">
+                            Assign a dedicated UPI ID to each branch. Leave blank to fall back to your Salon UPI ID above.
+                          </p>
+                        </div>
+                        <select
+                          value={selectedBranchId}
+                          onChange={(e) => setSelectedBranchId(e.target.value)}
+                          className="px-3 py-2 bg-[#181818] border border-[#27272A] rounded-xl text-xs font-bold text-[#F8FAFC] focus:outline-none focus:border-[#FACC15]"
+                        >
+                          {branches.map((b) => (
+                            <option key={b.id} value={b.id}>
+                              {b.name} {b.upiId ? `(${b.upiId})` : "(Using Salon Default)"}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs">
+                        <div className="space-y-1">
+                          <label className="font-mono text-[11px] text-[#A1A1AA] block">
+                            Branch UPI ID / VPA
+                          </label>
+                          <input
+                            type="text"
+                            value={branchUpiId}
+                            onChange={(e) => setBranchUpiId(e.target.value)}
+                            placeholder={upiId ? `Leave blank to use ${upiId}` : "e.g. branch@okhdfcbank"}
+                            className="w-full px-3.5 py-2.5 bg-[#181818] border border-[#27272A] rounded-xl focus:outline-none focus:border-[#FACC15] font-mono font-bold text-[#FACC15]"
+                          />
+                        </div>
+
+                        <div className="space-y-1">
+                          <label className="font-mono text-[11px] text-[#A1A1AA] block">
+                            Branch Payee Display Name
+                          </label>
+                          <input
+                            type="text"
+                            value={branchUpiPayeeName}
+                            onChange={(e) => setBranchUpiPayeeName(e.target.value)}
+                            placeholder={upiPayeeName || salon.name}
+                            className="w-full px-3.5 py-2.5 bg-[#181818] border border-[#27272A] rounded-xl focus:outline-none focus:border-[#FACC15] font-bold text-[#F8FAFC]"
+                          />
+                        </div>
+                      </div>
+
+                      {branchUpiMessage && (
+                        <div
+                          className={`px-3 py-2 rounded-xl text-xs border ${
+                            branchUpiMessage.type === "ok"
+                              ? "bg-emerald-500/10 border-emerald-500/30 text-emerald-400"
+                              : "bg-red-500/10 border-red-500/30 text-red-400"
+                          }`}
+                        >
+                          {branchUpiMessage.text}
+                        </div>
+                      )}
+
+                      <div className="flex justify-end">
+                        <button
+                          type="button"
+                          onClick={handleSaveBranchUpi}
+                          disabled={savingBranchUpi || !selectedBranchId}
+                          className="px-4 py-2 rounded-xl bg-[#FACC15] hover:bg-[#EAB308] text-black text-xs font-bold transition-colors disabled:opacity-50 cursor-pointer"
+                        >
+                          {savingBranchUpi ? "Saving Branch UPI..." : "Save Branch UPI"}
+                        </button>
+                      </div>
+                    </div>
+                  )}
                 </div>
               </>
             ) : (
