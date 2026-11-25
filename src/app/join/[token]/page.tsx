@@ -28,15 +28,19 @@ export default function AcceptInvitationPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [inviteData, setInviteData] = useState<{
     valid: boolean;
+    isSalonLink?: boolean;
     email: string;
     salonName: string;
     salonId: string;
+    branchId?: string;
+    branchName?: string;
     expiresAt: string;
   } | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   // Form State
   const [name, setName] = useState("");
+  const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
   const [password, setPassword] = useState("");
   const [otp, setOtp] = useState("");
@@ -55,6 +59,9 @@ export default function AcceptInvitationPage() {
       try {
         const data = await RuvexiApi.getInvitation(token);
         setInviteData(data);
+        if (data.email) {
+          setEmail(data.email);
+        }
       } catch (err: any) {
         setError(err?.message || "Invitation link is invalid or has expired.");
       } finally {
@@ -77,21 +84,30 @@ export default function AcceptInvitationPage() {
   // Step 1: Send OTP to Invited Email
   const handleRequestOtp = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!name.trim() || password.length < 6) {
-      showToast("Please enter your full name and a password of at least 6 characters.", "error");
+    const cleanEmail = email.trim().toLowerCase();
+    if (!name.trim()) {
+      showToast("Please enter your full name.", "error");
+      return;
+    }
+    if (!cleanEmail || !cleanEmail.includes("@")) {
+      showToast("Please enter a valid work email address.", "error");
+      return;
+    }
+    if (password.length < 6) {
+      showToast("Password must be at least 6 characters.", "error");
       return;
     }
 
     setIsSubmitting(true);
     try {
-      const res = await RuvexiApi.requestInvitationOtp(token, name.trim());
+      const res = await RuvexiApi.requestInvitationOtp(token, name.trim(), cleanEmail);
       if (res?.success) {
         setStep("verify_otp");
         setResendCooldown(30);
         if (res.dev_otp) {
           setDevOtp(res.dev_otp);
         }
-        showToast(res.message || `Verification code sent to ${inviteData?.email}`, "success");
+        showToast(res.message || `Verification code sent to ${cleanEmail}`, "success");
       } else {
         showToast("Failed to send verification code. Please try again.", "error");
       }
@@ -105,9 +121,10 @@ export default function AcceptInvitationPage() {
   // Resend OTP
   const handleResendOtp = async () => {
     if (resendCooldown > 0 || isSubmitting) return;
+    const cleanEmail = email.trim().toLowerCase();
     setIsSubmitting(true);
     try {
-      const res = await RuvexiApi.requestInvitationOtp(token, name.trim());
+      const res = await RuvexiApi.requestInvitationOtp(token, name.trim(), cleanEmail);
       if (res?.success) {
         setResendCooldown(30);
         if (res.dev_otp) {
@@ -133,9 +150,11 @@ export default function AcceptInvitationPage() {
 
     setIsSubmitting(true);
     try {
+      const cleanEmail = email.trim().toLowerCase();
       const data = await RuvexiApi.acceptInvitation({
         token,
         name: name.trim(),
+        email: cleanEmail,
         phone: phone.trim(),
         password,
         otp: cleanOtp,
@@ -177,7 +196,7 @@ export default function AcceptInvitationPage() {
           {isLoading ? (
             <div className="py-12 text-center space-y-3">
               <div className="w-8 h-8 border-2 border-[#FACC15] border-t-transparent rounded-full animate-spin mx-auto" />
-              <p className="text-xs text-[#71717A]">Verifying your salon invitation...</p>
+              <p className="text-xs text-[#71717A]">Verifying salon invitation...</p>
             </div>
           ) : error ? (
             <div className="py-6 text-center space-y-4">
@@ -201,13 +220,19 @@ export default function AcceptInvitationPage() {
               <div className="text-center space-y-1 pb-2 border-b border-[#222226]">
                 <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-300 text-[11px] font-semibold mb-1">
                   <CheckCircle2 className="w-3.5 h-3.5" />
-                  <span>Authorized Invitation</span>
+                  <span>Authorized Receptionist Portal</span>
                 </div>
                 <h2 className="text-lg font-serif font-bold text-white">
                   Join {inviteData?.salonName}
                 </h2>
-                <p className="text-xs text-[#71717A]">
-                  Enrolling as: <span className="text-white font-medium">{inviteData?.email}</span>
+                {inviteData?.branchName && (
+                  <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-md bg-[#181818] border border-[#27272A] text-[#FACC15] text-[11px] font-mono font-medium">
+                    <span>🏢 Studio Branch:</span>
+                    <span className="text-white font-bold">{inviteData.branchName}</span>
+                  </div>
+                )}
+                <p className="text-[11px] text-[#71717A] mt-1">
+                  Create your personal front desk receptionist profile below.
                 </p>
               </div>
 
@@ -227,6 +252,27 @@ export default function AcceptInvitationPage() {
                     className="w-full bg-[#18181B] border border-[#27272A] rounded-xl pl-10 pr-3.5 py-2.5 text-xs text-white placeholder-[#71717A] focus:outline-none focus:border-[#FACC15]"
                   />
                 </div>
+              </div>
+
+              {/* Work Email Address (Editable so each staff member registers with their own email) */}
+              <div className="space-y-1.5">
+                <label className="text-[11px] font-mono text-[#A1A1AA] uppercase tracking-wider block">
+                  Your Work Email Address
+                </label>
+                <div className="relative">
+                  <Mail className="w-4 h-4 text-[#71717A] absolute left-3.5 top-1/2 -translate-y-1/2" />
+                  <input
+                    type="email"
+                    required
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    placeholder="receptionist@your-salon.com"
+                    className="w-full bg-[#18181B] border border-[#27272A] rounded-xl pl-10 pr-3.5 py-2.5 text-xs text-white placeholder-[#71717A] focus:outline-none focus:border-[#FACC15]"
+                  />
+                </div>
+                <span className="text-[10px] text-[#71717A] block">
+                  Verification OTP code will be sent to this email.
+                </span>
               </div>
 
               {/* Phone */}
@@ -293,7 +339,7 @@ export default function AcceptInvitationPage() {
                   <p className="text-xs text-[#A1A1AA] leading-relaxed">
                     We sent a 6-digit verification code to:
                     <br />
-                    <span className="text-[#FACC15] font-semibold">{inviteData?.email}</span>
+                    <span className="text-[#FACC15] font-semibold">{email}</span>
                   </p>
                 </div>
               </div>

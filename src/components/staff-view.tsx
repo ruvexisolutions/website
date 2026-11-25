@@ -622,8 +622,43 @@ export function StaffView() {
 
             {!generatedLink ? (
               <form onSubmit={handleGenerateInvite} noValidate className="mt-4 space-y-4 text-xs">
-                <div className="p-3 bg-[#151515] border border-[#27272A] rounded-xl text-[#A1A1AA] text-[11px] leading-relaxed">
-                  Generate a single-use registration link. Upon opening, the receptionist will set their secure password and immediately gain front desk access locked exclusively to <strong className="text-[#FACC15]">{salon?.name}</strong>.
+                {/* Universal Team Join Link */}
+                <div className="p-3 bg-[#181818] border border-[#27272A] rounded-xl space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="font-bold text-white text-[11px] flex items-center gap-1.5">
+                      <Sparkles className="w-3.5 h-3.5 text-[#FACC15]" />
+                      Universal Salon Staff Link
+                    </span>
+                    <span className="text-[10px] text-[#A1A1AA] font-mono">Reusable for all staff</span>
+                  </div>
+                  <p className="text-[10px] text-[#71717A] leading-tight">
+                    Share this single link in your WhatsApp staff group. Any receptionist can click it, enter their own email, and enroll!
+                  </p>
+                  <div className="flex items-center gap-2 pt-1">
+                    <input
+                      type="text"
+                      readOnly
+                      value={typeof window !== "undefined" ? `${window.location.origin}/join/${salon?.id}` : `/join/${salon?.id}`}
+                      className="flex-1 px-2.5 py-1.5 bg-[#121212] border border-[#27272A] rounded-lg text-[#FACC15] font-mono text-[11px] select-all"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const url = typeof window !== "undefined" ? `${window.location.origin}/join/${salon?.id}` : `/join/${salon?.id}`;
+                        navigator.clipboard.writeText(url);
+                        showToast("Universal Salon Join Link copied!", "success");
+                      }}
+                      className="px-3 py-1.5 bg-[#FACC15] hover:bg-[#EAB308] text-[#080808] font-bold rounded-lg text-[11px] shrink-0"
+                    >
+                      Copy Link
+                    </button>
+                  </div>
+                </div>
+
+                <div className="relative flex py-1 items-center">
+                  <div className="flex-grow border-t border-[#27272A]"></div>
+                  <span className="flex-shrink mx-2 text-[#71717A] text-[10px] uppercase tracking-wider font-mono">OR Invite Specific Work Email</span>
+                  <div className="flex-grow border-t border-[#27272A]"></div>
                 </div>
 
                 <div>
