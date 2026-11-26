@@ -1017,15 +1017,13 @@ export function RuvexiProvider({ children }: { children: React.ReactNode }) {
         }
       })
       .catch((err) => {
-        const msg = err?.message || "";
-        if (!msg.toLowerCase().includes("failed to fetch") && !msg.toLowerCase().includes("network")) {
-          setServices((prev) => {
-            const updated = prev.filter((s) => s.id !== tempId);
-            persist("Ruvexi_services", updated);
-            return updated;
-          });
-        }
-        notifySyncError("Service save", err);
+        const msg = err?.message || "Network error";
+        setServices((prev) => {
+          const updated = prev.filter((s) => s.id !== tempId);
+          persist("Ruvexi_services", updated);
+          return updated;
+        });
+        showToast(`Failed to save "${newService.name}": ${msg}`, "error");
       });
     showToast(`Service "${newService.name}" published to menu.`);
     return newService;
