@@ -175,7 +175,7 @@ export function BookingPreviewView({
   const publicBookingUrl =
     typeof window !== "undefined"
       ? `${window.location.origin}/book/${activeBookingSlug}`
-      : `https://ruvexi.netlify.app/book/${activeBookingSlug}`;
+      : `https://ruvexisolutions.com/book/${activeBookingSlug}`;
 
   const copyBookingLink = () => {
     if (typeof navigator !== "undefined" && navigator.clipboard) {

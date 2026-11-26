@@ -24,7 +24,7 @@ export function QRStandeeGeneratorModal({ salon, onClose }: QRStandeeGeneratorMo
   const upiId = (salon.upiId || "").trim();
   const payee = salon.upiPayeeName || salon.name;
   const siteOrigin =
-    typeof window !== "undefined" ? window.location.origin : "https://ruvexi.netlify.app";
+    typeof window !== "undefined" ? window.location.origin : "https://ruvexisolutions.com";
   const bookingUrl = `${siteOrigin}/book/${salon.slug || "flagship"}`;
   const googleReviewUrl = `https://www.google.com/search?q=${encodeURIComponent(`${salon.name} ${salon.city || ""} reviews`)}`;
 

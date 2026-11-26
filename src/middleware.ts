@@ -26,7 +26,7 @@ export function middleware(req: NextRequest) {
   const isIpAddress = /^\d+\.\d+\.\d+\.\d+$/.test(hostWithoutPort);
   let subdomain = '';
 
-  if (!isIpAddress && hostWithoutPort !== rootDomain && hostWithoutPort !== 'ruvexi.netlify.app') {
+  if (!isIpAddress && hostWithoutPort !== rootDomain && hostWithoutPort !== `www.${rootDomain}` && hostWithoutPort !== 'ruvexi.netlify.app') {
     if (hostWithoutPort.endsWith('.localhost')) {
       subdomain = hostWithoutPort.replace('.localhost', '');
     } else if (hostWithoutPort.endsWith(`.${rootDomain}`)) {

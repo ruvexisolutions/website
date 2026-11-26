@@ -608,7 +608,7 @@ export function FrontDeskView({ onNavigateTab, onGoToPosBilling }: FrontDeskView
 
     const rawDigits = (billingApt.customerPhone || "").replace(/[^0-9]/g, "");
     const cleanPhone = rawDigits.length === 10 ? `91${rawDigits}` : rawDigits;
-    const origin = typeof window !== "undefined" ? window.location.origin : "https://ruvexi.netlify.app";
+    const origin = typeof window !== "undefined" ? window.location.origin : "https://ruvexisolutions.com";
     const feedbackUrl = `${origin}/feedback?salon=${encodeURIComponent(
       salon.slug || ""
     )}&name=${encodeURIComponent(billingApt.customerName)}&phone=${encodeURIComponent(
